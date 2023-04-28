@@ -17,7 +17,7 @@ ie_option (ENABLE_COMPILE_TOOL "Enables compile_tool" ON)
 ie_option (ENABLE_STRICT_DEPENDENCIES "Skip configuring \"convinient\" dependencies for efficient parallel builds" ON)
 
 if(X86_64)
-    set(ENABLE_INTEL_GPU_DEFAULT ON)
+    set(ENABLE_INTEL_GPU_DEFAULT OFF)
 else()
     set(ENABLE_INTEL_GPU_DEFAULT OFF)
 endif()
@@ -151,11 +151,10 @@ ie_dependent_option (ENABLE_CPU_DEBUG_CAPS "enable CPU debug capabilities at run
 
 find_host_package(PythonInterp 3 QUIET)
 ie_option(ENABLE_OV_ONNX_FRONTEND "Enable ONNX FrontEnd" ${PYTHONINTERP_FOUND})
-ie_option(ENABLE_OV_PADDLE_FRONTEND "Enable PaddlePaddle FrontEnd" ON)
-ie_option(ENABLE_OV_IR_FRONTEND "Enable IR FrontEnd" ON)
-ie_option(ENABLE_OV_PYTORCH_FRONTEND "Enable PyTorch FrontEnd" ON)
-ie_option(ENABLE_OV_TF_FRONTEND "Enable TensorFlow FrontEnd" ON)
-ie_option(ENABLE_OV_TF_LITE_FRONTEND "Enable TensorFlow Lite FrontEnd" ON)
+ie_option(ENABLE_OV_PADDLE_FRONTEND "Enable PaddlePaddle FrontEnd" OFF)
+ie_option(ENABLE_OV_PYTORCH_FRONTEND "Enable PyTorch FrontEnd" OFF)
+ie_option(ENABLE_OV_TF_FRONTEND "Enable TensorFlow FrontEnd" OFF)
+ie_option(ENABLE_OV_TF_LITE_FRONTEND "Enable TensorFlow Lite FrontEnd" OFF)
 ie_option(ENABLE_OV_IR_FRONTEND "Enable IR FrontEnd" ON)
 
 ie_dependent_option(ENABLE_SNAPPY_COMPRESSION "Enables compression support for TF FE" ON
