@@ -171,28 +171,30 @@ endif()
 # zlib
 #
 
-if(ENABLE_SAMPLES OR ENABLE_TESTS)
-    find_package(ZLIB QUIET NO_MODULE)
-    if(ZLIB_FOUND)
-        # need to make it global to use outside of the current sub-directory
-        set_target_properties(ZLIB::ZLIB PROPERTIES IMPORTED_GLOBAL ON)
-    endif()
+# if(ENABLE_SAMPLES OR ENABLE_TESTS)
+#     find_package(ZLIB QUIET NO_MODULE)
+#     if(ZLIB_FOUND)
+#         # need to make it global to use outside of the current sub-directory
+#         set_target_properties(ZLIB::ZLIB PROPERTIES IMPORTED_GLOBAL ON)
+#     endif()
 
-    # cmake has failed to find zlib, let's try pkg-config
-    if(NOT ZLIB_FOUND AND PkgConfig_FOUND)
-        pkg_search_module(zlib QUIET
-                          IMPORTED_TARGET GLOBAL
-                          zlib)
-        if(zlib_FOUND)
-            add_library(ZLIB::ZLIB ALIAS PkgConfig::zlib)
-            message(STATUS "${PKG_CONFIG_EXECUTABLE}: zlib (${zlib_VERSION}) is found at ${zlib_PREFIX}")
-        endif()
-    endif()
+#     # cmake has failed to find zlib, let's try pkg-config
+#     if(NOT ZLIB_FOUND AND PkgConfig_FOUND)
+#         pkg_search_module(zlib QUIET
+#                           IMPORTED_TARGET GLOBAL
+#                           zlib)
+#         if(zlib_FOUND)
+#             add_library(ZLIB::ZLIB ALIAS PkgConfig::zlib)
+#             message(STATUS "${PKG_CONFIG_EXECUTABLE}: zlib (${zlib_VERSION}) is found at ${zlib_PREFIX}")
+#         endif()
+#     endif()
 
-    if(NOT (zlib_FOUND OR ZLIB_FOUND))
-        add_subdirectory(zlib EXCLUDE_FROM_ALL)
-    endif()
-endif()
+#     if(NOT (zlib_FOUND OR ZLIB_FOUND))
+#         add_subdirectory(zlib EXCLUDE_FROM_ALL)
+#     endif()
+# endif()
+
+add_subdirectory(zlib EXCLUDE_FROM_ALL)
 
 #
 # Pugixml
