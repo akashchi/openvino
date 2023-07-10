@@ -1,6 +1,8 @@
 # Copyright (C) 2018-2023 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
+import sys
+
 import pytest
 import numpy as np
 
@@ -30,6 +32,7 @@ class TestIf(PytorchLayerTest):
 
         return prim_if(), ref_net, "prim::If"
 
+    @pytest.mark.skipif(sys.platform.startswith('win'), reason="Ticket - 114818")
     @pytest.mark.parametrize("y", [np.array(1),
                                    np.array(-1)
                                    ])
