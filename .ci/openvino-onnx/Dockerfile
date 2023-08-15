@@ -47,6 +47,7 @@ RUN apt-get update && apt-get -y --no-install-recommends install \
 
 # Build OpenVINO
 COPY . /openvino/
+RUN ls -la /openvino
 WORKDIR /openvino/build
 RUN cmake .. \
     -G Ninja \
