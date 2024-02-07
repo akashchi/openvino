@@ -637,6 +637,8 @@ jobs:
       volumes:
         - /mount:/mount
     env:
+      DEBIAN_FRONTEND: 'noninteractive' # to prevent apt-get from waiting for user input
+      TZ: "Europe/London" # to prevent tzdata from waiting for user input
       INSTALL_DIR: /__w/openvino/openvino/install
       OPENVINO_CONTRIB_REPO: /__w/openvino/openvino/openvino_contrib
       OPENVINO_TOKENIZERS_REPO: /__w/openvino/openvino/openvino_contrib/modules/custom_operations
