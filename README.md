@@ -1,4 +1,4 @@
-<div align="center">
+ <div align="center">
 <img src="docs/sphinx_setup/_static/images/img/openvino-logo-purple-black.png" width="400px">
 
 [![PyPI Status](https://badge.fury.io/py/openvino.svg)](https://badge.fury.io/py/openvino)
