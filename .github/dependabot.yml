@@ -141,7 +141,9 @@ updates:
 
   # Docker images
   - package-ecosystem: docker
-    directory: "/"
+    directories:
+      - "/.github/dockerfiles/ov_build/**/*"
+      - "/.github/dockerfiles/ov_test/**/*"
     schedule:
       interval: "daily"
       time: "09:00"
