@@ -2,21 +2,19 @@
 # Copyright (C) 2018-2024 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
-import numpy as np
 import copy
-import pytest
 import platform
-from PIL import Image
 
+import numpy as np
+import pytest
 import torch
 import torch.nn.functional as f
 import torchvision.transforms as transforms
-
+from PIL import Image
 from openvino import Type, Core
-from openvino.tools.mo import convert_model
-from openvino.properties.hint import inference_precision
-
+from openvino import convert_model
 from openvino.preprocess.torchvision import PreprocessConverter
+from openvino.properties.hint import inference_precision
 
 
 class Convnet(torch.nn.Module):
@@ -32,6 +30,22 @@ class Convnet(torch.nn.Module):
 
 
 def _infer_pipelines(test_input, preprocess_pipeline, input_channels=3):
+    retries = 0
+    max_retries = 3
+    last_e = None
+    while retries < max_retries:
+        try:
+            return _infer_pipelines_impl(test_input, preprocess_pipeline, input_channels)
+        except RuntimeError as e:
+            # This is a potentially sporadic issue
+            print(f"An error occurred: {e}. Retrying...")
+            last_e = e
+            retries += 1
+    else:
+        raise RuntimeError("Max retries reached. Function execution failed.") from last_e
+
+
+def _infer_pipelines_impl(test_input, preprocess_pipeline, input_channels=3):
     torch_model = Convnet(input_channels)
     ov_model = convert_model(torch_model)
     core = Core()
@@ -61,7 +75,8 @@ def _infer_pipelines(test_input, preprocess_pipeline, input_channels=3):
 
 def test_normalize():
     test_input = np.random.randint(255, size=(224, 224, 3), dtype=np.uint8)
-    preprocess_pipeline = transforms.Compose([transforms.ToTensor(), transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])])
+    preprocess_pipeline = transforms.Compose(
+        [transforms.ToTensor(), transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])])
     torch_result, ov_result = _infer_pipelines(test_input, preprocess_pipeline)
     assert np.max(np.absolute(torch_result - ov_result)) < 4e-05
 
@@ -71,21 +86,27 @@ def test_normalize():
     reason="Ticket: 114816",
 )
 @pytest.mark.parametrize(
-    ("target_size", "interpolation", "tolerance"),
+    ("target_size", "current_size", "interpolation", "tolerance"),
     [
-        ((220, 220, 3), transforms.InterpolationMode.NEAREST, 4e-05),
-        ((200, 240, 3), transforms.InterpolationMode.NEAREST, 0.3),  # Ticket 127670
-        ((220, 220, 3), transforms.InterpolationMode.BILINEAR, 4e-03),
-        ((200, 240, 3), transforms.InterpolationMode.BILINEAR, 4e-03),
-        ((220, 220, 3), transforms.InterpolationMode.BICUBIC, 4e-03),
-        ((200, 240, 3), transforms.InterpolationMode.BICUBIC, 4e-03),
+        (224, (220, 220, 3), transforms.InterpolationMode.NEAREST, 4e-05),
+        (224, (200, 240, 3), transforms.InterpolationMode.NEAREST, 0.3),  # Ticket 127670
+        (224, (220, 220, 3), transforms.InterpolationMode.BILINEAR, 4e-03),
+        (224, (200, 240, 3), transforms.InterpolationMode.BILINEAR, 4e-03),
+        (224, (220, 220, 3), transforms.InterpolationMode.BICUBIC, 4e-03),
+        (224, (200, 240, 3), transforms.InterpolationMode.BICUBIC, 4e-03),
+        ((224, 224), (220, 220, 3), transforms.InterpolationMode.NEAREST, 4e-05),
+        ((224, 224), (200, 240, 3), transforms.InterpolationMode.NEAREST, 4e-05),
+        ((224, 224), (220, 220, 3), transforms.InterpolationMode.BILINEAR, 4e-03),
+        ((224, 224), (200, 240, 3), transforms.InterpolationMode.BILINEAR, 4e-03),
+        ((224, 224), (220, 220, 3), transforms.InterpolationMode.BICUBIC, 4e-03),
+        ((224, 224), (200, 240, 3), transforms.InterpolationMode.BICUBIC, 4e-03),
     ],
 )
-def test_resize(target_size, interpolation, tolerance):
-    test_input = np.random.randint(255, size=target_size, dtype=np.uint8)
+def test_resize(target_size, current_size, interpolation, tolerance):
+    test_input = np.random.randint(255, size=current_size, dtype=np.uint8)
     preprocess_pipeline = transforms.Compose(
         [
-            transforms.Resize(224, interpolation=interpolation),
+            transforms.Resize(target_size, interpolation=interpolation),
             transforms.ToTensor(),
         ],
     )
@@ -110,67 +131,67 @@ def test_convertimagedtype():
     ("test_input", "preprocess_pipeline"),
     [
         (
-            np.random.randint(255, size=(220, 220, 3), dtype=np.uint8),
-            transforms.Compose(
-                [
-                    transforms.Pad((2)),
-                    transforms.ToTensor(),
-                ],
-            ),
+                np.random.randint(255, size=(220, 220, 3), dtype=np.uint8),
+                transforms.Compose(
+                    [
+                        transforms.Pad((2)),
+                        transforms.ToTensor(),
+                    ],
+                ),
         ),
         (
-            np.random.randint(255, size=(218, 220, 3), dtype=np.uint8),
-            transforms.Compose(
-                [
-                    transforms.Pad((2, 3)),
-                    transforms.ToTensor(),
-                ],
-            ),
+                np.random.randint(255, size=(218, 220, 3), dtype=np.uint8),
+                transforms.Compose(
+                    [
+                        transforms.Pad((2, 3)),
+                        transforms.ToTensor(),
+                    ],
+                ),
         ),
         (
-            np.random.randint(255, size=(216, 218, 3), dtype=np.uint8),
-            transforms.Compose(
-                [
-                    transforms.Pad((2, 3, 4, 5)),
-                    transforms.ToTensor(),
-                ],
-            ),
+                np.random.randint(255, size=(216, 218, 3), dtype=np.uint8),
+                transforms.Compose(
+                    [
+                        transforms.Pad((2, 3, 4, 5)),
+                        transforms.ToTensor(),
+                    ],
+                ),
         ),
         (
-            np.random.randint(255, size=(216, 218, 3), dtype=np.uint8),
-            transforms.Compose(
-                [
-                    transforms.Pad((2, 3, 4, 5), fill=3),
-                    transforms.ToTensor(),
-                ],
-            ),
+                np.random.randint(255, size=(216, 218, 3), dtype=np.uint8),
+                transforms.Compose(
+                    [
+                        transforms.Pad((2, 3, 4, 5), fill=3),
+                        transforms.ToTensor(),
+                    ],
+                ),
         ),
         (
-            np.random.randint(255, size=(218, 220, 3), dtype=np.uint8),
-            transforms.Compose(
-                [
-                    transforms.Pad((2, 3), padding_mode="edge"),
-                    transforms.ToTensor(),
-                ],
-            ),
+                np.random.randint(255, size=(218, 220, 3), dtype=np.uint8),
+                transforms.Compose(
+                    [
+                        transforms.Pad((2, 3), padding_mode="edge"),
+                        transforms.ToTensor(),
+                    ],
+                ),
         ),
         (
-            np.random.randint(255, size=(218, 220, 3), dtype=np.uint8),
-            transforms.Compose(
-                [
-                    transforms.Pad((2, 3), padding_mode="reflect"),
-                    transforms.ToTensor(),
-                ],
-            ),
+                np.random.randint(255, size=(218, 220, 3), dtype=np.uint8),
+                transforms.Compose(
+                    [
+                        transforms.Pad((2, 3), padding_mode="reflect"),
+                        transforms.ToTensor(),
+                    ],
+                ),
         ),
         (
-            np.random.randint(255, size=(218, 220, 3), dtype=np.uint8),
-            transforms.Compose(
-                [
-                    transforms.Pad((2, 3), padding_mode="symmetric"),
-                    transforms.ToTensor(),
-                ],
-            ),
+                np.random.randint(255, size=(218, 220, 3), dtype=np.uint8),
+                transforms.Compose(
+                    [
+                        transforms.Pad((2, 3), padding_mode="symmetric"),
+                        transforms.ToTensor(),
+                    ],
+                ),
         ),
     ],
 )

@@ -14,7 +14,7 @@ Reference::Reference(const std::shared_ptr<ov::Node>& op, const GraphContext::CP
         Node(op, context, NgraphShapeInferFactory(op, FULL_PORT_MASK)), ovCoreNode(op), additionalErrorMessage(errorMessage) {
     if (!op->has_evaluate()) {
         OPENVINO_THROW_NOT_IMPLEMENTED(
-            "Cannot fallback on ngraph reference implementation (Ngraph::Node::evaluate() is not implemented");
+            "Cannot fallback on ngraph reference implementation (Ngraph::Node::evaluate() is not implemented)");
     }
 
     setType(Type::Reference);
@@ -110,7 +110,7 @@ bool Reference::needShapeInfer() const {
 ov::TensorVector Reference::prepareInputs() const {
     ov::TensorVector inputs;
     for (size_t i = 0lu; i < inputShapes.size(); i++) {
-        void *srcDataPtr = getParentEdgeAt(i)->getMemory().getData();
+        void *srcDataPtr = getSrcDataAtPort(i);
         ov::Shape shape = ovCoreNode->get_input_partial_shape(i).rank().get_length() == 0 ?
                 ov::Shape{} : getParentEdgeAt(i)->getMemory().getStaticDims();
 
@@ -127,7 +127,7 @@ ov::TensorVector Reference::prepareInputs() const {
 ov::TensorVector Reference::prepareOutputs() const {
     ov::TensorVector outputs;
     for (size_t i = 0lu; i < outputShapes.size(); i++) {
-        void *dstDataPtr = getChildEdgeAt(i)->getMemory().getData();
+        void *dstDataPtr = getDstDataAtPort(i);
         ov::Shape shape = ovCoreNode->get_output_partial_shape(i).rank().get_length() == 0 ?
                 ov::Shape{} : getChildEdgeAt(i)->getMemory().getStaticDims();
 

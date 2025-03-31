@@ -19,7 +19,7 @@ std::string CumuSchedule::schedule_to_next_device(const std::vector<DeviceInform
             m_n_ctput_schedule_next_device >= devices.size() ? 0 : m_n_ctput_schedule_next_device;
         selected_device_name = devices[m_n_ctput_schedule_next_device].device_name;
     }
-    auto schedule_policy = m_context->m_schedule_policy;
+    const auto& schedule_policy = m_context->m_schedule_policy;
     if (schedule_policy == ov::intel_auto::SchedulePolicy::ROUND_ROBIN) {
         std::lock_guard<std::mutex> lock(m_context->m_mutex);
         m_n_ctput_schedule_next_device++;
@@ -125,11 +125,11 @@ void CumuSchedule::init() {
             }
         }
     };
-    m_executor = m_plugin->get_executor_manager()->get_idle_cpu_streams_executor(
-            ov::threading::IStreamsExecutor::Config{"CTPUTDeviceAsyncLoad",
+    m_executor =
+        m_plugin->get_executor_manager()->get_idle_cpu_streams_executor(ov::threading::IStreamsExecutor::Config{
+            "CTPUTDeviceAsyncLoad",
             static_cast<int>(std::thread::hardware_concurrency()) /* max possible #streams*/,
-            0 /*default threads per stream, workaround for ticket 62376*/,
-            ov::threading::IStreamsExecutor::ThreadBindingType::NONE});
+            0 /*default threads per stream, workaround for ticket 62376*/});
     std::vector<ov::threading::Task> other_devices_loads;
     std::vector<ov::threading::Task> cpu_loads;
     for (size_t i = 0; i < m_n_ctput_devicenums; i++) {
@@ -227,17 +227,17 @@ bool CumuSchedule::schedule_to_worker_infer_request(ov::threading::Task pipeline
     std::vector<DeviceInformation> devices;
     // AUTO work mode
     // Devices that fail infer will be removed from the priority list in the callback, need lock here
-    std::unique_lock<std::mutex> lock(m_context->m_fallback_mutex);
-    if (!preferred_device.empty()) {
-        devices = m_context->m_device_priorities;
-        if (!deviceChecker().check_if_device_in_list<DeviceInformation>(preferred_device, devices)) {
-            lock.unlock();
-            OPENVINO_THROW("The preferred device should be the selected device");
+    {
+        std::lock_guard<std::mutex> lock(m_context->m_fallback_mutex);
+        if (!preferred_device.empty()) {
+            devices = m_context->m_device_priorities;
+            if (!deviceChecker().check_if_device_in_list<DeviceInformation>(preferred_device, devices)) {
+                OPENVINO_THROW("The preferred device should be the selected device");
+            }
+        } else {
+            devices = m_context->m_device_priorities;
         }
-    } else {
-        devices = m_context->m_device_priorities;
     }
-    lock.unlock();
 
     std::size_t current_device_index = 0;
     while (current_device_index < devices.size()) {

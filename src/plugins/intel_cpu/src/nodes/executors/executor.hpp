@@ -24,9 +24,25 @@ namespace intel_cpu {
 #endif
 
 #if defined(OV_CPU_WITH_ACL)
-#    define OV_CPU_INSTANCE_ACL(...) {__VA_ARGS__},
+#   if defined(OPENVINO_ARCH_ARM)
+#       define OV_CPU_INSTANCE_ACL32(...) {__VA_ARGS__},
+#   else
+#       define OV_CPU_INSTANCE_ACL32(...)
+#   endif
+#   if defined(OPENVINO_ARCH_ARM64)
+#       define OV_CPU_INSTANCE_ACL64(...) {__VA_ARGS__},
+#   else
+#       define OV_CPU_INSTANCE_ACL64(...)
+#   endif
+#   if defined(OPENVINO_ARCH_ARM) || defined(OPENVINO_ARCH_ARM64)
+#       define OV_CPU_INSTANCE_ACL(...) {__VA_ARGS__},
+#   else
+#       define OV_CPU_INSTANCE_ACL(...)
+#   endif
 #else
-#    define OV_CPU_INSTANCE_ACL(...)
+#   define OV_CPU_INSTANCE_ACL32(...)
+#   define OV_CPU_INSTANCE_ACL64(...)
+#   define OV_CPU_INSTANCE_ACL(...)
 #endif
 
 #if defined(OV_CPU_WITH_DNNL)
@@ -47,6 +63,12 @@ namespace intel_cpu {
 #    define OV_CPU_INSTANCE_MLAS_X64(...)
 #endif
 
+#if defined(OV_CPU_WITH_SHL)
+#    define OV_CPU_INSTANCE_SHL(...) {__VA_ARGS__},
+#else
+#    define OV_CPU_INSTANCE_SHL(...)
+#endif
+
 #define OV_CPU_INSTANCE_COMMON(...) {__VA_ARGS__},
 
 // @todo another option is to determine shape relation by executor type
@@ -63,7 +85,8 @@ enum class ExecutorType {
     Dnnl,
     Acl,
     Mlas,
-    jit_aarch64
+    jit_aarch64,
+    Shl
 };
 
 enum class OperationType {
@@ -84,11 +107,12 @@ public:
                     const std::vector<impl_desc_type>& implPriorities,
                     std::shared_ptr<std::unordered_map<std::string, MemoryPtr>> privateWeighCache = nullptr)
         : runtimeCache(graphContext->getParamsCache()),
-          scratchPad(graphContext->getScratchPad()),
+          scratchPads(graphContext->getScratchPads()),
           weightsCache(graphContext->getWeightsCache()),
           engine(graphContext->getEngine()),
           implPriorities(implPriorities),
-          privateWeighCache(std::move(privateWeighCache))
+          privateWeighCache(std::move(privateWeighCache)),
+          numNumaNodes(graphContext->getNumNumaNodes())
     {}
 
     MultiCachePtr getRuntimeCache() const {
@@ -97,8 +121,12 @@ public:
         return runtimeCachePtr;
     }
 
-    DnnlScratchPadPtr getScratchPad() const {
-        return scratchPad;
+    DnnlScratchPadPtr getScratchPad(int subStreamID = 0) const {
+        if (subStreamID < 0)
+            subStreamID = 0;
+        if (subStreamID >= numNumaNodes - 1)
+            subStreamID = numNumaNodes - 1;
+        return scratchPads[subStreamID];
     }
 
     std::shared_ptr<std::unordered_map<std::string, MemoryPtr>> getPrivateWeighCache() const {
@@ -121,12 +149,13 @@ private:
     // weak_ptr is required to avoid cycle dependencies with MultiCache
     // since ExecutorContext is stored in Executor itself
     MultiCacheWeakPtr runtimeCache;
-    DnnlScratchPadPtr scratchPad;
+    std::vector<DnnlScratchPadPtr> scratchPads;
     WeightsSharing::Ptr weightsCache;
     const dnnl::engine& engine;
     std::vector<impl_desc_type> implPriorities;
     // @todo remove after global cache is used exclusevly
     std::shared_ptr<std::unordered_map<std::string, MemoryPtr>> privateWeighCache;
+    int numNumaNodes;
 };
 
 class ExecutorFactoryLegacy {
@@ -157,6 +186,9 @@ public:
         OPENVINO_THROW_NOT_IMPLEMENTED("This version of the 'execute' method is not implemented by executor");
     }
     virtual impl_desc_type implType() const = 0;
+    virtual void moveMemToNumaNode(int numaID) {
+        OPENVINO_THROW_NOT_IMPLEMENTED("This version of the 'moveMemToNumaNode' method is not implemented by executor");
+    }
     virtual ~Executor() = default;
 };
 using ExecutorPtr = std::shared_ptr<Executor>;

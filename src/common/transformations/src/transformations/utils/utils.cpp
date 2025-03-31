@@ -10,23 +10,30 @@
 #include <memory>
 
 #include "openvino/core/validation_util.hpp"
+#include "openvino/op/add.hpp"
 #include "openvino/op/broadcast.hpp"
 #include "openvino/op/constant.hpp"
+#include "openvino/op/divide.hpp"
 #include "openvino/op/gather.hpp"
+#include "openvino/op/multiply.hpp"
+#include "openvino/op/parameter.hpp"
+#include "openvino/op/relu.hpp"
 #include "openvino/op/reshape.hpp"
+#include "openvino/op/shape_of.hpp"
+#include "openvino/op/sigmoid.hpp"
+#include "openvino/op/subtract.hpp"
+#include "openvino/op/tanh.hpp"
 #include "openvino/op/util/multi_subgraph_base.hpp"
-#include "openvino/opsets/opset1.hpp"
-#include "openvino/opsets/opset3.hpp"
+#include "openvino/op/util/shape_of_base.hpp"
 
 namespace ov {
 namespace op {
 namespace util {
 
-namespace {
-void visit_path_impl(ov::Node* node,
-                     std::unordered_set<ov::Node*>& visited,
-                     std::function<void(ov::Node*)> func,
-                     std::function<bool(ov::Node*)> skip_node_predicate) {
+void visit_path(ov::Node* node,
+                std::unordered_set<ov::Node*>& visited,
+                std::function<void(ov::Node*)> func,
+                std::function<bool(ov::Node*)> skip_node_predicate) {
     if (!node)
         return;
     visited.insert(node);
@@ -48,7 +55,6 @@ void visit_path_impl(ov::Node* node,
         }
     }
 }
-}  // namespace
 
 bool get_single_value(const std::shared_ptr<op::v0::Constant>& const_node, float& value, bool check_value_range) {
     switch (const_node->get_element_type()) {
@@ -120,8 +126,7 @@ bool constantIsEqualTo(const std::shared_ptr<op::v0::Constant>& const_node, floa
 
 bool has_f16_constants(const std::shared_ptr<const ov::Model>& function) {
     for (auto& layer : function->get_ops()) {
-        if (std::dynamic_pointer_cast<op::v0::Constant>(layer) &&
-            layer->output(0).get_element_type() == ov::element::f16) {
+        if (ov::as_type_ptr<op::v0::Constant>(layer) && layer->output(0).get_element_type() == ov::element::f16) {
             return true;
         }
     }
@@ -129,33 +134,46 @@ bool has_f16_constants(const std::shared_ptr<const ov::Model>& function) {
 }
 
 bool check_for_broadcast(const ov::PartialShape& ref_shape, const ov::PartialShape& other_shape) {
-    // Check that other_shape doesn't broadcast ref_shape
-    if (ref_shape.rank().is_dynamic() || other_shape.rank().is_dynamic() || other_shape.size() > ref_shape.size()) {
-        return true;
+    if (ref_shape.rank().is_dynamic() || other_shape.rank().is_dynamic()) {
+        return false;
+    }
+
+    // Check that other_shape's rank is not bigger
+    // than ref_shape's rank and the other way
+    // broadcasting is needed.
+    if (other_shape.size() > ref_shape.size()) {
+        return false;
     }
     auto ref_it = ref_shape.rbegin();
     auto other_it = other_shape.rbegin();
-    // Check that other_shape dims are equal to ref_shape dims
-    // In case if other_shape rank is less than ref_shape rank
-    // we stop comparison and return true
+
+    // Align shapes to the right and run iterator from
+    // the right of a smaller shape.
+    // Check if other_shape's dimension is equal to the
+    // corresponding dimension of ref_shape or if
+    // other_shape's dimension is equal to 1.
+    // (standard broadcasting rules)
     while (other_it != other_shape.rend()) {
-        if ((other_it->is_dynamic() || other_it->get_length() != 1) &&
-            (ref_it->is_dynamic() || ref_it->get_length() == 1)) {
-            return true;
+        if (other_it->is_dynamic() || ref_it->is_dynamic()) {
+            return false;
+        }
+
+        if (*other_it != *ref_it && *other_it != 1) {
+            return false;
         }
         ++other_it;
         ++ref_it;
     }
-    return false;
+    return true;
 }
 
 std::shared_ptr<ov::Node> activation(const std::string& activation_name, const ov::Output<ov::Node>& apply_to) {
     if (activation_name == "relu") {
-        return std::make_shared<opset4::Relu>(apply_to);
+        return std::make_shared<ov::op::v0::Relu>(apply_to);
     } else if (activation_name == "sigmoid") {
-        return std::make_shared<opset4::Sigmoid>(apply_to);
+        return std::make_shared<ov::op::v0::Sigmoid>(apply_to);
     } else if (activation_name == "tanh") {
-        return std::make_shared<opset4::Tanh>(apply_to);
+        return std::make_shared<ov::op::v0::Tanh>(apply_to);
     } else {
         OPENVINO_THROW("Unsupported activation function");
     }
@@ -207,7 +225,7 @@ bool is_seq_len_provided(const std::shared_ptr<Node>& X, const std::shared_ptr<N
     }
 
     auto max_seq_len_val = max_seq_dim.get_length();
-    if (const auto& seq_len_const = std::dynamic_pointer_cast<op::v0::Constant>(seq_len_input)) {
+    if (const auto& seq_len_const = ov::as_type_ptr<op::v0::Constant>(seq_len_input)) {
         const auto& seq_len_values = seq_len_const->cast_vector<int64_t>();
         return std::any_of(seq_len_values.begin(), seq_len_values.end(), [max_seq_len_val](const int64_t val) {
             return val != max_seq_len_val;
@@ -277,21 +295,22 @@ bool shapes_equal_except_dynamic_expected_batch(const ov::PartialShape& expected
 
 void visit_shape_path(Node* node, std::unordered_set<ov::Node*>& visited, std::function<void(ov::Node*)> func) {
     auto is_shapeof = [](ov::Node* node) {
-        return ov::is_type<opset1::ShapeOf>(node) || ov::is_type<opset3::ShapeOf>(node);
+        return ov::is_type<ov::op::v0::ShapeOf>(node) || ov::is_type<ov::op::v3::ShapeOf>(node);
     };
-    visit_path_impl(node, visited, func, is_shapeof);
+    visit_path(node, visited, func, is_shapeof);
 }
 
 void visit_constant_path(ov::Node* node, std::unordered_set<ov::Node*>& visited, std::function<void(ov::Node*)> func) {
     auto check_parameter = [](ov::Node* node) {
-        OPENVINO_ASSERT(!ov::is_type<opset1::Parameter>(node), "visit_constant_path is called for non-constant path.");
+        OPENVINO_ASSERT(!ov::is_type<ov::op::v0::Parameter>(node),
+                        "visit_constant_path is called for non-constant path.");
         return false;
     };
-    visit_path_impl(node, visited, func, check_parameter);
+    visit_path(node, visited, func, check_parameter);
 }
 
 bool is_dequantization_subgraph(const Output<Node>& node) {
-    if (!is_type<opset8::Multiply>(node.get_node())) {
+    if (!is_type<ov::op::v1::Multiply>(node.get_node())) {
         return false;
     }
 
@@ -299,9 +318,9 @@ bool is_dequantization_subgraph(const Output<Node>& node) {
     Node* sub = nullptr;
     Node* convert = nullptr;
 
-    if (is_type<opset8::Subtract>(mul_inputs[0].get_node())) {
+    if (is_type<ov::op::v1::Subtract>(mul_inputs[0].get_node())) {
         sub = mul_inputs[0].get_node();
-    } else if (is_type<opset8::Convert>(mul_inputs[0].get_node())) {
+    } else if (is_type<ov::op::v0::Convert>(mul_inputs[0].get_node())) {
         convert = mul_inputs[0].get_node();
     } else {
         return false;
@@ -309,7 +328,7 @@ bool is_dequantization_subgraph(const Output<Node>& node) {
 
     if (sub) {
         auto sub_inputs = sub->input_values();
-        if (is_type<opset8::Convert>(sub_inputs[0].get_node())) {
+        if (is_type<ov::op::v0::Convert>(sub_inputs[0].get_node())) {
             convert = sub_inputs[0].get_node();
         }
     }
@@ -326,8 +345,8 @@ bool is_dequantization_subgraph(const Output<Node>& node) {
 bool can_eliminate_eltwise_node(const std::shared_ptr<Node>& eltwise,
                                 const Output<Node>& constant,
                                 const Output<Node>& non_constant_input) {
-    if (!is_type<opset8::Add>(eltwise) && !is_type<opset8::Subtract>(eltwise) && !is_type<opset8::Multiply>(eltwise) &&
-        !is_type<opset8::Divide>(eltwise)) {
+    if (!is_type<ov::op::v1::Add>(eltwise) && !is_type<ov::op::v1::Subtract>(eltwise) &&
+        !is_type<ov::op::v1::Multiply>(eltwise) && !is_type<ov::op::v1::Divide>(eltwise)) {
         return false;
     }
 
@@ -336,7 +355,7 @@ bool can_eliminate_eltwise_node(const std::shared_ptr<Node>& eltwise,
     }
 
     // check if constant has a single value with either 0 (for Add, Subtract) or 1 (for Multiply, Divide)
-    auto constant_ptr = std::dynamic_pointer_cast<opset8::Constant>(constant.get_node_shared_ptr());
+    auto constant_ptr = ov::as_type_ptr<ov::op::v0::Constant>(constant.get_node_shared_ptr());
     if (!constant_ptr) {
         return false;
     }
@@ -383,7 +402,7 @@ bool can_eliminate_eltwise_node(const std::shared_ptr<Node>& eltwise,
         return false;
     }
     float expected_const = 0;
-    if (is_type<opset8::Multiply>(eltwise) || is_type<opset8::Divide>(eltwise)) {
+    if (is_type<ov::op::v1::Multiply>(eltwise) || is_type<ov::op::v1::Divide>(eltwise)) {
         expected_const = 1;
     }
     if (actual_const != expected_const) {

@@ -91,14 +91,14 @@ void Unique::createPrimitive() {
 
 void Unique::prepareParams() {
     auto dataMemPtr = getSrcMemoryAtPort(IN_DATA);
-    if (!dataMemPtr || !dataMemPtr->isAllocated()) {
-        THROW_ERROR(" has not allocated input data memory.");
+    if (!dataMemPtr) {
+        THROW_ERROR(" has null input data memory.");
     }
     for (int i = 0; i < 4; i++) {
         if (definedOutputs[i]) {
             auto dstMemPtr = getDstMemoryAtPort(i);
-            if (!dstMemPtr || !dstMemPtr->isAllocated()) {
-                THROW_ERROR(" has not allocated output memory at port ", i);
+            if (!dstMemPtr) {
+                THROW_ERROR(" has null output memory at port ", i);
             }
         }
     }
@@ -225,41 +225,31 @@ void Unique::flattenTensorExec() {
             }
         }
     } else {
-        uniDataTmpPtr[0] = srcDataPtr[0];
-        if (definedOutputs[FIRST_UNIQUE_IDX]) {
-            firstTmpPtr[0] = 0;
-        }
-        if (definedOutputs[INPUT_TO_UNIQ_IDX]) {
-            inToOutTmpPtr[0] = 0;
-        }
+        std::unordered_map<T, int32_t> uniq;
+        uniq.reserve(inputLen);
+
         if (definedOutputs[OCCURRENCES_NUM]) {
             std::fill(occurTmpPtr, occurTmpPtr + inputLen, 1);
         }
-        uniqueLen = 1;
 
-        for (size_t i = 1; i < inputLen; i++) {
-            bool found = false;
-            size_t j = 0;
-            for (; j < uniqueLen; j++) {
-                if (uniDataTmpPtr[j] == srcDataPtr[i]) {
-                    found = true;
-                    break;
-                }
-            }
-            if (!found) {
-                uniDataTmpPtr[uniqueLen] = srcDataPtr[i];
+        for (size_t i = 0, j = 0; i < inputLen; ++i) {
+            auto it = uniq.emplace(srcDataPtr[i], j);
+            inToOutTmpPtr[i] = it.first->second;
+            if (it.second) {
                 if (definedOutputs[FIRST_UNIQUE_IDX]) {
-                    firstTmpPtr[uniqueLen] = i;
+                    firstTmpPtr[j] = i;
                 }
-                uniqueLen++;
+                ++j;
             } else {
                 if (definedOutputs[OCCURRENCES_NUM]) {
-                    occurTmpPtr[j]++;
+                    occurTmpPtr[inToOutTmpPtr[i]]++;
                 }
             }
-            if (definedOutputs[INPUT_TO_UNIQ_IDX]) {
-                inToOutTmpPtr[i] = j;
-            }
+        }
+
+        uniqueLen = static_cast<int64_t>(uniq.size());
+        for (const auto& it : uniq) {
+            uniDataTmpPtr[it.second] = it.first;
         }
     }
 

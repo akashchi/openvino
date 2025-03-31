@@ -7,7 +7,7 @@
 #include "plugin.hpp"
 
 #include "compiled_model.hpp"
-#include "openvino/core/dimension_tracker.hpp"
+#include "openvino/core/dimension.hpp"
 #include "openvino/pass/manager.hpp"
 #include "openvino/runtime/intel_gpu/properties.hpp"
 #include "openvino/runtime/internal_properties.hpp"
@@ -19,7 +19,10 @@
 namespace ov {
 namespace autobatch_plugin {
 
-std::vector<std::string> supported_configKeys = {ov::device::priorities.name(), ov::auto_batch_timeout.name()};
+std::vector<ov::PropertyName> supported_configKeys = {
+    ov::PropertyName{ov::device::priorities.name(), ov::PropertyMutability::RW},
+    ov::PropertyName{ov::auto_batch_timeout.name(), ov::PropertyMutability::RW},
+    ov::PropertyName{ov::enable_profiling.name(), ov::PropertyMutability::RW}};
 
 inline ov::AnyMap merge_properties(ov::AnyMap config, const ov::AnyMap& user_config) {
     for (auto&& kvp : user_config) {
@@ -80,9 +83,13 @@ ov::Any Plugin::get_property(const std::string& name, const ov::AnyMap& argument
             return {it->second};
         }
     } else if (name == ov::supported_properties.name()) {
-        return std::vector<ov::PropertyName>{
-            ov::PropertyName{ov::supported_properties.name(), ov::PropertyMutability::RO},
-            ov::PropertyName{ov::device::full_name.name(), ov::PropertyMutability::RO}};
+        std::vector<ov::PropertyName> property_name;
+        property_name.push_back(ov::PropertyName{ov::supported_properties.name(), ov::PropertyMutability::RO});
+        property_name.push_back(ov::PropertyName{ov::device::full_name.name(), ov::PropertyMutability::RO});
+        for (auto& it : supported_configKeys) {
+            property_name.push_back(it);
+        }
+        return decltype(ov::supported_properties)::value_type(std::move(property_name));
     } else if (name == ov::internal::supported_properties.name()) {
         return decltype(ov::internal::supported_properties)::value_type{};
     } else if (name == ov::device::full_name.name()) {
@@ -111,6 +118,7 @@ OV_DEFINE_PLUGIN_CREATE_FUNCTION(Plugin, version)
 Plugin::Plugin() {
     set_device_name("BATCH");
     m_plugin_config.insert(ov::auto_batch_timeout(1000));  // default value (ms)
+    m_plugin_config.insert(ov::enable_profiling(false));
 }
 
 std::shared_ptr<ov::ICompiledModel> Plugin::compile_model(const std::shared_ptr<const ov::Model>& model,
@@ -130,7 +138,7 @@ std::shared_ptr<ov::ICompiledModel> Plugin::compile_model(const std::shared_ptr<
     auto full_properties = merge_properties(m_plugin_config, properties);
     auto device_batch = full_properties.find(ov::device::priorities.name());
     if (device_batch == full_properties.end()) {
-        OPENVINO_THROW("ov::device::priorities key for AUTO NATCH is not set for BATCH device");
+        OPENVINO_THROW("ov::device::priorities key for AUTO BATCH is not set for BATCH device");
     }
     auto meta_device = parse_meta_device(device_batch->second.as<std::string>(), properties);
 
@@ -154,7 +162,7 @@ std::shared_ptr<ov::ICompiledModel> Plugin::compile_model(const std::shared_ptr<
         const bool check_dims = (enable_tput_plugin || enable_tput_cfg);
         // find the batch dim
         auto cloned_model = model->clone();
-        ov::pass::Manager pass_manager;
+        ov::pass::Manager pass_manager("Plugin:AutoBatch");
         pass_manager.register_pass<ov::pass::InitNodeInfo>();
         pass_manager.register_pass<ov::pass::FindBatch>(false, check_dims);
         pass_manager.run_passes(cloned_model);
@@ -168,7 +176,7 @@ std::shared_ptr<ov::ICompiledModel> Plugin::compile_model(const std::shared_ptr<
             if (shape.is_dynamic())
                 OPENVINO_THROW("Auto-batching does not support dynamic networks!");
             // check the batch dim: either 0th (and the original batch size of 1) or none
-            if (shape.size() && ov::DimensionTracker::get_label(shape[0])) {
+            if (shape.size() && shape[0].has_symbol()) {
                 const auto& static_shape = input->get_shape();
                 if (static_shape[0] != 1)
                     OPENVINO_THROW("Auto-batching does not reshape/re-batch originally batched networks!");
@@ -176,7 +184,7 @@ std::shared_ptr<ov::ICompiledModel> Plugin::compile_model(const std::shared_ptr<
             } else {
                 // if the 0-th dim is not for the batch, then we support only the case when NONE dimension is batch
                 for (size_t s = 1; s < shape.size(); s++)
-                    if (ov::DimensionTracker::get_label(shape[s]))
+                    if (shape[s].has_symbol())
                         OPENVINO_THROW(
                             "Auto-batching operates only networks with inputs/outputs batched by 0th dimension");
             }
@@ -188,14 +196,14 @@ std::shared_ptr<ov::ICompiledModel> Plugin::compile_model(const std::shared_ptr<
             if (shape.is_dynamic())
                 OPENVINO_THROW("Auto-batching does not support dynamic networks!");
             // check the batch dim: either 0th (and the original batch size of 1) or none
-            if (shape.size() && ov::DimensionTracker::get_label(shape[0])) {
+            if (shape.size() && shape[0].has_symbol()) {
                 if (shape[0] != 1)
                     OPENVINO_THROW("Auto-batching does not reshape/re-batch originally batched networks!");
                 batched_outputs.insert(output_id);
             } else {
                 // if the 0-th dim is not for the batch, then we support only the case when NONE dimension is batch
                 for (size_t s = 1; s < shape.size(); s++)
-                    if (ov::DimensionTracker::get_label(shape[s]))
+                    if (shape[s].get_symbol())
                         OPENVINO_THROW("Auto-batching operates only networks with outputs batched by 0th dimension");
             }
         }

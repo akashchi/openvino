@@ -1,5 +1,3 @@
-.. {#openvino_docs_MO_DG_prepare_model_convert_model_tf_specific_Convert_NCF_From_Tensorflow}
-
 Converting a TensorFlow Neural Collaborative Filtering Model
 ============================================================
 
@@ -43,7 +41,7 @@ This tutorial explains how to convert Neural Collaborative Filtering (NCF) model
 
 3. Convert the model to the OpenVINO format. If you look at your frozen model, you can see that it has one input that is split into four ``ResourceGather`` layers. (Click image to zoom in.)
 
-   .. image::  ./../../../../../../_static/images/NCF_start.svg
+   .. image::  ../../../../../../assets/images/NCF_start.svg
 
    However, as the model conversion API does not support such data feeding, you should skip it. Cut
    the edges incoming in ``ResourceGather`` port 1:

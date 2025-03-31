@@ -27,7 +27,7 @@ struct assign : public primitive_base<assign> {
            const std::string& variable_id,
            const layout& output_layout,
            const ov::element::Type& user_specified_type = ov::element::undefined)
-      : primitive_base(id, inputs, {padding()}, {optional_data_type{output_layout.data_type}}),
+      : primitive_base(id, inputs, 1, {optional_data_type{output_layout.data_type}}),
         variable_id{variable_id},
         output_layout{output_layout},
         user_specified_type(user_specified_type) {}
@@ -56,7 +56,7 @@ struct assign : public primitive_base<assign> {
 
     void load(BinaryInputBuffer& ib) override {
         primitive_base<assign>::load(ib);
-        ov::element::Type_t data_type;
+        ov::element::Type_t data_type = ov::element::Type_t::undefined;
         ib >> variable_id;
         ib >> output_layout;
         ib >> make_data(&data_type, sizeof(ov::element::Type_t));

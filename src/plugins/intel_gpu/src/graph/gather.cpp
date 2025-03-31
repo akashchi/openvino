@@ -60,7 +60,7 @@ layout gather_inst::calc_output_layout(gather_node const& node, kernel_impl_para
         output_type = impl_param.typed_desc<gather>()->decompressed_type;
     }
     if (impl_param.has_fused_primitives()) {
-        output_type = impl_param.get_fused_output_layout().data_type;
+        output_type = impl_param.get_output_element_type();
     }
 
     return layout{output_type,
@@ -80,7 +80,7 @@ std::vector<layout> gather_inst::calc_output_layouts(gather_node const& /*node*/
         output_type = impl_param.typed_desc<gather>()->decompressed_type;
     }
     if (impl_param.has_fused_primitives()) {
-        output_type = impl_param.get_fused_output_layout().data_type;
+        output_type = impl_param.get_output_element_type();
     }
 
     ov::op::v8::Gather op;
@@ -147,6 +147,12 @@ void gather_inst::update_output_memory() {
 
     GPU_DEBUG_TRACE_DETAIL << id() << " : update_output_memory with mem of input " << get_node().get_dependency(0).id()
                            << " : " << input_memory_ptr()->buffer_ptr() << std::endl;
+    // Can_be_optimized nodes are allocating from memory_pool too. In this case,
+    // we need release the legacy output memory from memory pool explicitly.
+    if (static_cast<bool>(_outputs[0]) &&
+        _node->get_program().get_config().get_property(ov::intel_gpu::enable_memory_pool)) {
+        _network.get_memory_pool().release_memory(_outputs[0].get(), _node->get_unique_id(), _node->id(), _network.get_id());
+    }
     _outputs[0] = input_memory_ptr();
     _mem_allocated = false;
 }

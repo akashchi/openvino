@@ -14,8 +14,10 @@
 #include "openvino/op/atan.hpp"
 #include "openvino/op/atanh.hpp"
 #include "openvino/op/bitwise_and.hpp"
+#include "openvino/op/bitwise_left_shift.hpp"
 #include "openvino/op/bitwise_not.hpp"
 #include "openvino/op/bitwise_or.hpp"
+#include "openvino/op/bitwise_right_shift.hpp"
 #include "openvino/op/bitwise_xor.hpp"
 #include "openvino/op/ceiling.hpp"
 #include "openvino/op/cos.hpp"
@@ -52,7 +54,6 @@
 #include "openvino/op/reduce_max.hpp"
 #include "openvino/op/reduce_mean.hpp"
 #include "openvino/op/reduce_min.hpp"
-#include "openvino/op/reduce_prod.hpp"
 #include "openvino/op/reduce_sum.hpp"
 #include "openvino/op/relu.hpp"
 #include "openvino/op/sigmoid.hpp"
@@ -62,7 +63,6 @@
 #include "openvino/op/softplus.hpp"
 #include "openvino/op/softsign.hpp"
 #include "openvino/op/squared_difference.hpp"
-#include "openvino/op/subtract.hpp"
 #include "openvino/op/swish.hpp"
 #include "openvino/op/tan.hpp"
 #include "openvino/op/tanh.hpp"
@@ -97,6 +97,7 @@ TF_OP_CONVERTER(translate_iterator_get_next_op);
 TF_OP_CONVERTER(translate_iterator_op);
 TF_OP_CONVERTER(translate_lookup_table_import_op);
 TF_OP_CONVERTER(translate_lookup_table_find_op);
+TF_OP_CONVERTER(translate_lookup_table_size_op);
 TF_OP_CONVERTER(translate_loop_cond_op);
 TF_OP_CONVERTER(translate_merge_op);
 TF_OP_CONVERTER(translate_mergev2checkpoint_op);
@@ -172,6 +173,8 @@ const std::map<std::string, CreatorFunction> get_supported_ops() {
         {"BitwiseAnd", CreatorFunction(translate_binary_op<v13::BitwiseAnd>)},
         {"BitwiseOr", CreatorFunction(translate_binary_op<v13::BitwiseOr>)},
         {"BitwiseXor", CreatorFunction(translate_binary_op<v13::BitwiseXor>)},
+        {"RightShift", CreatorFunction(translate_binary_op<v15::BitwiseRightShift>)},
+        {"LeftShift", CreatorFunction(translate_binary_op<v15::BitwiseLeftShift>)},
         {"Div", CreatorFunction(translate_div_op)},
         {"Equal", CreatorFunction(translate_binary_op<v1::Equal>)},
         {"FloorMod", CreatorFunction(translate_binary_op<v1::FloorMod>)},
@@ -190,7 +193,6 @@ const std::map<std::string, CreatorFunction> get_supported_ops() {
         {"Pow", CreatorFunction(translate_binary_op<v1::Power>)},
         {"RealDiv", CreatorFunction(translate_binary_op<v1::Divide>)},
         {"SquaredDifference", CreatorFunction(translate_binary_op<v0::SquaredDifference>)},
-        {"Sub", CreatorFunction(translate_binary_op<v1::Subtract>)},
 
         // note: ReduceOp translator declaration for each op must to be added in reduce.cpp file
         {"Any", CreatorFunction(translate_direct_reduce_op<v1::ReduceLogicalOr>)},
@@ -199,12 +201,13 @@ const std::map<std::string, CreatorFunction> get_supported_ops() {
         {"Max", CreatorFunction(translate_direct_reduce_op<v1::ReduceMax>)},
         {"Mean", CreatorFunction(translate_direct_reduce_op<v1::ReduceMean>)},
         {"Min", CreatorFunction(translate_direct_reduce_op<v1::ReduceMin>)},
-        {"Prod", CreatorFunction(translate_direct_reduce_op<v1::ReduceProd>)},
         {"Sum", CreatorFunction(translate_direct_reduce_op<v1::ReduceSum>)},
 
         // Separate translators:
         {"AddN", CreatorFunction(translate_add_n_op)},
         {"AdjustContrastv2", CreatorFunction(translate_adjust_contrast_op)},
+        {"AdjustHue", CreatorFunction(translate_adjust_hue_op)},
+        {"AdjustSaturation", CreatorFunction(translate_adjust_saturation_op)},
         {"Angle", CreatorFunction(translate_angle_op)},
         {"ArgMax", CreatorFunction(translate_arg_max_op)},
         {"ArgMin", CreatorFunction(translate_arg_min_op)},
@@ -214,6 +217,7 @@ const std::map<std::string, CreatorFunction> get_supported_ops() {
         {"BatchMatMul", CreatorFunction(translate_batch_mat_mul_op)},
         {"BatchMatMulV2", CreatorFunction(translate_batch_mat_mul_op)},
         {"BatchMatMulV3", CreatorFunction(translate_batch_mat_mul_with_type_op)},
+        {"BatchMatrixInverse", CreatorFunction(translate_matrix_inverse_op)},
         {"BatchToSpaceND", CreatorFunction(translate_batch_to_space_nd_op)},
         {"BroadcastArgs", CreatorFunction(translate_broadcast_args_op)},
         {"BroadcastTo", CreatorFunction(translate_broadcast_to_op)},
@@ -245,7 +249,7 @@ const std::map<std::string, CreatorFunction> get_supported_ops() {
         {"DynamicPartition", CreatorFunction(translate_dynamic_partition_op)},
         {"Einsum", CreatorFunction(translate_einsum_op)},
         {"Elu", CreatorFunction(translate_elu_op)},
-        {"EmptyTensorList", CreatorFunction(translate_tensor_list_reserve_op)},
+        {"EmptyTensorList", CreatorFunction(translate_empty_tensor_list_op)},
         {"EnsureShape", CreatorFunction(translate_identity_op)},
         {"ExpandDims", CreatorFunction(translate_expand_dims_op)},
         {"ExtractImagePatches", CreatorFunction(translate_extract_image_patches_op)},
@@ -269,6 +273,7 @@ const std::map<std::string, CreatorFunction> get_supported_ops() {
         {"Addons>GatherTree", CreatorFunction(translate_gather_tree_op)},
         {"HashTable", CreatorFunction(translate_hash_table_op)},
         {"HashTableV2", CreatorFunction(translate_hash_table_op)},
+        {"HSVToRGB", CreatorFunction(translate_hsv_to_rgb_op)},
         {"Identity", CreatorFunction(translate_identity_op)},
         {"IdentityN", CreatorFunction(translate_identity_n_op)},
         {"Inv", CreatorFunction(translate_inv_op)},
@@ -298,10 +303,13 @@ const std::map<std::string, CreatorFunction> get_supported_ops() {
         {"LookupTableImportV2", CreatorFunction(translate_lookup_table_import_op)},
         {"LookupTableInsert", CreatorFunction(translate_no_op)},
         {"LookupTableInsertV2", CreatorFunction(translate_no_op)},
+        {"LookupTableSize", CreatorFunction(translate_lookup_table_size_op)},
+        {"LookupTableSizeV2", CreatorFunction(translate_lookup_table_size_op)},
         {"LRN", CreatorFunction(translate_lrn_op)},
         {"MatMul", CreatorFunction(translate_mat_mul_op)},
         {"MatrixBandPart", CreatorFunction(translate_matrix_band_part_op)},
         {"MatrixDiag", CreatorFunction(translate_matrix_diag_op)},
+        {"MatrixInverse", CreatorFunction(translate_matrix_inverse_op)},
         {"MaxPool", CreatorFunction(translate_max_pool_op)},
         {"MaxPoolV2", CreatorFunction(translate_max_pool_op)},
         {"MaxPool3D", CreatorFunction(translate_max_pool_op)},
@@ -335,6 +343,7 @@ const std::map<std::string, CreatorFunction> get_supported_ops() {
         {"Placeholder", CreatorFunction(translate_placeholder_linked_op)},
         {"PlaceholderWithDefault", CreatorFunction(translate_placeholder_with_default_op)},
         {"PreventGradient", CreatorFunction(translate_identity_op)},
+        {"Prod", CreatorFunction(translate_prod_op)},
         {"Range", CreatorFunction(translate_range_op)},
         {"Rank", CreatorFunction(translate_rank_op)},
         {"RandomUniform", CreatorFunction(translate_random_uniform_op)},
@@ -352,13 +361,14 @@ const std::map<std::string, CreatorFunction> get_supported_ops() {
         {"RFFT", CreatorFunction(translate_rfft_op)},
         {"RFFT2D", CreatorFunction(translate_rfft_op)},
         {"RFFT3D", CreatorFunction(translate_rfft_op)},
+        {"RGBToHSV", CreatorFunction(translate_rgb_to_hsv_op)},
+        {"Rint", CreatorFunction(translate_rint_op)},
         {"Roll", CreatorFunction(translate_roll_op)},
         {"Round", CreatorFunction(translate_round_op)},
         {"Rsqrt", CreatorFunction(translate_rsqrt_op)},
         {"SaveV2", CreatorFunction(translate_no_op)},
         {"ScatterNd", CreatorFunction(translate_scatter_nd_op)},
         {"SegmentSum", CreatorFunction(translate_segment_sum_op)},
-        {"SparseToDense", CreatorFunction(translate_sparse_to_dense_op)},
         {"Select", CreatorFunction(translate_select_op)},
         {"SelectV2", CreatorFunction(translate_select_v2_op)},
         {"Shape", CreatorFunction(translate_shape_op)},
@@ -369,6 +379,10 @@ const std::map<std::string, CreatorFunction> get_supported_ops() {
         {"Softmax", CreatorFunction(translate_softmax_op)},
         {"SpaceToDepth", CreatorFunction(translate_space_to_depth_op)},
         {"SparseReshape", CreatorFunction(translate_sparse_reshape_op)},
+        {"SparseSegmentMean", CreatorFunction(translate_sparse_segment_mean_op)},
+        {"SparseTensorDenseAdd", CreatorFunction(translate_sparse_tensor_dense_add_op)},
+        {"SparseTensorDenseMatMul", CreatorFunction(translate_sparse_tensor_dense_mat_mul_op)},
+        {"SparseToDense", CreatorFunction(translate_sparse_to_dense_op)},
         {"Split", CreatorFunction(translate_split_op)},
         {"SplitV", CreatorFunction(translate_split_v_op)},
         {"StopGradient", CreatorFunction(translate_identity_op)},
@@ -380,6 +394,7 @@ const std::map<std::string, CreatorFunction> get_supported_ops() {
         {"StatelessIf", CreatorFunction(translate_if_op)},
         {"StatelessWhile", CreatorFunction(translate_while_op)},
         {"StridedSlice", CreatorFunction(translate_strided_slice_op)},
+        {"Sub", CreatorFunction(translate_sub_op)},
         {"Switch", CreatorFunction(translate_switch_op)},
         {"TensorArrayCloseV3", CreatorFunction(translate_tensor_array_close_v3_op)},
         {"TensorArrayConcatV3", CreatorFunction(translate_tensor_array_concat_v3_op)},
@@ -398,6 +413,7 @@ const std::map<std::string, CreatorFunction> get_supported_ops() {
         {"TensorListReserve", CreatorFunction(translate_tensor_list_reserve_op)},
         {"TensorListResize", CreatorFunction(translate_tensor_list_resize_op)},
         {"TensorListConcatV2", CreatorFunction(translate_tensor_list_concat_v2_op)},
+        {"TensorScatterUpdate", CreatorFunction(translate_tensor_scatter_update_op)},
         {"Tile", CreatorFunction(translate_tile_op)},
         {"ToBool", CreatorFunction(translate_tobool_op)},
         {"TopK", CreatorFunction(translate_top_k_op)},
@@ -459,6 +475,15 @@ const std::map<std::string, CreatorFunction> get_supported_ops() {
         {"WriteFile", CreatorFunction(translate_write_file)},
     };
 };
+
+const std::vector<std::string> get_supported_ops_via_tokenizers() {
+    return {"RaggedTensorToSparse",
+            "RaggedTensorToTensor",
+            "StaticRegexReplace",
+            "StringLower",
+            "StringSplitV2",
+            "StringToHashBucketFast"};
+}
 }  // namespace op
 }  // namespace tensorflow
 }  // namespace frontend

@@ -5,7 +5,7 @@
 #include "common_test_utils/subgraph_builders/conv_pool_relu_non_zero.hpp"
 #include "common_test_utils/subgraph_builders/multi_single_conv.hpp"
 #include "mock_common.hpp"
-#include "openvino/core/dimension_tracker.hpp"
+#include "openvino/core/dimension.hpp"
 #include "openvino/runtime/intel_gpu/properties.hpp"
 #include "unit_test_utils/mocks/openvino/runtime/mock_icore.hpp"
 
@@ -103,34 +103,34 @@ public:
 
 TEST_P(PluginCompileModelTest, PluginCompileModelTestCase) {
     m_model = ov::test::utils::make_multi_single_conv();
-    ASSERT_NO_THROW(m_plugin->compile_model(m_model, m_plugin_properities));
+    OV_ASSERT_NO_THROW(m_plugin->compile_model(m_model, m_plugin_properities));
 }
 
 TEST_P(PluginCompileModelTest, PluginCompileModelWithRemoteContextTestCase) {
     m_model = ov::test::utils::make_multi_single_conv();
-    ASSERT_NO_THROW(m_plugin->compile_model(m_model, m_plugin_properities, m_remote_context));
+    OV_ASSERT_NO_THROW(m_plugin->compile_model(m_model, m_plugin_properities, m_remote_context));
 }
 
 TEST_P(PluginCompileModelTest, PluginCompileModelBatchedModelTestCase) {
     m_model = ov::test::utils::make_conv_pool_relu_non_zero({1, 1, 32, 32});
     auto batch = ov::Dimension(5);
-    ov::DimensionTracker::set_label(batch, 11);
+    batch.set_symbol(std::make_shared<ov::Symbol>());
     auto p_shape = ov::PartialShape{batch, 1, 32, 32};
     m_model->reshape(p_shape);
-    ASSERT_NO_THROW(m_plugin->compile_model(m_model, m_plugin_properities));
+    OV_ASSERT_NO_THROW(m_plugin->compile_model(m_model, m_plugin_properities));
 }
 
 TEST_P(PluginCompileModelTest, PluginCompileModelBatchedModelWithRemoteContextTestCase) {
     m_model = ov::test::utils::make_conv_pool_relu_non_zero({1, 1, 32, 32});
     auto batch = ov::Dimension(5);
-    ov::DimensionTracker::set_label(batch, 11);
+    batch.set_symbol(std::make_shared<ov::Symbol>());
     auto p_shape = ov::PartialShape{batch, 1, 32, 32};
     m_model->reshape(p_shape);
-    ASSERT_NO_THROW(m_plugin->compile_model(m_model, m_plugin_properities, m_remote_context));
+    OV_ASSERT_NO_THROW(m_plugin->compile_model(m_model, m_plugin_properities, m_remote_context));
 }
 
 const std::vector<plugin_compile_model_param> plugin_compile_model_param_test = {
-    // Case 1: explict apply batch size by config of AUTO_BATCH_DEVICE_CONFIG
+    // Case 1: explicitly apply batch size by config of AUTO_BATCH_DEVICE_CONFIG
     plugin_compile_model_param{{{ov::hint::performance_mode.name(), ov::hint::PerformanceMode::THROUGHPUT},
                                 {ov::optimal_batch_size.name(), static_cast<unsigned int>(16)},
                                 {ov::hint::num_requests(12)},

@@ -19,7 +19,7 @@ class InferencePrecisionValidator : public BaseValidator {
 public:
     bool is_valid(const ov::Any& v) const override {
         auto precision = v.as<ov::element::Type>();
-        return precision == ov::element::f16 || precision == ov::element::f32;
+        return precision == ov::element::f16 || precision == ov::element::f32 || precision == ov::element::undefined;
     }
 };
 
@@ -50,10 +50,18 @@ void ExecutionConfig::set_default() {
         std::make_tuple(ov::intel_gpu::hint::host_task_priority, ov::hint::Priority::MEDIUM),
         std::make_tuple(ov::intel_gpu::hint::queue_throttle, ov::intel_gpu::hint::ThrottleLevel::MEDIUM),
         std::make_tuple(ov::intel_gpu::hint::queue_priority, ov::hint::Priority::MEDIUM),
+        std::make_tuple(ov::intel_gpu::hint::enable_sdpa_optimization, true),
         std::make_tuple(ov::intel_gpu::enable_loop_unrolling, true),
         std::make_tuple(ov::intel_gpu::disable_winograd_convolution, false),
         std::make_tuple(ov::internal::exclusive_async_requests, false),
+        std::make_tuple(ov::internal::query_model_ratio, 1.0f),
         std::make_tuple(ov::cache_mode, ov::CacheMode::OPTIMIZE_SPEED),
+        std::make_tuple(ov::cache_encryption_callbacks, EncryptionCallbacks{}),
+        std::make_tuple(ov::hint::dynamic_quantization_group_size, 32),
+        std::make_tuple(ov::hint::kv_cache_precision, ov::element::undefined),
+        std::make_tuple(ov::intel_gpu::hint::enable_kernels_reuse, false),
+        std::make_tuple(ov::weights_path, ""),
+        std::make_tuple(ov::hint::activations_scale_factor, 0.f),
 
         // Legacy API properties
         std::make_tuple(ov::intel_gpu::nv12_two_inputs, false),
@@ -72,7 +80,8 @@ void ExecutionConfig::set_default() {
         std::make_tuple(ov::intel_gpu::partial_build_program, false),
         std::make_tuple(ov::intel_gpu::allow_new_shape_infer, false),
         std::make_tuple(ov::intel_gpu::use_only_static_kernels_for_dynamic_shape, false),
-        std::make_tuple(ov::intel_gpu::buffers_preallocation_ratio, 1.1f));
+        std::make_tuple(ov::intel_gpu::buffers_preallocation_ratio, 1.1f),
+        std::make_tuple(ov::intel_gpu::max_kernels_per_batch, 8));
 }
 
 void ExecutionConfig::register_property_impl(const std::pair<std::string, ov::Any>& property, PropertyVisibility visibility, BaseValidator::Ptr validator) {
@@ -128,7 +137,7 @@ void ExecutionConfig::apply_execution_hints(const cldnn::device_info& info) {
         const auto mode = get_property(ov::hint::execution_mode);
         if (!is_set_by_user(ov::hint::inference_precision)) {
             if (mode == ov::hint::ExecutionMode::ACCURACY) {
-                set_property(ov::hint::inference_precision(ov::element::f32));
+                set_property(ov::hint::inference_precision(ov::element::undefined));
             } else if (mode == ov::hint::ExecutionMode::PERFORMANCE) {
                 if (info.supports_fp16)
                     set_property(ov::hint::inference_precision(ov::element::f16));
@@ -159,6 +168,13 @@ void ExecutionConfig::apply_performance_hints(const cldnn::device_info& info) {
     if (get_property(ov::internal::exclusive_async_requests)) {
         set_property(ov::num_streams(1));
     }
+
+    // Allow kernels reuse only for single-stream scenarios
+    if (get_property(ov::intel_gpu::hint::enable_kernels_reuse)) {
+        if (get_property(ov::num_streams) != 1) {
+            set_property(ov::intel_gpu::hint::enable_kernels_reuse(false));
+        }
+    }
 }
 
 void ExecutionConfig::apply_priority_hints(const cldnn::device_info& info) {
@@ -187,6 +203,31 @@ void ExecutionConfig::apply_debug_options(const cldnn::device_info& info) {
 
     GPU_DEBUG_IF(debug_config->disable_dynamic_impl == 1) {
         set_property(ov::intel_gpu::use_only_static_kernels_for_dynamic_shape(true));
+    }
+
+    GPU_DEBUG_IF(debug_config->dynamic_quantize_group_size != debug_config->DYNAMIC_QUANTIZE_GROUP_SIZE_NOT_SET) {
+        if (debug_config->dynamic_quantize_group_size == -1)
+            set_property(ov::hint::dynamic_quantization_group_size(UINT64_MAX));
+        else
+            set_property(ov::hint::dynamic_quantization_group_size(debug_config->dynamic_quantize_group_size));
+    }
+
+    int KVCacheCompression = 0;
+    if (const auto env_var = std::getenv("KVCacheCompression")) {
+        std::istringstream ss(env_var);
+        ss >> KVCacheCompression;
+    }
+
+    if (KVCacheCompression == 1) {
+        set_property(ov::hint::kv_cache_precision(ov::element::i8));
+    }
+
+    GPU_DEBUG_IF(debug_config->use_kv_cache_compression != -1) {
+        GPU_DEBUG_IF(debug_config->use_kv_cache_compression == 1) {
+            set_property(ov::hint::kv_cache_precision(ov::element::i8));
+        } else {
+            set_property(ov::hint::kv_cache_precision(ov::element::undefined));
+        }
     }
 }
 

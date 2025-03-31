@@ -4,7 +4,7 @@
 import numpy as np
 import pytest
 import torch
-from pytorch_layer_test_class import PytorchLayerTest
+from pytorch_layer_test_class import PytorchLayerTest, skip_if_export
 
 
 class TestScatter(PytorchLayerTest):
@@ -32,7 +32,7 @@ class TestScatter(PytorchLayerTest):
                     str_forward += "_inplace"
                 else:
                     str_forward += ("_out_of_place" if not has_out else "_with_out")
-                    
+
 
                 if reduce:
                     self.reduce = reduce
@@ -122,7 +122,7 @@ class TestScatter(PytorchLayerTest):
             precision,
             ir_version,
             kwargs_to_prepare_input={"dtype": dtype, "out": has_out},
-            freeze_model=freeze
+            freeze_model=freeze,
         )
 
 
@@ -151,7 +151,7 @@ class TestScatterReduce(PytorchLayerTest):
                     str_forward += "_inplace"
                 else:
                     str_forward += ("_out_of_place" if not has_out else "_with_out")
-                    
+
                 self.reduce = reduce
                 self.include_self = include_self
                 self.forward = getattr(self, str_forward)
@@ -212,13 +212,16 @@ class TestScatterReduce(PytorchLayerTest):
             pytest.skip(
                 "Cannot test reduce parameters with empty indexes due to issues with empty constant tensor or issues with prim::GetAttr str inputs."
             )
+        kwargs = dict(kwargs_to_prepare_input={"dtype": dtype, "out": has_out}, freeze_model=freeze)
+        if reduce == "mean" and dtype in ["int32", "int64"]:
+            # rounding can be different on torch vs ov
+            kwargs["custom_eps"] = 1.
         self._test(
             *self.create_model(dim, index, src, inplace, reduce, include_self, has_out),
             ie_device,
             precision,
             ir_version,
-            kwargs_to_prepare_input={"dtype": dtype, "out": has_out},
-            freeze_model=freeze
+            **kwargs
         )
 
 class TestScatterAdd(PytorchLayerTest):
@@ -237,7 +240,7 @@ class TestScatterAdd(PytorchLayerTest):
                     self.index = torch.empty([1])
                 else:
                     self.index = index
-                self.src = src                    
+                self.src = src
                 self.inplace = inplace
 
             def forward(self, x: torch.Tensor):
@@ -256,6 +259,7 @@ class TestScatterAdd(PytorchLayerTest):
 
     @pytest.mark.nightly
     @pytest.mark.precommit
+    @pytest.mark.precommit_torch_export
     @pytest.mark.parametrize("dim", [1, -1, 0])
     @pytest.mark.parametrize(
         "index",
@@ -267,7 +271,7 @@ class TestScatterAdd(PytorchLayerTest):
     )
     @pytest.mark.parametrize("src", [torch.arange(1, 26).reshape(5, 5)])
     @pytest.mark.parametrize("dtype", ["int32", "int64", "float32", "float64"])
-    @pytest.mark.parametrize("inplace", [True, False])
+    @pytest.mark.parametrize("inplace", [skip_if_export(True), False])
     def test_scatter_add(self, dim, index, src, dtype, inplace, ie_device, precision, ir_version):
         if isinstance(src, torch.Tensor):
             src = src.to(getattr(torch, dtype))

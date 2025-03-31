@@ -7,6 +7,7 @@
 #include <future>
 #include <thread>
 
+#include "common_test_utils/test_assertions.hpp"
 #include "openvino/core/parallel.hpp"
 #include "openvino/runtime/threading/cpu_streams_executor.hpp"
 #include "openvino/runtime/threading/immediate_executor.hpp"
@@ -44,7 +45,7 @@ TEST_P(TaskExecutorTests, canRunCustomFunction) {
         i++;
     });
     f.wait();
-    ASSERT_NO_THROW(f.get());
+    OV_ASSERT_NO_THROW(f.get());
 }
 
 TEST_P(TaskExecutorTests, canRun2FunctionsOneByOne) {
@@ -56,13 +57,13 @@ TEST_P(TaskExecutorTests, canRun2FunctionsOneByOne) {
         i += 1;
     });
     f1.wait();
-    ASSERT_NO_THROW(f1.get());
+    OV_ASSERT_NO_THROW(f1.get());
     auto f2 = async(taskExecutor, [&]() {
         std::unique_lock<std::mutex> l{m};
         i *= 2;
     });
     f2.wait();
-    ASSERT_NO_THROW(f2.get());
+    OV_ASSERT_NO_THROW(f2.get());
 
     ASSERT_EQ(i, 2);
 }
@@ -119,7 +120,7 @@ TEST_P(TaskExecutorTests, canRunMultipleTasksFromMultipleThreads) {
     for (auto&& f : futures)
         f.wait();
     for (auto&& f : futures)
-        ASSERT_NO_THROW(f.get());
+        OV_ASSERT_NO_THROW(f.get());
     ASSERT_EQ(THREAD_NUMBER * NUM_INTERNAL_ITERATIONS, sharedVar);
     for (auto&& thread : threads)
         if (thread.joinable())
@@ -221,28 +222,19 @@ static auto Executors = ::testing::Values(
         auto streams = get_number_of_cpu_cores();
         auto threads = parallel_get_max_threads();
         return std::make_shared<CPUStreamsExecutor>(
-            IStreamsExecutor::Config{"TestCPUStreamsExecutor",
-                                     streams,
-                                     threads / streams,
-                                     IStreamsExecutor::ThreadBindingType::NONE});
+            IStreamsExecutor::Config{"TestCPUStreamsExecutor", streams, threads / streams});
     },
     [] {
         auto streams = get_number_of_logical_cpu_cores(true);
         auto threads = parallel_get_max_threads();
         return std::make_shared<CPUStreamsExecutor>(
-            IStreamsExecutor::Config{"TestCPUStreamsExecutor",
-                                     streams,
-                                     threads / streams,
-                                     IStreamsExecutor::ThreadBindingType::NONE});
+            IStreamsExecutor::Config{"TestCPUStreamsExecutor", streams, threads / streams});
     },
     [] {
         auto streams = get_number_of_logical_cpu_cores(false);
         auto threads = parallel_get_max_threads();
         return std::make_shared<CPUStreamsExecutor>(
-            IStreamsExecutor::Config{"TestCPUStreamsExecutor",
-                                     streams,
-                                     threads / streams,
-                                     IStreamsExecutor::ThreadBindingType::NONE});
+            IStreamsExecutor::Config{"TestCPUStreamsExecutor", streams, threads / streams});
     },
     [] {
         return std::make_shared<ImmediateExecutor>();
@@ -255,28 +247,19 @@ static auto AsyncExecutors = ::testing::Values(
         auto streams = get_number_of_cpu_cores();
         auto threads = parallel_get_max_threads();
         return std::make_shared<CPUStreamsExecutor>(
-            IStreamsExecutor::Config{"TestCPUStreamsExecutor",
-                                     streams,
-                                     threads / streams,
-                                     IStreamsExecutor::ThreadBindingType::NONE});
+            IStreamsExecutor::Config{"TestCPUStreamsExecutor", streams, threads / streams});
     },
     [] {
         auto streams = get_number_of_logical_cpu_cores(true);
         auto threads = parallel_get_max_threads();
         return std::make_shared<CPUStreamsExecutor>(
-            IStreamsExecutor::Config{"TestCPUStreamsExecutor",
-                                     streams,
-                                     threads / streams,
-                                     IStreamsExecutor::ThreadBindingType::NONE});
+            IStreamsExecutor::Config{"TestCPUStreamsExecutor", streams, threads / streams});
     },
     [] {
         auto streams = get_number_of_logical_cpu_cores(false);
         auto threads = parallel_get_max_threads();
         return std::make_shared<CPUStreamsExecutor>(
-            IStreamsExecutor::Config{"TestCPUStreamsExecutor",
-                                     streams,
-                                     threads / streams,
-                                     IStreamsExecutor::ThreadBindingType::NONE});
+            IStreamsExecutor::Config{"TestCPUStreamsExecutor", streams, threads / streams});
     });
 
 INSTANTIATE_TEST_SUITE_P(ASyncTaskExecutorTests, ASyncTaskExecutorTests, AsyncExecutors);

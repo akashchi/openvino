@@ -33,17 +33,24 @@ inline void (FUNC_NAME)(
     // full dispatch pipeline.
     uint feature_mini_block = gid % DISPATCH_FSV;
     uint batch_mini_block = gid / DISPATCH_FSV % DISPATCH_BSV;
-    uint feature_mega_block = gid / (DISPATCH_FSV * DISPATCH_BSV) % (CEIL_DIV(TILE_OUT_F_NUM, TILE_OFM * SIMD) / DISPATCH_FSV);
-    uint batch_mega_block = gid / (DISPATCH_FSV * DISPATCH_BSV * CEIL_DIV(TILE_OUT_F_NUM, TILE_OFM * SIMD) / DISPATCH_FSV);
+    uint feature_mega_block = gid / (DISPATCH_FSV * DISPATCH_BSV) % (CEIL_DIV(TILE_OUT_F_NUM, OUTER_OFM * TILE_OFM * SIMD) / DISPATCH_FSV);
+    uint batch_mega_block = gid / (DISPATCH_FSV * DISPATCH_BSV * CEIL_DIV(TILE_OUT_F_NUM, OUTER_OFM * TILE_OFM * SIMD) / DISPATCH_FSV);
 
-    uint out_f = (feature_mega_block * DISPATCH_FSV + feature_mini_block) * (TILE_OFM * SIMD);
+    uint out_f = (feature_mega_block * DISPATCH_FSV + feature_mini_block) * (OUTER_OFM * TILE_OFM * SIMD);
     uint out_b = ((batch_mega_block * DISPATCH_BSV + batch_mini_block) * FORCED_TILE_B);
 
     ACCUMULATOR_VEC_TYPE acc[FORCED_TILE_B] = { };
     INPUT_VEC_TYPE       in_0[FORCED_TILE_B] = { };
 
     FILTER_VEC_TYPE wei = 0;
+#if OUTPUT_3D
+    uint out_b0 = out_b / OUTPUT_FEATURE_NUM;
+    uint out_b1 = out_b % OUTPUT_FEATURE_NUM;
+    uint input_offset = out_b0 * INPUT0_BATCH_PITCH + out_b1 * INPUT0_FEATURE_PITCH + INPUT0_OFFSET;
+#else
     uint input_offset = out_b * TILE_IN_B_PITCH + INPUT0_OFFSET;
+#endif
+
 #if COMPRESSED_WEIGHTS_INT4
     uint weights_offset = out_f * (INPUT_ELEMENTS_COUNT / 2);
 #else
@@ -81,6 +88,11 @@ inline void (FUNC_NAME)(
         ACCUMULATOR_VEC_TYPE d_zp = decompression_zp[0];
     #endif
     ACCUMULATOR_TYPE* d_zps = (ACCUMULATOR_TYPE*)(&d_zp);
+#endif
+
+#if OUTER_OFM > 1
+    uint input_offset_init = input_offset;
+    unroll_for (uint oi = 0; oi < OUTER_OFM; ++oi) {
 #endif
 
 #if REALIGN_FP16_OFFSET
@@ -124,7 +136,7 @@ inline void (FUNC_NAME)(
         unroll_for(uint ki = 0; ki < (TILE_IFM * SIMD) / TILE_K; ++ki) {
             #if COMPRESSED_WEIGHTS_INT4
                 FILTER_PACKED_VEC_TYPE wei_packed = FILTER_BLOCK_READ(weights, weights_offset);
-                wei = UNPACK_INT4x2(ACCUMULATOR_TYPE, *((INT4_PACKED_TYPE*)&wei_packed));
+                wei = UNPACK_INT4(ACCUMULATOR_TYPE, *((INT4_PACKED_TYPE*)&wei_packed));
             #else
                 wei = TO_FILTER_VEC_TYPE(FILTER_BLOCK_READ(weights, weights_offset));
             #endif
@@ -133,7 +145,6 @@ inline void (FUNC_NAME)(
                 ACCUMULATOR_TYPE* w = (ACCUMULATOR_TYPE*)(&wei);
                 unroll_for(uint kii = 0; kii < TILE_K; ++kii) {
                     unroll_for(uint fi = 0; fi < TILE_OFM; ++fi) {
-                        const uint w_idx = kii * TILE_OFM + fi;
                         const uint offset_ofm = out_f + fi*SIMD + sglid;
                         #if !DECOMPRESSION_SCALE_POST_OP
                             // Apply scales before FMA to avoid FP16 overflow in case of INT8
@@ -161,11 +172,11 @@ inline void (FUNC_NAME)(
                         #else
                             ACCUMULATOR_TYPE dzp = ACCUMULATOR_VAL_ZERO;
                         #endif
-                        w[w_idx] = (w[w_idx] - dzp) * ds;
+                        w[W_IDX] = (w[W_IDX] - dzp) * ds;
                     }
                 }
             #endif
-            weights_offset += TILE_K_OFM_PACKED * SIMD;
+            weights_offset += TILE_K_OFM_PACKED * TILE_OFM_PER_OSV_SIZE * SIMD;
 
             unroll_for (uint kii = 0; kii < TILE_K; ++kii) {
                 const uint total_k = ki * TILE_K + kii;
@@ -173,9 +184,9 @@ inline void (FUNC_NAME)(
                     INPUT0_TYPE in_val = _sub_group_shuffle(((INPUT0_TYPE*)(&in_0[bi]))[total_k / SIMD], total_k % SIMD);
                     unroll_for (uint fi = 0; fi < TILE_OFM; ++fi) {
 #if DECOMPRESSION_SCALE_POST_OP
-                        ((ACCUMULATOR_TYPE*)(&acc_tmp[bi]))[fi] += in_val * ((ACCUMULATOR_TYPE*)(&wei))[kii * TILE_OFM + fi];
+                        ((ACCUMULATOR_TYPE*)(&acc_tmp[bi]))[fi] += in_val * ((ACCUMULATOR_TYPE*)(&wei))[W_IDX];
 #else
-                        ((ACCUMULATOR_TYPE*)(&acc[bi]))[fi] += in_val * ((ACCUMULATOR_TYPE*)(&wei))[kii * TILE_OFM + fi];
+                        ((ACCUMULATOR_TYPE*)(&acc[bi]))[fi] += in_val * ((ACCUMULATOR_TYPE*)(&wei))[W_IDX];
 #endif
                     }
                 }
@@ -232,7 +243,7 @@ inline void (FUNC_NAME)(
         unroll_for(uint ki = 0; ki < CEIL_DIV(LEFTOVER_IFM, TILE_K); ++ki) {
             #if COMPRESSED_WEIGHTS_INT4
                 FILTER_PACKED_VEC_TYPE wei_packed = FILTER_BLOCK_READ(weights, weights_offset);
-                wei = UNPACK_INT4x2(ACCUMULATOR_TYPE, *((INT4_PACKED_TYPE*)&wei_packed));
+                wei = UNPACK_INT4(ACCUMULATOR_TYPE, *((INT4_PACKED_TYPE*)&wei_packed));
             #else
                 wei = TO_FILTER_VEC_TYPE(FILTER_BLOCK_READ(weights, weights_offset));
             #endif
@@ -241,7 +252,6 @@ inline void (FUNC_NAME)(
                 ACCUMULATOR_TYPE* w = (ACCUMULATOR_TYPE*)(&wei);
                 unroll_for(uint kii = 0; kii < TILE_K; ++kii) {
                     unroll_for(uint fi = 0; fi < TILE_OFM; ++fi) {
-                        const uint w_idx = kii * TILE_OFM + fi;
                         uint offset_ofm = out_f + fi*SIMD + get_sub_group_local_id();
                         #if DECOMPRESSION_SCALE_GROUPS_NUM > 1
                             const uint scale_offset = (offset_ofm % DECOMPRESSION_SCALE_BATCH_NUM) * DECOMPRESSION_SCALE_BATCH_PITCH +
@@ -264,11 +274,11 @@ inline void (FUNC_NAME)(
                         #else
                             ACCUMULATOR_TYPE dzp = ACCUMULATOR_VAL_ZERO;
                         #endif
-                        w[w_idx] = (w[w_idx] - dzp) * ds;
+                        w[W_IDX] = (w[W_IDX] - dzp) * ds;
                     }
                 }
             #endif
-            weights_offset += TILE_K_OFM_PACKED * SIMD;
+            weights_offset += TILE_K_OFM_PACKED * TILE_OFM_PER_OSV_SIZE * SIMD;
 
             unroll_for (uint kii = 0; kii < TILE_K; ++kii) {
                 unroll_for (uint fi = 0; fi < TILE_OFM; ++fi) {
@@ -290,10 +300,13 @@ inline void (FUNC_NAME)(
     ACTIVATION_VEC_TYPE activated[FORCED_TILE_B] = { };
     for (uint bi = 0; bi < FORCED_TILE_B; ++bi) {
         activated[bi] = TO_ACTIVATION_VEC_TYPE(acc[bi]);
+#if OUTER_OFM > 1
+        acc[bi] = 0;
+#endif
     }
 
 #if BIAS_TERM
-    #if TILE_OUT_F_NUM % (TILE_OFM * SIMD) == 0
+    #if TILE_OUT_F_NUM % (OUTER_OFM * TILE_OFM * SIMD) == 0
         BIAS_VEC_TYPE bias = BIAS_BLOCK_READ(biases, out_f);
     #else
         BIAS_VEC_TYPE bias = 0;
@@ -328,7 +341,7 @@ inline void (FUNC_NAME)(
     // Write results
     uint output_offset = out_f * TILE_OUT_F_PITCH + out_b * TILE_OUT_B_PITCH + OUTPUT_OFFSET;
 
-    if (USE_BLOCK_WRITE && (TILE_OUT_F_NUM % (TILE_OFM * SIMD) == 0 || out_f + (TILE_OFM * SIMD) <= TILE_OUT_F_NUM)) {
+    if (USE_BLOCK_WRITE && (TILE_OUT_F_NUM % (OUTER_OFM * TILE_OFM * SIMD) == 0 || out_f + (OUTER_OFM * TILE_OFM * SIMD) <= TILE_OUT_F_NUM)) {
 #if IS_DYNAMIC
         #define WRITE_OUTPUT(bi) do {                                       \
                 if (bi + out_b < BATCH_SIZE)                                \
@@ -373,7 +386,7 @@ inline void (FUNC_NAME)(
 #if IS_DYNAMIC
                     bi + out_b < BATCH_SIZE &&
 #endif
-                    (TILE_OUT_F_NUM % (TILE_OFM * SIMD) == 0 ||
+                    (TILE_OUT_F_NUM % (OUTER_OFM * TILE_OFM * SIMD) == 0 ||
                     out_f + fi * SIMD + sglid < TILE_OUT_F_NUM);
                 if (should_write) {
                     output[output_offset] = ((OUTPUT_TYPE*)(&result[bi]))[fi];
@@ -383,6 +396,11 @@ inline void (FUNC_NAME)(
             output_offset += TILE_OUT_B_PITCH - TILE_OFM * SIMD;
         }
     }
+#if OUTER_OFM > 1
+    out_f += TILE_OFM * SIMD;
+    input_offset = input_offset_init;
+    }
+#endif
     // =====================================================================================================================================
 }
 

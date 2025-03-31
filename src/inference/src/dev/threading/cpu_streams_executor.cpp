@@ -18,6 +18,7 @@
 #include "openvino/itt.hpp"
 #include "openvino/runtime/system_conf.hpp"
 #include "openvino/runtime/threading/cpu_streams_executor_internal.hpp"
+#include "openvino/runtime/threading/cpu_streams_info.hpp"
 #include "openvino/runtime/threading/executor_manager.hpp"
 #include "openvino/runtime/threading/thread_local.hpp"
 
@@ -71,8 +72,7 @@ struct CPUStreamsExecutor::Impl {
             }
 #elif OV_THREAD == OV_THREAD_OMP
             omp_set_num_threads(_impl->_config.get_threads_per_stream());
-            if (!check_open_mp_env_vars(false) &&
-                (ThreadBindingType::NONE != _impl->_config.get_thread_binding_type())) {
+            if (!check_open_mp_env_vars(false) && _impl->_config.get_cpu_pinning()) {
                 CpuSet processMask;
                 int ncpus = 0;
                 std::tie(processMask, ncpus) = get_process_mask();
@@ -84,20 +84,6 @@ struct CPUStreamsExecutor::Impl {
                     });
                 }
             }
-#elif OV_THREAD == OV_THREAD_SEQ
-            if (ThreadBindingType::NUMA == _impl->_config.get_thread_binding_type()) {
-                pin_current_thread_to_socket(_numaNodeId);
-            } else if (ThreadBindingType::CORES == _impl->_config.get_thread_binding_type()) {
-                CpuSet processMask;
-                int ncpus = 0;
-                std::tie(processMask, ncpus) = get_process_mask();
-                if (nullptr != processMask) {
-                    pin_thread_to_vacant_core(_streamId + _impl->_config.get_thread_binding_offset(),
-                                              _impl->_config.get_thread_binding_step(),
-                                              ncpus,
-                                              processMask);
-                }
-            }
 #endif
         }
         ~Stream() {
@@ -107,7 +93,12 @@ struct CPUStreamsExecutor::Impl {
             }
 #if OV_THREAD == OV_THREAD_TBB || OV_THREAD == OV_THREAD_TBB_AUTO
             if (_impl->_config.get_name().find("StreamsExecutor") == std::string::npos) {
-                set_cpu_used(_cpu_ids, NOT_USED);
+                try {
+                    set_cpu_used(_cpu_ids, NOT_USED);
+                } catch (const ov::Exception&) {
+                    // Destructor should not throw - catch needed for static analysis.
+                    // CPU::CPU() won't throw here as cpu_info() is called from Stream constructor.
+                }
             }
             if (nullptr != _observer) {
                 _observer->observe(false);
@@ -130,8 +121,23 @@ struct CPUStreamsExecutor::Impl {
                                                             .set_max_concurrency(concurrency)
                                                             .set_max_threads_per_core(max_threads_per_core)});
             } else if (stream_type == STREAM_WITH_NUMA_ID) {
+                // Numa node id has used different mapping methods in TBBBind since oneTBB 2021.4.0
+#    if USE_TBBBIND_2_5
+                auto real_numa_node_id = _numaNodeId;
+#    else
+                auto real_numa_node_id = get_org_numa_id(_numaNodeId);
+                int tbb_version;
+#        if (TBB_INTERFACE_VERSION < 12000)
+                tbb_version = tbb::TBB_runtime_interface_version();
+#        else
+                tbb_version = TBB_runtime_interface_version();
+#        endif
+                if (tbb_version >= 12040) {
+                    real_numa_node_id = _numaNodeId;
+                }
+#    endif
                 _taskArena.reset(new custom::task_arena{custom::task_arena::constraints{}
-                                                            .set_numa_id(get_org_numa_id(_numaNodeId))
+                                                            .set_numa_id(real_numa_node_id)
                                                             .set_max_concurrency(concurrency)
                                                             .set_max_threads_per_core(max_threads_per_core)});
             } else if (stream_type == STREAM_WITH_CORE_TYPE) {
@@ -144,9 +150,8 @@ struct CPUStreamsExecutor::Impl {
                                                             .set_max_threads_per_core(max_threads_per_core)});
             } else {
                 _taskArena.reset(new custom::task_arena{concurrency});
-                _cpu_ids = static_cast<int>(stream_processors.size()) == _impl->_config.get_streams()
-                               ? stream_processors[stream_id]
-                               : _cpu_ids;
+                _cpu_ids =
+                    stream_id < static_cast<int>(stream_processors.size()) ? stream_processors[stream_id] : _cpu_ids;
                 if (_cpu_ids.size() > 0) {
                     CpuSet processMask;
                     int ncpus = 0;
@@ -167,8 +172,9 @@ struct CPUStreamsExecutor::Impl {
             const auto org_proc_type_table = get_org_proc_type_table();
             int streams_num = _impl->_config.get_streams();
             const auto stream_id = streams_num == 0 ? 0 : _streamId % streams_num;
+            _rank = _impl->_config.get_rank();
             get_cur_stream_info(stream_id,
-                                _impl->_config.get_cpu_reservation(),
+                                _impl->_config.get_cpu_pinning(),
                                 org_proc_type_table,
                                 _impl->_config.get_streams_info_table(),
                                 stream_type,
@@ -193,11 +199,15 @@ struct CPUStreamsExecutor::Impl {
         int _numaNodeId = 0;
         int _socketId = 0;
         bool _execute = false;
+        std::vector<int> _rank;
         std::queue<Task> _taskQueue;
 #if OV_THREAD == OV_THREAD_TBB || OV_THREAD == OV_THREAD_TBB_AUTO
         std::unique_ptr<custom::task_arena> _taskArena;
         std::unique_ptr<Observer> _observer;
         std::vector<int> _cpu_ids;
+#elif OV_THREAD == OV_THREAD_SEQ
+        CpuSet _mask = nullptr;
+        int _ncpus = 0;
 #endif
     };
     // if the thread is created by CPUStreamsExecutor, the Impl::Stream of the thread is stored by tbb Class
@@ -267,6 +277,12 @@ struct CPUStreamsExecutor::Impl {
             std::lock_guard<std::mutex> guard(_stream_map_mutex);
             for (auto& item : _stream_map) {
                 if (item.first->get_id() == id) {
+                    // check if the ThreadTracker of this stream is already in t_stream_count_map
+                    // if not, then create ThreadTracker for it
+                    auto iter = t_stream_count_map.find((void*)this);
+                    if (iter == t_stream_count_map.end()) {
+                        t_stream_count_map[(void*)this] = item.first->fetch();
+                    }
                     return item.second;
                 }
             }
@@ -297,6 +313,21 @@ struct CPUStreamsExecutor::Impl {
             }
         }
 
+        bool find_thread_id() {
+            auto id = std::this_thread::get_id();
+            auto search = _thread_ids.find(id);
+            if (search != _thread_ids.end()) {
+                return true;
+            }
+            std::lock_guard<std::mutex> guard(_stream_map_mutex);
+            for (auto& item : _stream_map) {
+                if (item.first->get_id() == id) {
+                    return true;
+                }
+            }
+            return false;
+        }
+
     private:
         std::set<std::thread::id> _thread_ids;
         Impl* _impl;
@@ -319,7 +350,7 @@ struct CPUStreamsExecutor::Impl {
                         std::min<std::size_t>(streams_num, numaNodes.size()),
                         std::back_inserter(_usedNumaNodes));
         } else {
-            _usedNumaNodes = numaNodes;
+            _usedNumaNodes = std::move(numaNodes);
         }
         for (auto streamId = 0; streamId < streams_num; ++streamId) {
             _threads.emplace_back([this, streamId] {
@@ -362,7 +393,38 @@ struct CPUStreamsExecutor::Impl {
             task();
         }
 #else
+        pin_stream_to_cpus();
         task();
+        unpin_stream_to_cpus();
+#endif
+    }
+
+    void pin_stream_to_cpus() {
+#if OV_THREAD == OV_THREAD_SEQ
+        if (_config.get_cpu_pinning()) {
+            auto stream = _streams.local();
+            auto proc_type_table = get_org_proc_type_table();
+            std::tie(stream->_mask, stream->_ncpus) = get_process_mask();
+            if (get_num_numa_nodes() > 1) {
+                pin_current_thread_to_socket(stream->_numaNodeId);
+            } else if (proc_type_table.size() == 1 && proc_type_table[0][EFFICIENT_CORE_PROC] == 0) {
+                if (nullptr != stream->_mask) {
+                    pin_thread_to_vacant_core(stream->_streamId + _config.get_thread_binding_offset(),
+                                              _config.get_thread_binding_step(),
+                                              stream->_ncpus,
+                                              stream->_mask);
+                }
+            }
+        }
+#endif
+    }
+
+    void unpin_stream_to_cpus() {
+#if OV_THREAD == OV_THREAD_SEQ
+        auto stream = _streams.local();
+        if (stream->_mask) {
+            pin_current_thread_by_mask(stream->_ncpus, stream->_mask);
+        }
 #endif
     }
 
@@ -394,21 +456,40 @@ struct CPUStreamsExecutor::Impl {
     std::vector<int> _usedNumaNodes;
     CustomThreadLocal _streams;
     std::shared_ptr<ExecutorManager> _exectorMgr;
+    bool _isExit = false;
 };
 
 int CPUStreamsExecutor::get_stream_id() {
+    if (!_impl->_streams.find_thread_id()) {
+        return 0;
+    }
     auto stream = _impl->_streams.local();
     return stream->_streamId;
 }
 
+int CPUStreamsExecutor::get_streams_num() {
+    return _impl->_config.get_streams();
+}
+
 int CPUStreamsExecutor::get_numa_node_id() {
+    if (!_impl->_streams.find_thread_id()) {
+        return 0;
+    }
     auto stream = _impl->_streams.local();
     return stream->_numaNodeId;
 }
 
 int CPUStreamsExecutor::get_socket_id() {
+    if (!_impl->_streams.find_thread_id()) {
+        return 0;
+    }
     auto stream = _impl->_streams.local();
     return stream->_socketId;
+}
+
+std::vector<int> CPUStreamsExecutor::get_rank() {
+    auto stream = _impl->_streams.local();
+    return stream->_rank;
 }
 
 CPUStreamsExecutor::CPUStreamsExecutor(const IStreamsExecutor::Config& config) : _impl{new Impl{config}} {}

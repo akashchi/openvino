@@ -27,12 +27,11 @@ bool ACLConvertExecutor::init(const ConvertParams& convertParams,
     if (!isCopyOp && dstPrecision == DataType::S8) {
         dstPrecision = DataType::QASYMM8_SIGNED;
     }
-    auto srcDims = srcDesc->getShape().getStaticDims();
-    auto dstDims = dstDesc->getShape().getStaticDims();
-    auto srcDataLayout = getAclDataLayoutByMemoryDesc(srcDesc);
-    auto dstDataLayout = getAclDataLayoutByMemoryDesc(dstDesc);
-    auto srcTensorInfo = TensorInfo(shapeCast(collapse_dims_to_max_rank(srcDims)), 1, srcPrecision, srcDataLayout);
-    auto dstTensorInfo = TensorInfo(shapeCast(collapse_dims_to_max_rank(dstDims)), 1, dstPrecision, dstDataLayout);
+    // Use 1D TensorInfo, since UNKNOWN DataLayout may have accuracy issues
+    auto srcDims1D = convertParams.size;
+    auto dstDims1D = convertParams.size;
+    auto srcTensorInfo = TensorInfo(TensorShape(srcDims1D), 1, srcPrecision);
+    auto dstTensorInfo = TensorInfo(TensorShape(dstDims1D), 1, dstPrecision);
     if (isCopyOp) {
         Status s = NECopy::validate(&srcTensorInfo, &dstTensorInfo);
         if (!s) {
@@ -52,10 +51,10 @@ bool ACLConvertExecutor::init(const ConvertParams& convertParams,
 
     if (isCopyOp) {
         acl_copy = std::make_unique<NECopy>();
-        acl_copy->configure(&srcTensor, &dstTensor);
+        configureThreadSafe([&] { acl_copy->configure(&srcTensor, &dstTensor); });
     } else {
         acl_cast = std::make_unique<NECast>();
-        acl_cast->configure(&srcTensor, &dstTensor, ConvertPolicy::SATURATE);
+        configureThreadSafe([&] { acl_cast->configure(&srcTensor, &dstTensor, ConvertPolicy::SATURATE); });
     }
     return true;
 }

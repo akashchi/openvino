@@ -792,6 +792,11 @@ int main(int argc, char* argv[]) {
                                               FLAGS_scale_values,
                                               FLAGS_mean_values,
                                               compiledModel.inputs());
+
+            batchSize = get_batch_size(app_inputs_info.at(0));
+            warn_if_no_batch(app_inputs_info.at(0));
+            slog::info << "Model batch size: " << batchSize << slog::endl;
+
             if (batchSize == 0) {
                 batchSize = 1;
             }
@@ -937,6 +942,7 @@ int main(int argc, char* argv[]) {
         // create vector to store remote input blobs buffer
         std::vector<::gpu::BufferType> clInputsBuffer;
         bool useGpuMem = false;
+        bool useNpuMem = false;
 
         std::map<std::string, ov::TensorVector> inputsData;
         if (isFlagSetInCommandLine("use_device_mem")) {
@@ -957,6 +963,12 @@ int main(int argc, char* argv[]) {
                         app_inputs_info[0],
                         nireq);
                 }
+            } else if (device_name.find("NPU") == 0) {
+                inputsData = ::npu::get_remote_input_tensors(inputFiles,
+                                                             app_inputs_info,
+                                                             compiledModel,
+                                                             inferRequestsQueue.requests.size());
+                useNpuMem = true;
             } else {
                 OPENVINO_THROW("Requested device doesn't support `use_device_mem` option.");
             }
@@ -1026,6 +1038,8 @@ int main(int argc, char* argv[]) {
                     const auto& inputTensor = inputsData.at(inputName)[i % inputsData.at(inputName).size()];
                     // for remote blobs setTensor is used, they are already allocated on the device
                     if (useGpuMem) {
+                        inferRequest->set_tensor(inputName, inputTensor);
+                    } else if (useNpuMem) {
                         inferRequest->set_tensor(inputName, inputTensor);
                     } else {
                         auto requestTensor = inferRequest->get_tensor(inputName);

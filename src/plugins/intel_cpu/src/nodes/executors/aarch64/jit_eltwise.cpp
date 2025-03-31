@@ -18,17 +18,41 @@ bool JitEltwiseExecutor::isSupported(
     const float beta,
     const float gamma) {
     const auto is_supported = one_of(algorithm,
+                                     Algorithm::EltwiseAbs,
                                      Algorithm::EltwiseAdd,
                                      Algorithm::EltwiseClamp,
                                      Algorithm::EltwiseDivide,
+                                     Algorithm::EltwiseElu,
                                      Algorithm::EltwiseEqual,
+                                     Algorithm::EltwiseExp,
+                                     Algorithm::EltwiseFloor,
+                                     Algorithm::EltwiseGeluErf,
+                                     Algorithm::EltwiseGeluTanh,
+                                     Algorithm::EltwiseGreater,
+                                     Algorithm::EltwiseGreaterEqual,
+                                     Algorithm::EltwiseHswish,
+                                     Algorithm::EltwiseIsFinite,
+                                     Algorithm::EltwiseIsInf,
+                                     Algorithm::EltwiseIsNaN,
+                                     Algorithm::EltwiseLessEqual,
+                                     Algorithm::EltwiseLogicalNot,
+                                     Algorithm::EltwiseLogicalXor,
+                                     Algorithm::EltwiseMaximum,
+                                     Algorithm::EltwiseMinimum,
+                                     Algorithm::EltwiseMish,
+                                     Algorithm::EltwiseMod,
                                      Algorithm::EltwiseMultiply,
                                      Algorithm::EltwiseMulAdd,
                                      Algorithm::EltwisePowerStatic,
                                      Algorithm::EltwisePrelu,
                                      Algorithm::EltwiseRelu,
                                      Algorithm::EltwiseSelect,
-                                     Algorithm::EltwiseSubtract);
+                                     Algorithm::EltwiseSigmoid,
+                                     Algorithm::EltwiseSoftSign,
+                                     Algorithm::EltwiseSqrt,
+                                     Algorithm::EltwiseSubtract,
+                                     Algorithm::EltwiseSwish,
+                                     Algorithm::EltwiseTanh);
     if (!is_supported) {
         return false;
     }
@@ -61,9 +85,8 @@ bool JitEltwiseExecutor::isSupported(
     };
 
     const std::set<ov::element::Type> supported_precisions =
-        (algorithm == Algorithm::EltwiseDivide) ?
-            // Divide operation doesn't support int32 tensor inference in fp32 precision.
-            // As result Divide operation supports fp16 and fp32 only.
+        // Divide and Floor (issue #138629) operations are supported for fp32 and fp16 only.
+        ((algorithm == Algorithm::EltwiseDivide) || (algorithm == Algorithm::EltwiseFloor)) ?
             std::set<ov::element::Type> { ov::element::f16, ov::element::f32 } :
             std::set<ov::element::Type> {
                 ov::element::f16,

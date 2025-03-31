@@ -32,8 +32,8 @@ OutputVector create_argmax_argmin_op(const NodeContext& context, TopKMode mode) 
     if (!context.input_is_none(1)) {
         auto axis = context.const_input<int64_t>(1);
         auto topk = context.mark_node(
-            std::make_shared<v11::TopK>(input, k, axis, mode, TopKSortType::SORT_VALUES, element::i32, true));
-        indices = context.mark_node(std::make_shared<v0::Convert>(topk->output(1), element::i64));
+            std::make_shared<v11::TopK>(input, k, axis, mode, TopKSortType::SORT_VALUES, element::i64, true));
+        indices = topk->output(1);
         if (!keep_dims) {
             auto axis_to_remove = context.mark_node(v0::Constant::create(element::i32, Shape{}, {axis}));
             indices = context.mark_node(std::make_shared<v0::Squeeze>(indices, axis_to_remove));
@@ -43,11 +43,10 @@ OutputVector create_argmax_argmin_op(const NodeContext& context, TopKMode mode) 
         auto minus_one = context.mark_node(v0::Constant::create(element::i32, Shape{1}, {-1}));
         auto flatten_input = context.mark_node(std::make_shared<v1::Reshape>(input, minus_one, false));
         auto topk = context.mark_node(
-            std::make_shared<v11::TopK>(flatten_input, k, axis, mode, TopKSortType::SORT_VALUES, element::i32, true));
-        indices = context.mark_node(std::make_shared<v0::Convert>(topk->output(1), element::i64));
+            std::make_shared<v11::TopK>(flatten_input, k, axis, mode, TopKSortType::SORT_VALUES, element::i64, true));
+        indices = topk->output(1);
         if (keep_dims) {
-            auto input_shape = context.mark_node(std::make_shared<v3::ShapeOf>(input, element::i32));
-            auto input_rank = context.mark_node(std::make_shared<v3::ShapeOf>(input_shape, element::i32));
+            auto input_rank = std::get<1>(get_shape_rank(context, input));
             auto new_shape = context.mark_node(std::make_shared<v3::Broadcast>(k, input_rank));
             indices =
                 context.mark_node(std::make_shared<v3::Broadcast>(indices, new_shape, BroadcastType::BIDIRECTIONAL));
@@ -56,7 +55,7 @@ OutputVector create_argmax_argmin_op(const NodeContext& context, TopKMode mode) 
             indices = context.mark_node(std::make_shared<v0::Squeeze>(indices, zero));
         }
     }
-    return {indices};
+    return {std::move(indices)};
 }
 
 };  // namespace

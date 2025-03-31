@@ -1,4 +1,4 @@
-# Copyright (C) 2022 Intel Corporation
+# Copyright (C) 2022-2024 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
 import numpy as np
@@ -22,15 +22,14 @@ class TestKerasConvLSTM2D(CommonTF2LayerTest):
     def create_keras_conv_lstm_2d_net(self, params, input_shapes):
         # create TensorFlow 2 model with Keras ConvLSTM2D operation
         tf.keras.backend.clear_session()
-        
+
         activation = params.get('activation', None)
         recurrent_activation = params.get('recurrent_activation', None)
-        
-        if activation is not None:
-          params['activation'] = tf.keras.activations.get(activation)
-        if recurrent_activation is not None:
-          params['recurrent_activation'] = tf.keras.activations.get(recurrent_activation)
 
+        if activation is not None:
+            params['activation'] = tf.keras.activations.get(activation)
+        if recurrent_activation is not None:
+            params['recurrent_activation'] = tf.keras.activations.get(recurrent_activation)
 
         x = tf.keras.Input(shape=input_shapes[0][1:], name="x")
         y = tf.keras.layers.ConvLSTM2D(**params)(x)
@@ -44,8 +43,8 @@ class TestKerasConvLSTM2D(CommonTF2LayerTest):
              input_shapes=[[2, 5, 20, 30, 2]]),
         dict(params=dict(filters=6, kernel_size=(2, 3), padding='valid', dilation_rate=3,
                          recurrent_activation="elu", return_sequences=True, use_bias=True,
-                         data_format="channels_first"),
-             input_shapes=[[2, 5, 1, 40, 30]]),
+                         data_format="channels_last"),
+             input_shapes=[[2, 5, 40, 30, 1]]),
         dict(params=dict(filters=3, kernel_size=(3, 3), padding='valid', return_sequences=False),
              input_shapes=[[2, 5, 20, 30, 1]]),
         dict(params=dict(filters=2, kernel_size=(2, 2), padding='same', return_sequences=False, activation="swish"),
@@ -60,7 +59,7 @@ class TestKerasConvLSTM2D(CommonTF2LayerTest):
     ]
 
     @pytest.mark.parametrize("params", test_data_basic)
-    @pytest.mark.precommit_tf_fe
+    @pytest.mark.precommit
     @pytest.mark.nightly
     def test_keras_conv_lstm_2d_basic(self, params, ie_device, precision, ir_version, temp_dir,
                                       use_legacy_frontend):

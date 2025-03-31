@@ -90,7 +90,6 @@ class layout_optimizer {
 public:
     enum class optimization_attributes_type {
         group_convolution,
-        deformable_convolution,
         bfyx_only_layer,
         fs_b_yx_fsv32_network,
         b_fs_zyx_fsv32_network,
@@ -102,7 +101,6 @@ public:
 
     struct optimization_attributes {
         int32_t group_convolution = 0;
-        int32_t deformable_convolution = 0;
         int32_t bfyx_only_layer = 0;
         int32_t fs_b_yx_fsv32_network = 0;
         int32_t b_fs_zyx_fsv32_network = 0;
@@ -181,14 +179,6 @@ public:
     impl_types get_preferred_impl_type(program_node& node, format preferred_format);
 
     impl_types get_forced_impl_type_by_config(program_node& node);
-    static bool is_node_suitable_for_onednn(program_node& node);
-    static bool are_data_types_suitable_for_onednn(program_node& node);
-    bool are_layouts_suitable_for_onednn(program_node& node);
-    static bool onednn_check_data_types_for_pooling(data_types in_dt, data_types out_dt);
-    static bool onednn_check_data_types_for_convolution(data_types in_dt, data_types wei_dt, data_types out_dt);
-    static bool onednn_check_data_types_for_deconvolution(data_types in_dt, data_types wei_dt, data_types out_dt);
-    static bool onednn_check_data_types_for_fc_gemm(data_types in_dt, data_types wei_dt, data_types out_dt);
-    static bool onednn_check_preferred_impl_type_of_users(program_node& node);
     bool is_primitive_implemented_for_onednn(program_node& node);
     bool is_format_supported(program_node& node, format::type fmt);
 
@@ -201,7 +191,7 @@ public:
     optimization_attributes get_optimization_attributes() { return _optimization_attributes; }
 
     void set_implementation_forcing(const ov::intel_gpu::ImplForcingMap& map);
-    const std::map<primitive_id, std::pair<format::type, impl_types>> get_implementation_forcing() const;
+    const std::map<primitive_id, std::pair<format::type, impl_types>>& get_implementation_forcing() const;
 
     void update_formats_map(const convolution_node& node);
     bool is_format_optimized(const convolution_node& node, const format& format, bool use_weak_restrictions = false);
@@ -210,9 +200,5 @@ public:
     size_t get_total_conv_count();
 
     bool should_select_b_fs_yx_fsv16_layout(convolution_node const& node, layout const& output_or_weights_layout);
-
-#ifdef ENABLE_ONEDNN_FOR_GPU
-    void select_preferred_formats_for_onednn(program_node& node, dnnl::primitive_desc prim_desc = dnnl::primitive_desc());
-#endif
 };
 }  // namespace cldnn

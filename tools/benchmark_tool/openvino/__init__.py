@@ -21,6 +21,7 @@ except ImportError:
 from openvino import runtime as runtime
 from openvino import frontend as frontend
 from openvino import helpers as helpers
+from openvino import experimental as experimental
 from openvino import preprocess as preprocess
 from openvino import utils as utils
 from openvino import properties as properties
@@ -32,6 +33,7 @@ from openvino.runtime import CompiledModel
 from openvino.runtime import InferRequest
 from openvino.runtime import AsyncInferQueue
 
+from openvino.runtime import Symbol
 from openvino.runtime import Dimension
 from openvino.runtime import Strides
 from openvino.runtime import PartialShape
@@ -52,6 +54,7 @@ from openvino.runtime import layout_helpers
 
 from openvino._pyopenvino import RemoteContext
 from openvino._pyopenvino import RemoteTensor
+from openvino._pyopenvino import Op
 
 # libva related:
 from openvino._pyopenvino import VAContext

@@ -8,41 +8,45 @@ Interface OutputTensorInfo
        setLayout(layout): InputTensorInfo;
    }
 
-- Defined in
-  `addon.ts:104 <https://github.com/openvinotoolkit/openvino/blob/master/src/bindings/js/node/lib/addon.ts#L104>`__
+* **Defined in:**
+  `addon.ts:581 <https://github.com/openvinotoolkit/openvino/blob/master/src/bindings/js/node/lib/addon.ts#L581>`__
+
 
 Methods
 #####################
 
+
 .. rubric:: setElementType
 
+*
 
-.. code-block:: ts
+   .. code-block:: ts
 
-   setElementType(elementType): InputTensorInfo
+      setElementType(elementType): InputTensorInfo
 
-**Parameters**
+   * **Parameters:**
 
-- elementType: elementTypeString | element
+     - elementType: elementTypeString | element
 
-**Returns** :doc:`InputTensorInfo <InputTensorInfo>`
+   * **Returns** :doc:`InputTensorInfo <InputTensorInfo>`
 
-- Defined in
-  `addon.ts:105 <https://github.com/openvinotoolkit/openvino/blob/master/src/bindings/js/node/lib/addon.ts#L105>`__
+   * **Defined in:**
+     `addon.ts:582 <https://github.com/openvinotoolkit/openvino/blob/master/src/bindings/js/node/lib/addon.ts#L582>`__
 
 .. rubric:: setLayout
 
+*
 
-.. code-block:: ts
+   .. code-block:: ts
 
-   setLayout(layout): InputTensorInfo
+      setLayout(layout): InputTensorInfo
 
+   * **Parameters:**
 
-**Parameters**
+     - layout: string
 
-- layout: string
+   * **Returns:** :doc:`InputTensorInfo <InputTensorInfo>`
 
-**Returns** :doc:`InputTensorInfo <InputTensorInfo>`
+   * **Defined in:**
+     `addon.ts:583 <https://github.com/openvinotoolkit/openvino/blob/master/src/bindings/js/node/lib/addon.ts#L583>`__
 
-- Defined in
-  `addon.ts:106 <https://github.com/openvinotoolkit/openvino/blob/master/src/bindings/js/node/lib/addon.ts#L106>`__

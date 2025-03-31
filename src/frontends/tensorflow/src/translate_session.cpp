@@ -388,7 +388,8 @@ TranslateSession::TranslateSession(const ov::frontend::InputModel::Ptr& input_mo
       m_translator_map(translator_map),
       m_model_name(model_name),
       m_ov_model(nullptr),
-      m_cached_body_models(std::make_shared<CachedBodyModelsType>()) {}
+      m_cached_body_models(std::make_shared<CachedBodyModelsType>()),
+      m_variables_map(std::make_shared<VariableMap>()) {}
 
 std::shared_ptr<ov::Model> TranslateSession::get_converted_model() {
     if (m_ov_model) {
@@ -401,7 +402,7 @@ std::shared_ptr<ov::Model> TranslateSession::get_converted_model() {
 void TranslateSession::translate_graph(const ov::frontend::InputModel::Ptr& input_model,
                                        std::shared_ptr<ov::Model>& ov_model) {
     NameTensorMapPtr ov_tensors_map = std::make_shared<NameTensorMap>();
-    VariableMap::Ptr ov_variables_map = std::make_shared<VariableMap>();
+    VariableMap::Ptr ov_variables_map = get_variable_map();
     ControlDepsMap control_deps_map;
     std::vector<std::shared_ptr<LoopCond>> loop_cond_ops;
     std::vector<std::shared_ptr<Enter>> enter_ops;
@@ -438,6 +439,7 @@ void TranslateSession::translate_graph(const ov::frontend::InputModel::Ptr& inpu
         const auto& input_tensor_place = std::dynamic_pointer_cast<TensorPlace>(input_place);
         auto input_shape = input_tensor_place->get_partial_shape();
         auto input_type = input_tensor_place->get_element_type();
+        auto input_op_name = input_tensor_place->get_operation_name();
 
         // in case of cutting graph, types of custom inputs can be dynamic,
         // according to MO help, fp32 is used by default in such cases
@@ -452,7 +454,7 @@ void TranslateSession::translate_graph(const ov::frontend::InputModel::Ptr& inpu
             param->set_friendly_name(input_name);
             set_out_name(input_name, param);
             params.push_back(param);
-            (*ov_tensors_map)[input_name] = {NamedOutput(param)};
+            (*ov_tensors_map)[input_op_name] = {NamedOutput(param)};
         }
     }
 

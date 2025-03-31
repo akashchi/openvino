@@ -11,6 +11,7 @@
 #include "openvino/op/constant.hpp"
 #include "openvino/op/subtract.hpp"
 #include "openvino/op/matmul.hpp"
+#include "openvino/op/multiply.hpp"
 #include "openvino/op/convert.hpp"
 #include "openvino/op/transpose.hpp"
 #include "openvino/op/reshape.hpp"
@@ -30,8 +31,7 @@ ConvertFullyConnectedToFullyConnectedCompressed::ConvertFullyConnectedToFullyCon
         return (output.get_element_type() == ov::element::u8 ||
                 output.get_element_type() == ov::element::i8 ||
                 output.get_element_type() == ov::element::u4 ||
-                output.get_element_type() == ov::element::i4) &&
-               output.get_target_inputs().size() == 1;
+                output.get_element_type() == ov::element::i4);
     };
 
     auto reshape_3d_to_2d = [](const ov::Output<ov::Node>& output) {
@@ -43,13 +43,13 @@ ConvertFullyConnectedToFullyConnectedCompressed::ConvertFullyConnectedToFullyCon
     auto weights_m = wrap_type<ov::op::v0::Constant>(compressed_constant);
     auto convert_m = wrap_type<ov::op::v0::Convert>({weights_m});
 
-    auto sub_const_m = wrap_type<ov::op::v0::Constant>(consumers_count(1));
+    auto sub_const_m = wrap_type<ov::op::v0::Constant>();
     auto sub_convert_const_m = wrap_type<ov::op::v0::Convert>({sub_const_m});
     auto sub_with_convert_m = wrap_type<ov::op::v1::Subtract>({convert_m, sub_convert_const_m});
     auto sub_no_convert_m = wrap_type<ov::op::v1::Subtract>({convert_m, sub_const_m});
     auto subtract_m = std::make_shared<ov::pass::pattern::op::Or>(OutputVector{sub_with_convert_m, sub_no_convert_m});
 
-    auto mul_const_m = wrap_type<ov::op::v0::Constant>(consumers_count(1));
+    auto mul_const_m = wrap_type<ov::op::v0::Constant>();
     auto mul_with_sub_m = wrap_type<ov::op::v1::Multiply>({subtract_m, mul_const_m});
     auto mul_no_sub_m = wrap_type<ov::op::v1::Multiply>({convert_m, mul_const_m});
     auto mul_m = std::make_shared<ov::pass::pattern::op::Or>(OutputVector{mul_with_sub_m, mul_no_sub_m});
@@ -66,7 +66,7 @@ ConvertFullyConnectedToFullyConnectedCompressed::ConvertFullyConnectedToFullyCon
     auto weights_input_m = std::make_shared<ov::pass::pattern::op::Or>(ov::OutputVector{reshape_m, transpose_m, mul_m});
     auto fully_connected_m = wrap_type<op::FullyConnected>({data_m, weights_input_m, bias_m});
 
-    ov::matcher_pass_callback callback = [=](ov::pass::pattern::Matcher& m) {
+    ov::matcher_pass_callback callback = [OV_CAPTURE_CPY_AND_THIS](ov::pass::pattern::Matcher& m) {
         const auto& pattern_map = m.get_pattern_value_map();
         OPENVINO_ASSERT(pattern_map.count(fully_connected_m));
         OPENVINO_ASSERT(pattern_map.count(mul_const_m));
@@ -81,13 +81,20 @@ ConvertFullyConnectedToFullyConnectedCompressed::ConvertFullyConnectedToFullyCon
         bool has_transpose = pattern_map.count(transpose_m);
         auto scale_shape = pattern_map.at(mul_const_m).get_shape();
         bool grouped = std::count_if(scale_shape.begin(), scale_shape.end(), [](size_t d) { return d > 1; }) > 1;
+        bool sub_with_convert = (pattern_map.count(sub_with_convert_m) > 0) ? true : false;
+
+        auto weight_ptr = std::dynamic_pointer_cast<ov::op::v0::Constant>(pattern_map.at(weights_m).get_node_shared_ptr());
+        bool weight_u8 = false;
+        if (weight_ptr->get_element_type() == ov::element::u8 || weight_ptr->get_element_type() == ov::element::i8)
+            weight_u8 = true;
 
         auto reshape_const_to_2d = [has_transpose, grouped](std::shared_ptr<ov::Node> node) {
             auto constant = std::dynamic_pointer_cast<ov::op::v0::Constant>(node);
             OPENVINO_ASSERT(constant != nullptr);
             ov::Shape current_shape = constant->get_shape();
-            if (current_shape.size() == 2)
+            if (current_shape.size() <= 2)
                 return constant;
+
             OPENVINO_ASSERT(current_shape.size() == 3);
 
             auto new_shape = (has_transpose || !grouped) ? ov::Shape{current_shape[0] * current_shape[1], current_shape[2]}
@@ -96,13 +103,27 @@ ConvertFullyConnectedToFullyConnectedCompressed::ConvertFullyConnectedToFullyCon
             return std::make_shared<ov::op::v0::Constant>(*constant, new_shape);
         };
 
+        auto convert_const_to_u8 = [&](std::shared_ptr<ov::Node> node) {
+            auto constant = std::dynamic_pointer_cast<ov::op::v0::Constant>(node);
+            // Convert ZP to u8
+            if (constant->get_element_type() == ov::element::u8)
+                return std::dynamic_pointer_cast<ov::Node>(constant);
+            if (constant->get_element_type() == ov::element::u4)
+                return std::dynamic_pointer_cast<ov::Node>(std::make_shared<ov::op::v0::Convert>(node, ov::element::u8));
+            if (weight_u8 && sub_with_convert)
+                return std::dynamic_pointer_cast<ov::Node>(std::make_shared<ov::op::v0::Convert>(node, ov::element::u8));
+
+            return std::dynamic_pointer_cast<ov::Node>(constant);
+        };
+
+
         const ov::Output<Node>& fc_input_a = fc->input(0).get_source_output();
         const auto& scale = reshape_const_to_2d(pattern_map.at(mul_const_m).get_node_shared_ptr());
         std::shared_ptr<ov::Node> optional_zero_point = nullptr;
 
         const bool with_zero_point = pattern_map.count(sub_no_convert_m) > 0 || pattern_map.count(sub_with_convert_m) > 0;
         if (with_zero_point) {
-            optional_zero_point = reshape_const_to_2d(pattern_map.at(sub_const_m).get_node_shared_ptr());
+            optional_zero_point = convert_const_to_u8(reshape_const_to_2d(pattern_map.at(sub_const_m).get_node_shared_ptr()));
         }
 
         std::shared_ptr<ov::Node> fc_input_b = reshape_const_to_2d(pattern_map.at(weights_m).get_node_shared_ptr());

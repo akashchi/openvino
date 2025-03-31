@@ -27,7 +27,6 @@ std::vector<std::string> disabledTestPatterns() {
             R"(.*(ProposalLayerTest).*)",
             // TODO: Issue: 54194
             R"(.*ActivationLayerTest.*SoftPlus.*)",
-            R"(.*Behavior.*InferRequestSetBlobByType.*Device=HETERO.*)",
             // TODO: Issue: 59586, NormalizeL2 output mismatch for empty axes case
             R"(.*NormalizeL2LayerTest.*axes=\(\).*)",
 
@@ -53,16 +52,15 @@ std::vector<std::string> disabledTestPatterns() {
             R"(.*smoke.*BehaviorTests.*DynamicInputToDynamicOutput.*)",
             // TODO: Issue: 89555
             R"(.*CoreThreadingTestsWithIter.*)",
+            // TODO: Issue: 145926
+            R"(.*CoreThreadingTest.smoke_QueryModel.*)",
             // Assign-3/ReadValue-3 does not have evaluate() methods; ref implementation does not save the value across the inferences.
             R"(smoke_MemoryTestV3.*)",
             // Issue: 90539
-            R"(smoke_AutoBatch_BehaviorTests/OVInferRequestIOTensorTest.InferStaticNetworkSetInputTensor/targetDevice=BATCH.*)",
             R"(.*CachingSupportCase.*LoadNetworkCacheTestBase.*CompareWithRefImpl.*)",
             // Issue: 119648
             R"(.*smoke_LPT/InterpolateTransformation.*)",
             R"(.*CachingSupportCase.*GPU.*CompileModelCacheTestBase.*CompareWithRefImpl.*)",
-            // unsupported metrics
-            R"(.*nightly_HeteroAutoBatchOVGetMetricPropsTest.*OVGetMetricPropsTest.*(FULL_DEVICE_NAME_with_DEVICE_ID|AVAILABLE_DEVICES|DEVICE_UUID|OPTIMIZATION_CAPABILITIES|MAX_BATCH_SIZE|DEVICE_GOPS|DEVICE_TYPE|RANGE_FOR_ASYNC_INFER_REQUESTS|RANGE_FOR_STREAMS).*)",
             // Issue: 111437
             R"(.*smoke_Deconv_2D_Dynamic_.*FP32/DeconvolutionLayerGPUTest.Inference.*)",
             R"(.*smoke_GroupDeconv_2D_Dynamic_.*FP32/GroupDeconvolutionLayerGPUTest.Inference.*)",
@@ -77,12 +75,8 @@ std::vector<std::string> disabledTestPatterns() {
             R"(.*smoke_LPT.*ElementwiseBranchSelectionTransformation.*)",
             // Issue: 123493
             R"(.*GroupNormalizationTest.*CompareWithRefs.*NetType=f16.*)",
-            // Issue: 125165
-            R"(smoke_Nms9LayerTest.*)",
             // Doesn't match reference results as v6 ref impl behavior is misaligned with expected
             R"(smoke_MemoryTestV3.*)",
-            // Issue: 129991
-            R"(.*StridedSliceLayerTest.*TS=.*2.2.4.1*.*)",
             // Issue: CVS-133173
             R"(.*smoke_CTCLoss_Set2/CTCLossLayerTest.Inference/IS=\(\[\]\)_TS=\{\(3.6.8\)\}_LL=\(6.5.6\)_A=\(4.1.2.3.4.5\)\(5.4.3.0.1.0\)\(2.1.3.1.3.0\)_AL=\(3.3.5\)_BI=7_PCR=1_CMR=1_U=0_PF=f32_PI=i64.*)",
             R"(.*smoke_LPT/BatchToSpaceTransformation.CompareWithRefImpl/f16_GPU_\[4,3,50,86\]_level=256_shape=\[1,1,1,1\]_input_low=\{ 0 \}_input_high=\{ 2.55 \}_output_low=\{ 0 \}_output_high\{ 2.55 \}_precision=.*)",
@@ -160,12 +154,8 @@ std::vector<std::string> disabledTestPatterns() {
             R"(.*smoke_MVN_4D/Mvn6LayerTest.Inference/.*TS=\{\(1.3.8.9\)\}.*_ModelType=f16.*Ax=\((2.3|1.2.3)\).*)",
             R"(.*smoke_MVN_3D/Mvn6LayerTest.Inference/IS=\(\[\]\)_TS=\{\(1.32.17\)\}_ModelType=f16_AxType=(i64|i32)_Ax=\((1.2|2)\).*)",
             R"(.*smoke_MVN_2D/Mvn6LayerTest.Inference.*TS=\{\(2.55\)\}_ModelType=f32_.*)",
-
-
             R"(.*smoke_Decomposition_6D/Mvn6LayerTest.Inference.*ModelType=(f16|f32).*Ax=\(0.1.2\).*)",
             R"(.*smoke_Decomposition_6D/Mvn6LayerTest.Inference.*ModelType=(f16|f32).*Ax=\(0.1.5\).*)",
-
-
             R"(.*smoke_Decomposition_4D/Mvn6LayerTest.Inference.*ModelType=f16.*Ax=\(1\).*)",
             R"(.*smoke_CTCLoss_Set2/CTCLossLayerTest.Inference/.*_LL=\(6.5.6\)_A=\(2.1.5.3.2.6\)\(3.3.3.3.3.3\)\(6.5.6.5.6.5\)_.*_BI=7_.*_CMR=1_U=1_PF=f16.*)",
             R"(.*smoke_RMSNormDecomposition_basic/RMSNormDecomposition.Inference/.*precision=f32.*)",
@@ -207,7 +197,13 @@ std::vector<std::string> disabledTestPatterns() {
             R"(.*smoke_ConvolutionBackpropData3D_AutoPadding_OutputPaddingDefined/ConvolutionBackpropDataLayerTest.Inference/.*_TS=\{\(1.16.5.5.5\)\}_.*_netPRC=f16_.*)",
             R"(.*smoke_PSROIPooling_average/PSROIPoolingLayerTest.Inference/IS=\(3.8.16.16\)_coord_shape=\(10.5\)_out_dim=2_group_size=2_scale=(0.625|1)_bins_x=1_bins_y=1_mode=average_modelType=f16.*)",
             R"(.*smoke_RDFT_5d_last_axis/RDFTLayerTest.Inference/IS=\(10.4.8.2.5\)_modelType=f32_Axes=\(0.1.2.3.4\)_SignalSize=\(\).*)",
+            // Issue: 136862
+            R"(.*smoke_ConditionGPUTest_static/StaticConditionLayerGPUTest.CompareWithRefs/IS=\(3.6\)_netPRC=i8_ifCond=PARAM_targetDevice=GPU_.*)",
+            // Issue: 142900
+            R"(.*smoke_TestsROIAlign_.*ROIAlignV9LayerTest.*)",
+
 #if defined(_WIN32)
+            // by calc abs_threshold with expected value
             R"(.*smoke_RemoteTensor/OVRemoteTensorBatched_Test.NV12toBGR_buffer/(num_batch_4|num_batch_2).*)",
             R"(.*smoke_Check/ConstantResultSubgraphTest.Inference/SubgraphType=SINGLE_COMPONENT_IS=\[1,3,10,10\]_IT=i16_Device=GPU.*)",
 #endif

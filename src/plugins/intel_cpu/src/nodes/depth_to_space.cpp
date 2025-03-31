@@ -137,7 +137,7 @@ void DepthToSpace::initSupportedPrimitiveDescriptors() {
     std::vector<LayoutType> supportedTypes;
     if (inputDataShape.getRank() > 2) {
         const auto& srcDims = inputDataShape.getDims();
-        auto canUseBlocked = [=](const size_t block) {
+        auto canUseBlocked = [OV_CAPTURE_CPY_AND_THIS](const size_t block) {
             return srcDims[1] != Shape::UNDEFINED_DIM && srcDims[1] % block == 0 && (srcDims[1] / block) % attrs.blockStep == 0 &&
                    (attrs.mode == Mode::DEPTH_FIRST ? block % attrs.blockStep == 0 : true);
         };
@@ -162,10 +162,10 @@ void DepthToSpace::initSupportedPrimitiveDescriptors() {
 void DepthToSpace::createPrimitive() {
     auto dstMemPtr = getDstMemoryAtPort(0);
     auto srcMemPtr = getSrcMemoryAtPort(0);
-    if (!dstMemPtr || !dstMemPtr->isAllocated())
-        THROW_ERROR("has not allocated destination memory");
-    if (!srcMemPtr || !srcMemPtr->isAllocated())
-        THROW_ERROR("has not allocated input memory");
+    if (!dstMemPtr)
+        THROW_ERROR("has null destination memory");
+    if (!srcMemPtr)
+        THROW_ERROR("has null input memory");
     if (getSelectedPrimitiveDescriptor() == nullptr)
         THROW_ERROR("has unidentified preferable primitive descriptor");
 

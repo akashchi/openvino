@@ -19,6 +19,7 @@
 #include "pyopenvino/graph/node_factory.hpp"
 #include "pyopenvino/graph/node_input.hpp"
 #include "pyopenvino/graph/node_output.hpp"
+#include <pyopenvino/graph/op.hpp>
 #if defined(ENABLE_OV_ONNX_FRONTEND)
 #    include "pyopenvino/graph/onnx_import/onnx_import.hpp"
 #endif
@@ -35,6 +36,7 @@
 #include "pyopenvino/core/tensor.hpp"
 #include "pyopenvino/core/variable_state.hpp"
 #include "pyopenvino/core/version.hpp"
+#include "pyopenvino/experimental/experimental.hpp"
 #include "pyopenvino/frontend/decoder.hpp"
 #include "pyopenvino/frontend/extension.hpp"
 #include "pyopenvino/frontend/frontend.hpp"
@@ -46,13 +48,16 @@
 #include "pyopenvino/graph/descriptors/tensor.hpp"
 #include "pyopenvino/graph/dimension.hpp"
 #include "pyopenvino/graph/discrete_type_info.hpp"
+#include "pyopenvino/graph/attribute_visitor.hpp"
 #include "pyopenvino/graph/layout.hpp"
 #include "pyopenvino/graph/layout_helpers.hpp"
 #include "pyopenvino/graph/ops/assign.hpp"
 #include "pyopenvino/graph/ops/constant.hpp"
 #include "pyopenvino/graph/ops/if.hpp"
 #include "pyopenvino/graph/ops/loop.hpp"
+#include "pyopenvino/graph/ops/paged_attention_extension.hpp"
 #include "pyopenvino/graph/ops/parameter.hpp"
+#include "pyopenvino/graph/ops/read_value.hpp"
 #include "pyopenvino/graph/ops/result.hpp"
 #include "pyopenvino/graph/ops/tensor_iterator.hpp"
 #include "pyopenvino/graph/ops/util/regmodule_graph_op_util.hpp"
@@ -62,6 +67,7 @@
 #include "pyopenvino/graph/rt_map.hpp"
 #include "pyopenvino/graph/shape.hpp"
 #include "pyopenvino/graph/strides.hpp"
+#include "pyopenvino/graph/symbol.hpp"
 #include "pyopenvino/graph/types/regmodule_graph_types.hpp"
 #include "pyopenvino/graph/util.hpp"
 #include "pyopenvino/utils/utils.hpp"
@@ -190,7 +196,7 @@ PYBIND11_MODULE(_pyopenvino, m) {
             :type model: openvino.runtime.Model
             :param output_model: path to output model file
             :type output_model: Union[str, bytes, pathlib.Path]
-            :param compress_to_fp16: whether to compress floating point weights to FP16 (default: True)
+            :param compress_to_fp16: whether to compress floating point weights to FP16 (default: True). The parameter is ignored for pre-optimized models.
             :type compress_to_fp16: bool
 
             :Examples:
@@ -215,11 +221,13 @@ PYBIND11_MODULE(_pyopenvino, m) {
 
     regclass_graph_PyRTMap(m);
     regmodule_graph_types(m);
+    regclass_graph_Symbol(m);     // Symbol must be registered before Dimension
     regclass_graph_Dimension(m);  // Dimension must be registered before PartialShape
     regclass_graph_Layout(m);
     regclass_graph_Shape(m);
     regclass_graph_PartialShape(m);
     regclass_graph_Node(m);
+    regclass_graph_Op(m);
     regclass_graph_Input(m);
     regclass_graph_NodeFactory(m);
     regclass_graph_Strides(m);
@@ -229,10 +237,13 @@ PYBIND11_MODULE(_pyopenvino, m) {
     regclass_graph_Coordinate(m);
     regclass_graph_descriptor_Tensor(m);
     regclass_graph_DiscreteTypeInfo(m);
+    regclass_graph_AttributeVisitor(m);
     py::module m_op = m.def_submodule("op", "Package ngraph.impl.op that wraps ov::op");  // TODO(!)
     regclass_graph_op_Assign(m_op);
     regclass_graph_op_Constant(m_op);
+    regclass_graph_op_PagedAttentionExtension(m_op);
     regclass_graph_op_Parameter(m_op);
+    regclass_graph_op_ReadValue(m_op);
     regclass_graph_op_Result(m_op);
     regclass_graph_op_If(m_op);
     regclass_graph_op_Loop(m_op);
@@ -242,6 +253,7 @@ PYBIND11_MODULE(_pyopenvino, m) {
     regmodule_graph_onnx_import(m);
 #endif
     regmodule_graph_op_util(m_op);
+    regmodule_experimental(m);
     py::module m_preprocess =
         m.def_submodule("preprocess", "Package openvino.runtime.preprocess that wraps ov::preprocess");
     regclass_graph_PrePostProcessor(m_preprocess);

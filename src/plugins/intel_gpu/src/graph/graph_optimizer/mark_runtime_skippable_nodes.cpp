@@ -4,22 +4,52 @@
 
 #include "pass_manager.h"
 #include "gather_inst.h"
+#include "non_max_suppression_inst.h"
 #include "permute_inst.h"
 #include "strided_slice_inst.h"
 #include "kv_cache_inst.h"
 #include "gemm_inst.h"
+#include "shape_of_inst.h"
 #include "broadcast_inst.h"
+#include "non_zero_inst.h"
+#include "non_max_suppression_inst.h"
+#include "unique_inst.hpp"
 #include "program_helpers.h"
 
 using namespace cldnn;
 
 void mark_runtime_skippable_nodes::run(program& p) {
     auto itr = p.get_processing_order().begin();
+
     while (itr != p.get_processing_order().end()) {
         auto& node = *itr++;
         // Set gathers that might be skipped at runtime as can_be_optimized.
         // If not set, memory dependency will not work for the nodes that are skipped at runtime
-        program_helpers::do_for_types<gather>(*node, [](gather_node& node){
+        if (node->is_type<data>() || node->is_constant())
+            continue;
+
+        std::function<bool(const program_node& node)> all_users_are_shape_of = [&](const program_node& node) {
+            if (node.is_input() || node.is_output())
+                return false;
+            for (auto& u : node.get_users()) {
+                if (!u->is_type<shape_of>())
+                    return false;
+            }
+            return true;
+        };
+
+        if (all_users_are_shape_of(*node) &&
+            // primitives that should be executed to know output shapes
+            !node->is_type<gather_nonzero>() && !node->is_type<unique_gather>() &&
+            !node->is_type<non_max_suppression_gather>()) {
+            // always to skip, no runtime execution
+            node->can_be_optimized(true);
+            GPU_DEBUG_TRACE_DETAIL << "[mark_runtime_skippable_nodes] : " << node->id() << " has only shape_of as users. Set can_be_optimized always"
+                                   << std::endl;
+            continue;
+        }
+
+        program_helpers::do_for_types<gather>(*node, [](gather_node& node) {
             // Check pattern
             auto impl_params = node.get_kernel_impl_params();
             if (node.has_fused_primitives() ||
@@ -35,16 +65,22 @@ void mark_runtime_skippable_nodes::run(program& p) {
             if (impl_params->get_input_layout(0).get_partial_shape()[axis] == -1
                 || impl_params->get_input_layout(1).get_partial_shape()[0] == -1
                 || impl_params->get_input_layout(0).get_partial_shape()[axis] == impl_params->get_input_layout(1).get_partial_shape()[0]) {
-                // May be skipepd
+                // May be skipped
                 node.can_be_optimized(true);
+                // Set runtime skippable only when the node is set as can_be_optimized finally.
+                node.set_runtime_skippable(true);
                 GPU_DEBUG_TRACE_DETAIL << "[mark_runtime_skippable_nodes] : " << node.id() << " can_be_optimized" << std::endl;
             }
         });
         program_helpers::do_for_types<permute>(*node, [](permute_node& node){
+            // if node is already optimized at compilation time, do not handle at runtime
+            if (node.can_be_optimized())
+                return;
             auto impl_params = node.get_kernel_impl_params();
             if (node.is_output() ||
                 node.has_fused_primitives() ||
-                (impl_params->get_input_layout(0).data_type != impl_params->get_output_layout().data_type))
+                (impl_params->get_input_layout(0).data_type != impl_params->get_output_layout().data_type) ||
+                impl_params->get_input_layout(0).data_padding.is_dynamic())
                 return;
 
             // TODO: For now, all permutes with dynamic shape are applied.
@@ -56,6 +92,8 @@ void mark_runtime_skippable_nodes::run(program& p) {
                 if (node.have_user_with_type<concatenation>() && node.get_users().size() == 1)
                     return;
                 node.can_be_optimized(true);
+                // Set runtime skippable only when the node is set as can_be_optimized finally.
+                node.set_runtime_skippable(true);
                 GPU_DEBUG_TRACE_DETAIL << "[mark_runtime_skippable_nodes] : " << node.id() << " can_be_optimized" << std::endl;
             }
         });
@@ -94,6 +132,8 @@ void mark_runtime_skippable_nodes::run(program& p) {
             if (!end.empty() && !is_valid)
                 return;
             node.can_be_optimized(true);
+            // Set runtime skippable only when the node is set as can_be_optimized finally.
+            node.set_runtime_skippable(true);
             GPU_DEBUG_TRACE_DETAIL << "[mark_runtime_skippable_nodes] : " << node.id() << " can_be_optimized" << std::endl;
         });
         program_helpers::do_for_types<broadcast>(*node, [](broadcast_node& node){
@@ -132,6 +172,32 @@ void mark_runtime_skippable_nodes::run(program& p) {
                 }
 
                 node.can_be_optimized(true);
+                // Set runtime skippable only when the node is set as can_be_optimized finally.
+                node.set_runtime_skippable(true);
+                GPU_DEBUG_TRACE_DETAIL << "[mark_runtime_skippable_nodes] : " << node.id() << " can_be_optimized" << std::endl;
+            }
+        });
+        program_helpers::do_for_types<reorder>(*node, [](reorder_node& node){
+            auto impl_params = node.get_kernel_impl_params();
+
+            if ((node.is_output() && node.get_dependency(0).is_input())
+                || node.has_fused_primitives()
+                || (impl_params->get_input_layout(0).format != impl_params->get_output_layout().format)
+                || (impl_params->get_input_layout(0).data_type != impl_params->get_output_layout().data_type)
+                || (impl_params->get_input_layout(0).data_padding != impl_params->get_output_layout().data_padding))
+                return;
+
+            if (node.is_dynamic()) {
+                if (!node.is_output() && node.get_users().size() != 1)
+                    return;
+
+                // If the user is concatenation with 1 user and the concat is optimized, priority should be given to in place concat optimization at runtime
+                if (node.have_user_with_type<concatenation>() && node.get_users().front()->can_be_optimized())
+                    return;
+
+                node.can_be_optimized(true);
+                // Set runtime skippable only when the node is set as can_be_optimized finally.
+                node.set_runtime_skippable(true);
                 GPU_DEBUG_TRACE_DETAIL << "[mark_runtime_skippable_nodes] : " << node.id() << " can_be_optimized" << std::endl;
             }
         });

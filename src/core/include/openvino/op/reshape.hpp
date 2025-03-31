@@ -50,8 +50,9 @@ public:
     bool has_evaluate() const override;
     bool evaluate_upper(TensorVector& outputs) const override;
     bool evaluate_lower(TensorVector& outputs) const override;
-    bool evaluate_label(TensorLabelVector& output_labels) const override;
+    bool evaluate_symbol(TensorSymbolVector& output_symbols) const override;
     bool constant_fold(OutputVector& output_values, const OutputVector& inputs_values) override;
+    bool can_constant_fold(const OutputVector& inputs_values) const override;
 
 protected:
     bool m_special_zero;

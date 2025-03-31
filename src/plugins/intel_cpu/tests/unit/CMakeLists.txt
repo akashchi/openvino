@@ -14,7 +14,8 @@ endif()
 
 if(NOT (ARM OR AARCH64))
     list(APPEND EXCLUDED_SOURCE_PATHS_FOR_UNIT_TEST
-      ${CMAKE_CURRENT_SOURCE_DIR}/transformations/arm)
+      ${CMAKE_CURRENT_SOURCE_DIR}/transformations/arm
+      ${CMAKE_CURRENT_SOURCE_DIR}/snippets_transformations/arm)
 endif()
 
 if(NOT X86_64)
@@ -22,7 +23,7 @@ if(NOT X86_64)
       ${CMAKE_CURRENT_SOURCE_DIR}/jit_kernel_test.cpp
       ${CMAKE_CURRENT_SOURCE_DIR}/registers_pool.cpp
       ${CMAKE_CURRENT_SOURCE_DIR}/transformations/x64
-      ${CMAKE_CURRENT_SOURCE_DIR}/snippets_transformations
+      ${CMAKE_CURRENT_SOURCE_DIR}/snippets_transformations/x64
       ${CMAKE_CURRENT_SOURCE_DIR}/nodes/eltwise_node_test.cpp
       ${CMAKE_CURRENT_SOURCE_DIR}/brgemm_executor_test.cpp)
 endif()
@@ -31,6 +32,10 @@ if (NOT ENABLE_MLAS_FOR_CPU)
     list(APPEND EXCLUDED_SOURCE_PATHS_FOR_UNIT_TEST ${CMAKE_CURRENT_SOURCE_DIR}/gemm_api_test.cpp)
 else()
     set(MLAS_LIBRARY "mlas")
+endif()
+
+if (ENABLE_SHL_FOR_CPU)
+    set(SHL_LIBRARY "shl")
 endif()
 
 ov_add_test_target(
@@ -60,10 +65,18 @@ ov_add_test_target(
             ov_snippets_models
             snippets_test_utils
             ${MLAS_LIBRARY}
+            ${SHL_LIBRARY}
         ADD_CPPLINT
         LABELS
             OV UNIT CPU
 )
+
+if (ENABLE_SNIPPETS_LIBXSMM_TPP)
+    add_definitions(-DSNIPPETS_LIBXSMM_TPP -DLIBXSMM_DEFAULT_CONFIG)
+    target_compile_definitions(xsmm PRIVATE __BLAS=0)
+    target_link_libraries(${TARGET_NAME} PRIVATE xsmm)
+    target_include_directories(${TARGET_NAME} SYSTEM PRIVATE $<TARGET_PROPERTY:xsmm,INCLUDE_DIRECTORIES>)
+endif()
 
 # LTO
 set_target_properties(${TARGET_NAME} PROPERTIES INTERPROCEDURAL_OPTIMIZATION_RELEASE ${ENABLE_LTO})

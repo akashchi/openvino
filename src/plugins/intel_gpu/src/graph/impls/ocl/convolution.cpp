@@ -5,6 +5,7 @@
 #include "convolution/convolution_kernel_selector.h"
 #include "convolution/convolution_params.h"
 #include "convolution_inst.h"
+#include "convolution.hpp"
 #include "convolution_shape_inference.hpp"
 #include "intel_gpu/plugin/common_utils.hpp"
 #include "kernel_base.h"
@@ -94,7 +95,7 @@ public:
             const auto spatial_rank = input_layout.get_spatial_rank();
 
             ov::PartialShape kernel;
-            for (size_t i = 0; i < spatial_rank; i++) {
+            for (int32_t i = static_cast<int32_t>(spatial_rank) - 1; i >= 0; i--) {
                 kernel.emplace_back(weights_layout.spatial(i));
             }
 
@@ -135,9 +136,17 @@ public:
         std::tie(dilation_x, dilation_y, dilation_z) = ov::intel_gpu::get_xyz<ov::Strides, uint32_t>(dilation, 1);
         conv_params.dilation = {dilation_x, dilation_y, dilation_z};
 
+        // gpu plugin avg_pool has forced f32 output data type when input is u8/i8.
+        // So quantize(u8)->avg_pool(u8)->conv(f32) is changes to quantize(u8)->avg_pool(f32)->conv(f32)
+        // Add condition to check this case and set proper quantization mode
         if ((impl_param.input_layouts[0].data_type == data_types::u8 ||
-             impl_param.input_layouts[0].data_type == data_types::i8) &&
-             impl_param.input_layouts[1].data_type == data_types::i8) {
+             impl_param.input_layouts[0].data_type == data_types::i8 ||
+             (impl_param.input_layouts[0].data_type == data_types::f32 &&
+              (!primitive->weights_zero_points.empty() ||
+               !primitive->activations_zero_points.empty() ||
+               !primitive->compensation.empty())))
+            && (impl_param.input_layouts[1].data_type == data_types::i8 ||
+                impl_param.input_layouts[1].data_type == data_types::u8)) {
             if (!primitive->weights_zero_points.empty() && !primitive->activations_zero_points.empty()) {
                 conv_params.quantization = kernel_selector::QuantizationType::ASYMMETRIC_DATA_AND_WEIGHTS;
             } else if (!primitive->weights_zero_points.empty()) {
@@ -198,6 +207,16 @@ public:
             conv_params.dilation = {dilation_y, dilation_x, dilation_z};
         }
 
+        if (primitive->deformable_mode) {
+            auto interpolated_layout = impl_param.output_layouts[0];
+            auto in_shape = impl_param.input_layouts[0].get_partial_shape();
+            auto interpolated_shape = interpolated_layout.get_partial_shape();
+            interpolated_shape[0] = in_shape[0];
+            interpolated_shape[1] = in_shape[1] * conv_params.filterSize.x * conv_params.filterSize.y;
+            interpolated_layout.set_partial_shape(interpolated_shape);
+            conv_params.intermediate_tensor = convert_data_tensor(interpolated_layout);
+        }
+
         auto format = impl_param.get_output_layout().format;
         if (format == format::b_fs_zyx_fsv16 ||
             format == format::bs_fs_zyx_bsv16_fsv16 ||
@@ -243,112 +262,21 @@ public:
     }
 
     void update_dispatch_data(const kernel_impl_params& impl_param) override {
-       auto kernel_params = get_kernel_params(impl_param, true);
-       (_kernel_data.update_dispatch_data_func)(kernel_params, _kernel_data);
+        // If model loaded from cache, params are not initialized, so we create a new object and reuse it in the future
+        if (_kernel_data.params == nullptr) {
+            _kernel_data.params = std::make_shared<kernel_params_t>(get_kernel_params(impl_param, true));
+        }
+
+        update_shapes(*_kernel_data.params, impl_param);
+        (_kernel_data.update_dispatch_data_func)(*_kernel_data.params, _kernel_data);
     }
 };
 
-namespace detail {
-
-attach_convolution_impl::attach_convolution_impl() {
-    implementation_map<convolution>::add(impl_types::ocl, typed_primitive_impl_ocl<convolution>::create<convolution_impl>, {
-        std::make_tuple(data_types::f32, format::bfyx),
-        std::make_tuple(data_types::f16, format::bfyx),
-        std::make_tuple(data_types::i8, format::bfyx),
-        std::make_tuple(data_types::u8, format::bfyx),
-
-        std::make_tuple(data_types::f32, format::yxfb),
-        std::make_tuple(data_types::f16, format::yxfb),
-
-        std::make_tuple(data_types::f32, format::bfzyx),
-        std::make_tuple(data_types::f16, format::bfzyx),
-        std::make_tuple(data_types::i8, format::bfzyx),
-        std::make_tuple(data_types::u8, format::bfzyx),
-
-        std::make_tuple(data_types::f32, format::winograd_2x3_s1_data),
-        std::make_tuple(data_types::f16, format::winograd_2x3_s1_data),
-
-        std::make_tuple(data_types::f16, format::fs_b_yx_fsv32),
-
-        std::make_tuple(data_types::f32, format::byxf),
-        std::make_tuple(data_types::f16, format::byxf),
-        std::make_tuple(data_types::u8, format::byxf),
-        std::make_tuple(data_types::i8, format::byxf),
-
-        std::make_tuple(data_types::u8, format::b_fs_yx_fsv4),
-        std::make_tuple(data_types::i8, format::b_fs_yx_fsv4),
-
-        std::make_tuple(data_types::f32, format::b_fs_yx_fsv16),
-        std::make_tuple(data_types::f16, format::b_fs_yx_fsv16),
-        std::make_tuple(data_types::u8, format::b_fs_yx_fsv16),
-        std::make_tuple(data_types::i8, format::b_fs_yx_fsv16),
-
-        std::make_tuple(data_types::f32, format::b_fs_zyx_fsv16),
-        std::make_tuple(data_types::f16, format::b_fs_zyx_fsv16),
-        std::make_tuple(data_types::u8, format::b_fs_zyx_fsv16),
-        std::make_tuple(data_types::i8, format::b_fs_zyx_fsv16),
-
-        std::make_tuple(data_types::f16, format::b_fs_yx_fsv32),
-        std::make_tuple(data_types::f32, format::b_fs_yx_fsv32),
-        std::make_tuple(data_types::u8, format::b_fs_yx_fsv32),
-        std::make_tuple(data_types::i8, format::b_fs_yx_fsv32),
-
-        std::make_tuple(data_types::u8, format::b_fs_zyx_fsv32),
-        std::make_tuple(data_types::i8, format::b_fs_zyx_fsv32),
-
-        std::make_tuple(data_types::f32, format::bs_fs_zyx_bsv16_fsv16),
-        std::make_tuple(data_types::f16, format::bs_fs_zyx_bsv16_fsv16),
-
-        std::make_tuple(data_types::f32, format::bs_fs_yx_bsv16_fsv16),
-        std::make_tuple(data_types::f16, format::bs_fs_yx_bsv16_fsv16),
-        std::make_tuple(data_types::u8, format::bs_fs_yx_bsv16_fsv16),
-        std::make_tuple(data_types::i8, format::bs_fs_yx_bsv16_fsv16),
-
-        std::make_tuple(data_types::f32, format::bs_fs_yx_bsv32_fsv32),
-        std::make_tuple(data_types::f16, format::bs_fs_yx_bsv32_fsv32),
-        std::make_tuple(data_types::u8, format::bs_fs_yx_bsv32_fsv32),
-        std::make_tuple(data_types::i8, format::bs_fs_yx_bsv32_fsv32),
-
-        std::make_tuple(data_types::f32, format::bs_fs_yx_bsv32_fsv16),
-        std::make_tuple(data_types::f16, format::bs_fs_yx_bsv32_fsv16),
-        std::make_tuple(data_types::u8, format::bs_fs_yx_bsv32_fsv16),
-        std::make_tuple(data_types::i8, format::bs_fs_yx_bsv32_fsv16),
-
-        std::make_tuple(data_types::f32, format::bs_fs_yx_bsv4_fsv4),
-        std::make_tuple(data_types::f16, format::bs_fs_yx_bsv4_fsv4),
-        std::make_tuple(data_types::u8, format::bs_fs_yx_bsv4_fsv4),
-        std::make_tuple(data_types::i8, format::bs_fs_yx_bsv4_fsv4),
-
-        std::make_tuple(data_types::f32, format::bs_fs_yx_bsv8_fsv4),
-        std::make_tuple(data_types::f16, format::bs_fs_yx_bsv8_fsv4),
-        std::make_tuple(data_types::u8, format::bs_fs_yx_bsv8_fsv4),
-        std::make_tuple(data_types::i8, format::bs_fs_yx_bsv8_fsv4),
-
-        std::make_tuple(data_types::f32, format::bs_fs_yx_bsv4_fsv2),
-        std::make_tuple(data_types::f16, format::bs_fs_yx_bsv4_fsv2),
-        std::make_tuple(data_types::u8, format::bs_fs_yx_bsv4_fsv2),
-        std::make_tuple(data_types::i8, format::bs_fs_yx_bsv4_fsv2),
-    });
-
-    auto types = {
-        data_types::f32,
-        data_types::f16,
-        data_types::i8,
-        data_types::u8
-    };
-    auto dyn_formats = {
-        format::bfyx,
-        format::bfzyx
-    };
-
-    implementation_map<convolution>::add(impl_types::ocl,
-                                         shape_types::dynamic_shape,
-                                         typed_primitive_impl_ocl<convolution>::create<convolution_impl>,
-                                         types,
-                                         dyn_formats);
+std::unique_ptr<primitive_impl> ConvolutionImplementationManager::create_impl(const program_node& node, const kernel_impl_params& params) const {
+    OPENVINO_ASSERT(node.is_type<convolution>());
+    return typed_primitive_impl_ocl<convolution>::create<convolution_impl>(static_cast<const convolution_node&>(node), params);
 }
 
-}  // namespace detail
 }  // namespace ocl
 }  // namespace cldnn
 

@@ -1276,3 +1276,83 @@ OPENVINO_TEST(${BACKEND_NAME}, onnx_com_microsoft_gather_nd) {
     test_case.add_expected_output<int>(Shape{2}, output);
     test_case.run_with_tolerance_as_fp();
 }
+
+OPENVINO_TEST(${BACKEND_NAME}, onnx_com_microsoft_pad_2d) {
+    const auto model = convert_model("com.microsoft/pad_2d.onnx");
+    auto test_case = ov::test::TestCase(model, s_device);
+
+    test_case.add_input<float>({1.f, 1.2f, 2.3f, 3.4f, 4.5f, 5.7f});
+    test_case.add_input<int64_t>({0, 2, 0, 0});
+    test_case.add_expected_output<float>(Shape{3, 4},
+                                         {0.f, 0.f, 1.f, 1.2f, 0.f, 0.f, 2.3f, 3.4f, 0.f, 0.f, 4.5f, 5.7f});
+
+    test_case.run();
+}
+
+OPENVINO_TEST(${BACKEND_NAME}, onnx_com_microsoft_pad_1d) {
+    const auto model = convert_model("com.microsoft/pad_1d.onnx");
+    auto test_case = ov::test::TestCase(model, s_device);
+
+    test_case.add_input<float>({1.f, 1.2f, 2.3f, 3.4f, 4.5f, 5.7f});
+    test_case.add_input<int64_t>({0, 2, 0, 0});
+    test_case.add_expected_output<float>(Shape{3, 4},
+                                         {0.f, 0.f, 1.f, 1.2f, 0.f, 0.f, 2.3f, 3.4f, 0.f, 0.f, 4.5f, 5.7f});
+
+    test_case.run();
+}
+
+OPENVINO_TEST(${BACKEND_NAME}, onnx_com_microsoft_matmulnbits_3x4) {
+    const auto model = convert_model("com.microsoft/matmulnbits_3x4.onnx");
+    auto test_case = ov::test::TestCase(model, s_device);
+
+    test_case.add_input<float>({1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12});
+    test_case.add_expected_output<float>(Shape{3, 3},
+                                         {31.25f, 28.125f, 24.f, 78.75f, 75.625f, 72.f, 126.25f, 123.125f, 120.f});
+
+    test_case.run();
+}
+
+OPENVINO_TEST(${BACKEND_NAME}, onnx_com_microsoft_matmulnbits_3x17) {
+    const auto model = convert_model("com.microsoft/matmulnbits_3x17.onnx");
+    auto test_case = ov::test::TestCase(model, s_device);
+
+    test_case.add_input<float>({1, 2, 3, 4,  5, 6, 7, 8, 9, 10, 1, 2, 3, 4,  5, 6, 7, 8, 9, 10, 1, 2, 3, 4,  5, 6,
+                                7, 8, 9, 10, 1, 2, 3, 4, 5, 6,  7, 8, 9, 10, 1, 2, 3, 4, 5, 6,  7, 8, 9, 10, 1});
+
+    if (std::string("${BACKEND_NAME}") == std::string("IE_GPU")) {
+        test_case.add_expected_output<float>(
+            Shape{3, 3},
+            {425.25f, 372.5f, 352.25f, 446.5f, 448.75f, 476.5f, 400.25f, 480.5f, 533.f});
+    } else {
+        test_case.add_expected_output<float>(
+            Shape{3, 3},
+            {425.25f, 372.375f, 352.375f, 446.625f, 448.875f, 476.5f, 400.5f, 480.375f, 533.125f});
+    }
+    test_case.run();
+}
+
+OPENVINO_TEST(${BACKEND_NAME}, onnx_com_microsoft_quickgelu) {
+    const auto model = convert_model("com.microsoft/quick_gelu.onnx");
+    auto test_case = ov::test::TestCase(model, s_device);
+
+    const std::vector<float> input_X{1, 2, 3, 4, 5, 6, 7, 8, 9, 10};
+    const std::vector<float> output{0.7305524f,
+                                    1.7605114f,
+                                    2.8566725f,
+                                    3.9273243f,
+                                    4.9661055f,
+                                    5.984934f,
+                                    6.9935064f,
+                                    7.997261f,
+                                    8.998864f,
+                                    9.999535f};
+
+    test_case.add_input<float>(Shape{2, 5}, input_X);
+    test_case.add_expected_output<float>(Shape{2, 5}, output);
+
+    if (std::string("${BACKEND_NAME}") == std::string("IE_GPU")) {
+        test_case.run_with_tolerance_as_fp(0.0001f);
+    } else {
+        test_case.run();
+    }
+}

@@ -4,7 +4,7 @@
 
 #pragma once
 
-#include "openvino/pass/graph_rewrite.hpp"
+#include "openvino/pass/matcher_pass.hpp"
 #include "snippets/pass/tokenization.hpp"
 
 namespace ov {
@@ -20,7 +20,7 @@ class CommonOptimizations : public ov::pass::MatcherPass {
 
 public:
     OPENVINO_RTTI("CommonOptimizations", "0");
-    CommonOptimizations(const SnippetsTokenization::Config& config = {});
+    CommonOptimizations(const SnippetsTokenization::Config& config);
 };
 
 }  // namespace pass

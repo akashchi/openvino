@@ -1,5 +1,3 @@
-.. {#openvino_docs_install_guides_installing_openvino_yum}
-
 Install OpenVINO™ Runtime on Linux From YUM Repository
 ========================================================
 
@@ -23,7 +21,7 @@ Install OpenVINO™ Runtime on Linux From YUM Repository
       :sync: system-requirements
 
       | Full requirement listing is available in:
-      | :doc:`System Requirements Page <../../../about-openvino/system-requirements>`
+      | :doc:`System Requirements Page <../../../about-openvino/release-notes-openvino/system-requirements>`
 
       .. note::
 
@@ -31,11 +29,11 @@ Install OpenVINO™ Runtime on Linux From YUM Repository
 
          - RHEL 8.2 and higher
          - Amazon Linux 2022 and 2023
-         - Rocky Linux 8.7, 8.8 and 9.2
-         - Alma Linux 8.7, 8.8 and 9.2
-         - Oracle Linux 8.7, 8.8 and 9.2
-         - Fedora 29 and higher up to 40
-         - OpenEuler 20.03 and 22.03
+         - Rocky Linux 8.7, 8.8 and 9.2-9.3
+         - Alma Linux 8.7, 8.8 and 9.2-9.4
+         - Oracle Linux 8.7, 8.8 and 9.2-9.4
+         - Fedora 29 and higher up to 41
+         - OpenEuler 20.03, 22.03, 23.03 and 24.03
          - Anolis OS 8.6 and 8.8
          - CentOS Stream 8 and 9
 
@@ -50,7 +48,7 @@ Install OpenVINO™ Runtime on Linux From YUM Repository
 
       * `CMake 3.13 or higher, 64-bit <https://cmake.org/download/>`_
       * GCC 8.2.0
-      * `Python 3.8 - 3.11, 64-bit <https://www.python.org/downloads/>`_
+      * `Python 3.9 - 3.12, 64-bit <https://www.python.org/downloads/>`_
 
 
 Install OpenVINO Runtime
@@ -128,7 +126,7 @@ Install OpenVINO Runtime
       .. code-block:: sh
 
 
-         sudo yum install openvino-2024.0.0
+         sudo yum install openvino-2024.4.0
 
 
 
@@ -199,7 +197,7 @@ To uninstall OpenVINO Runtime via YUM, run the following command based on your n
 
       .. code-block:: sh
 
-         sudo yum autoremove openvino-2024.0.0
+         sudo yum autoremove openvino-2024.4.0
 
 
 
@@ -226,6 +224,12 @@ You can also try the following things:
 * Learn more about :doc:`OpenVINO Workflow <../../../openvino-workflow>`.
 * To prepare your models for working with OpenVINO, see :doc:`Model Preparation <../../../openvino-workflow/model-preparation>`.
 * See pre-trained deep learning models in our :doc:`Open Model Zoo <../../../documentation/legacy-features/model-zoo>`.
+
+  .. important::
+
+     Due to the deprecation of Open Model Zoo, models in the OpenVINO IR format are now
+     published on `Hugging Face <https://huggingface.co/OpenVINO>`__.
+
 * Learn more about :doc:`Inference with OpenVINO Runtime <../../../openvino-workflow/running-inference>`.
 * See sample applications in :doc:`OpenVINO toolkit Samples Overview <../../../learn-openvino/openvino-samples>`.
 * Take a glance at the OpenVINO `product home page <https://software.intel.com/en-us/openvino-toolkit>`__ .

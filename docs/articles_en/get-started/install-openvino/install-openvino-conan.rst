@@ -1,5 +1,3 @@
-.. {#openvino_docs_install_guides_installing_openvino_conan}
-
 Install OpenVINO™ Runtime from Conan Package Manager
 ======================================================
 
@@ -24,7 +22,7 @@ Install OpenVINO™ Runtime from Conan Package Manager
       :sync: system-requirements
 
       | Full requirement listing is available in:
-      | :doc:`System Requirements Page <../../../about-openvino/system-requirements>`
+      | :doc:`System Requirements Page <../../../about-openvino/release-notes-openvino/system-requirements>`
 
    .. tab-item:: Processor Notes
       :sync: processor-notes
@@ -52,7 +50,7 @@ Installing OpenVINO Runtime with Conan Package Manager
    .. code-block:: sh
 
       [requires]
-      openvino/2024.0.0
+      openvino/2024.4.0
       [generators]
       CMakeDeps
       CMakeToolchain

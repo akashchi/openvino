@@ -149,12 +149,12 @@ private:
                                                           const ov::SoPtr<ov::IRemoteContext>& context,
                                                           const CacheContent& cacheContent) const;
 
-    static ov::SoPtr<ov::ICompiledModel> load_model_from_cache(
+    ov::SoPtr<ov::ICompiledModel> load_model_from_cache(
         const CacheContent& cacheContent,
         ov::Plugin& plugin,
         const ov::AnyMap& config,
         const ov::SoPtr<ov::IRemoteContext>& context,
-        std::function<ov::SoPtr<ov::ICompiledModel>()> compile_model_lambda);
+        std::function<ov::SoPtr<ov::ICompiledModel>()> compile_model_lambda) const;
 
     bool device_supports_model_caching(const ov::Plugin& plugin) const;
 
@@ -165,6 +165,9 @@ private:
     bool device_supports_cache_dir(const ov::Plugin& plugin) const;
 
     ov::AnyMap create_compile_config(const ov::Plugin& plugin, const ov::AnyMap& origConfig) const;
+    ov::AnyMap create_compile_config(const std::string& device_name, const ov::AnyMap& origConfig) const override {
+        return create_compile_config(get_plugin(device_name), origConfig);
+    }
 
     bool is_hidden_device(const std::string& device_name) const;
     void register_plugin_in_registry_unsafe(const std::string& device_name, PluginDescriptor& desc);
@@ -249,6 +252,9 @@ public:
     std::shared_ptr<ov::Model> read_model(const std::string& model,
                                           const ov::Tensor& weights,
                                           bool frontend_mode = false) const override;
+
+    std::shared_ptr<ov::Model> read_model(const std::shared_ptr<AlignedBuffer>& model,
+                                          const std::shared_ptr<AlignedBuffer>& weights) const override;
 
     std::shared_ptr<ov::Model> read_model(const std::string& model_path, const std::string& bin_path) const override;
 

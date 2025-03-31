@@ -10,63 +10,66 @@ Interface PartialShape
        toString(): string;
    }
 
-- Defined in
-  `addon.ts:135 <https://github.com/openvinotoolkit/openvino/blob/master/src/bindings/js/node/lib/addon.ts#L135>`__
+* **Defined in:**
+  `addon.ts:612 <https://github.com/openvinotoolkit/openvino/blob/master/src/bindings/js/node/lib/addon.ts#L612>`__
+
 
 Methods
 #####################
 
+
 .. rubric:: getDimensions
 
+*
 
-.. code-block:: ts
+  .. code-block:: ts
 
-   getDimensions(): Dimension
+     getDimensions(): Dimension
 
+  * **Returns:** :doc:`Dimension <../types/Dimension>`\[]
 
-**Returns** :doc:`Dimension <../types/Dimension>` []
+  * **Defined in:**
+    `addon.ts:616 <https://github.com/openvinotoolkit/openvino/blob/master/src/bindings/js/node/lib/addon.ts#L616>`__
 
-- Defined in
-  `addon.ts:139 <https://github.com/openvinotoolkit/openvino/blob/master/src/bindings/js/node/lib/addon.ts#L139>`__
 
 .. rubric:: isDynamic
 
+*
 
-.. code-block:: ts
+   .. code-block:: ts
 
-   isDynamic(): boolean
+      isDynamic(): boolean
 
+   * **Returns:** boolean
 
-**Returns** boolean
+   * **Defined in:**
+     `addon.ts:614 <https://github.com/openvinotoolkit/openvino/blob/master/src/bindings/js/node/lib/addon.ts#L614>`__
 
-- Defined in
-  `addon.ts:137 <https://github.com/openvinotoolkit/openvino/blob/master/src/bindings/js/node/lib/addon.ts#L137>`__
 
 .. rubric:: isStatic
 
+*
 
+   .. code-block:: ts
 
-.. code-block:: ts
+      isStatic(): boolean
 
-   isStatic(): boolean
+   * **Returns:** boolean
 
+   * **Defined in:**
+     `addon.ts:613 <https://github.com/openvinotoolkit/openvino/blob/master/src/bindings/js/node/lib/addon.ts#L613>`__
 
-**Returns** boolean
-
-
-- Defined in
-  `addon.ts:136 <https://github.com/openvinotoolkit/openvino/blob/master/src/bindings/js/node/lib/addon.ts#L136>`__
 
 .. rubric:: toString
 
+*
 
-.. code-block:: ts
+   .. code-block:: ts
 
-   toString(): string
+      toString(): string
 
+   * **Returns:** string
 
-**Returns** string
-
-- Defined in
-  `addon.ts:138 <https://github.com/openvinotoolkit/openvino/blob/master/src/bindings/js/node/lib/addon.ts#L138>`__
+   * **Defined in:**
+     `addon.ts:615 <https://github.com/openvinotoolkit/openvino/blob/master/src/bindings/js/node/lib/addon.ts#L615>`__
 

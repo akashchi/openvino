@@ -1,5 +1,3 @@
-.. {#openvino_docs_install_guides_installing_openvino_apt}
-
 Install Intel® Distribution of OpenVINO™ Toolkit for Linux Using APT Repository
 ==================================================================================
 
@@ -23,7 +21,7 @@ Install Intel® Distribution of OpenVINO™ Toolkit for Linux Using APT Reposito
       :sync: system-requirements
 
       | Full requirement listing is available in:
-      | :doc:`System Requirements Page <../../../about-openvino/system-requirements>`
+      | :doc:`System Requirements Page <../../../about-openvino/release-notes-openvino/system-requirements>`
 
    .. tab-item:: Processor Notes
       :sync: processor-notes
@@ -36,7 +34,7 @@ Install Intel® Distribution of OpenVINO™ Toolkit for Linux Using APT Reposito
 
       * `CMake 3.13 or higher, 64-bit <https://cmake.org/download/>`__
       * GCC 7.5.0 (for Ubuntu 18.04), GCC 9.3.0 (for Ubuntu 20.04) or GCC 11.3.0 (for Ubuntu 22.04)
-      * `Python 3.8 - 3.11, 64-bit <https://www.python.org/downloads/>`__
+      * `Python 3.9 - 3.12, 64-bit <https://www.python.org/downloads/>`__
 
 
 Installing OpenVINO Runtime
@@ -72,6 +70,13 @@ Step 1: Set Up the OpenVINO Toolkit APT Repository
 2. Add the repository via the following command:
 
    .. tab-set::
+
+      .. tab-item:: Ubuntu 24
+         :sync: ubuntu-24
+
+         .. code-block:: sh
+
+            echo "deb https://apt.repos.intel.com/openvino/2024 ubuntu24 main" | sudo tee /etc/apt/sources.list.d/intel-openvino-2024.list
 
       .. tab-item:: Ubuntu 22
          :sync: ubuntu-22
@@ -148,7 +153,7 @@ Step 2: Install OpenVINO Runtime Using the APT Package Manager
          .. code-block:: sh
 
 
-            sudo apt install openvino-2024.0.0
+            sudo apt install openvino-2024.4.0
 
 .. note::
 
@@ -221,7 +226,7 @@ To uninstall OpenVINO Runtime via APT, run the following command based on your n
 
       .. code-block:: sh
 
-         sudo apt autoremove openvino-2024.0.0
+         sudo apt autoremove openvino-2024.4.0
 
 
 What's Next?
@@ -245,13 +250,8 @@ You can also try the following:
 
 * Learn more about :doc:`OpenVINO Workflow <../../../openvino-workflow>`.
 * To prepare your models for working with OpenVINO, see :doc:`Model Preparation <../../../openvino-workflow/model-preparation>`.
-* See pre-trained deep learning models in our :doc:`Open Model Zoo <../../../documentation/legacy-features/model-zoo>`.
+* See pre-trained deep learning models on `Hugging Face <https://huggingface.co/OpenVINO>`__
 * Learn more about :doc:`Inference with OpenVINO Runtime <../../../openvino-workflow/running-inference>`.
 * See sample applications in :doc:`OpenVINO toolkit Samples Overview <../../../learn-openvino/openvino-samples>`.
 * Take a glance at the OpenVINO `product home page <https://software.intel.com/en-us/openvino-toolkit>`__ .
-
-
-
-
-
 

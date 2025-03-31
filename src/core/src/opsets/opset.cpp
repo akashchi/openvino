@@ -37,21 +37,21 @@ const std::set<ov::NodeTypeInfo>& ov::OpSet::get_types_info() const {
 ov::Node* ov::OpSet::create(const std::string& name) const {
     auto type_info_it = m_name_type_info_map.find(name);
     if (type_info_it == m_name_type_info_map.end()) {
-        OPENVINO_WARN << "Couldn't create operator of type: " << name << " . Operation not registered in opset.";
+        OPENVINO_WARN("Couldn't create operator of type: ", name, ". Operation not registered in opset.");
         return nullptr;
     }
     REGISTER_OP(m_name, name);
-    return m_factory_registry.find(type_info_it->second)->second();
+    return m_factory_registry.at(type_info_it->second)();
 }
 
 ov::Node* ov::OpSet::create_insensitive(const std::string& name) const {
     auto type_info_it = m_case_insensitive_type_info_map.find(to_upper_name(name));
     if (type_info_it == m_case_insensitive_type_info_map.end()) {
-        OPENVINO_WARN << "Couldn't create operator of type: " << name << " . Operation not registered in opset.";
+        OPENVINO_WARN("Couldn't create operator of type:", name, ". Operation not registered in opset.");
         return nullptr;
     }
     REGISTER_OP(m_name, name);
-    return m_factory_registry.find(type_info_it->second)->second();
+    return m_factory_registry.at(type_info_it->second)();
 }
 
 bool ov::OpSet::contains_type(const ov::NodeTypeInfo& type_info) const {
@@ -82,7 +82,7 @@ void ov::OpSet::insert(const std::string& name, const NodeTypeInfo& type_info, D
     m_op_types.insert(type_info);
     m_name_type_info_map[name] = type_info;
     m_case_insensitive_type_info_map[to_upper_name(name)] = type_info;
-    m_factory_registry[type_info] = func;
+    m_factory_registry[type_info] = std::move(func);
 }
 
 std::string ov::OpSet::to_upper_name(const std::string& name) {
@@ -96,7 +96,9 @@ std::string ov::OpSet::to_upper_name(const std::string& name) {
 
 const std::map<std::string, std::function<const ov::OpSet&()>>& ov::get_available_opsets() {
 #define _OPENVINO_REG_OPSET(OPSET) \
-    { #OPSET, ov::get_##OPSET }
+    {                              \
+#        OPSET, ov::get_##OPSET    \
+    }
     const static std::map<std::string, std::function<const ov::OpSet&()>> opset_map = {_OPENVINO_REG_OPSET(opset1),
                                                                                        _OPENVINO_REG_OPSET(opset2),
                                                                                        _OPENVINO_REG_OPSET(opset3),
@@ -110,7 +112,8 @@ const std::map<std::string, std::function<const ov::OpSet&()>>& ov::get_availabl
                                                                                        _OPENVINO_REG_OPSET(opset11),
                                                                                        _OPENVINO_REG_OPSET(opset12),
                                                                                        _OPENVINO_REG_OPSET(opset13),
-                                                                                       _OPENVINO_REG_OPSET(opset14)};
+                                                                                       _OPENVINO_REG_OPSET(opset14),
+                                                                                       _OPENVINO_REG_OPSET(opset15)};
 #undef _OPENVINO_REG_OPSET
     return opset_map;
 }
@@ -120,7 +123,9 @@ const ov::OpSet& ov::get_opset1() {
     static std::once_flag flag;
     std::call_once(flag, [&]() {
 #define _OPENVINO_OP_REG(NAME, NAMESPACE) INSERT_OP(opset1, NAME, NAMESPACE);
+        OPENVINO_SUPPRESS_DEPRECATED_START
 #include "openvino/opsets/opset1_tbl.hpp"
+        OPENVINO_SUPPRESS_DEPRECATED_END
 #undef _OPENVINO_OP_REG
     });
     return opset;
@@ -131,7 +136,9 @@ const ov::OpSet& ov::get_opset2() {
     static std::once_flag flag;
     std::call_once(flag, [&]() {
 #define _OPENVINO_OP_REG(NAME, NAMESPACE) INSERT_OP(opset2, NAME, NAMESPACE);
+        OPENVINO_SUPPRESS_DEPRECATED_START
 #include "openvino/opsets/opset2_tbl.hpp"
+        OPENVINO_SUPPRESS_DEPRECATED_END
 #undef _OPENVINO_OP_REG
     });
     return opset;
@@ -142,7 +149,9 @@ const ov::OpSet& ov::get_opset3() {
     static std::once_flag flag;
     std::call_once(flag, [&]() {
 #define _OPENVINO_OP_REG(NAME, NAMESPACE) INSERT_OP(opset3, NAME, NAMESPACE);
+        OPENVINO_SUPPRESS_DEPRECATED_START
 #include "openvino/opsets/opset3_tbl.hpp"
+        OPENVINO_SUPPRESS_DEPRECATED_END
 #undef _OPENVINO_OP_REG
     });
     return opset;
@@ -264,6 +273,17 @@ const ov::OpSet& ov::get_opset14() {
     std::call_once(flag, [&]() {
 #define _OPENVINO_OP_REG(NAME, NAMESPACE) opset.insert<NAMESPACE::NAME>();
 #include "openvino/opsets/opset14_tbl.hpp"
+#undef _OPENVINO_OP_REG
+    });
+    return opset;
+}
+
+const ov::OpSet& ov::get_opset15() {
+    static OpSet opset;
+    static std::once_flag flag;
+    std::call_once(flag, [&]() {
+#define _OPENVINO_OP_REG(NAME, NAMESPACE) opset.insert<NAMESPACE::NAME>();
+#include "openvino/opsets/opset15_tbl.hpp"
 #undef _OPENVINO_OP_REG
     });
     return opset;

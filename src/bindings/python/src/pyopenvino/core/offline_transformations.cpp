@@ -8,7 +8,9 @@
 
 #include <compress_quantize_weights.hpp>
 #include <openvino/pass/make_stateful.hpp>
+#include <openvino/pass/sdpa_to_paged_attention.hpp>
 #include <openvino/pass/serialize.hpp>
+#include <openvino/pass/stateful_to_stateless.hpp>
 #include <pruning.hpp>
 #include <transformations/common_optimizations/compress_float_constants.hpp>
 #include <transformations/common_optimizations/fused_names_cleanup.hpp>
@@ -96,10 +98,8 @@ void regmodule_offline_transformations(py::module m) {
     m_offline_transformations.def(
         "compress_model_transformation",
         [](std::shared_ptr<ov::Model> model) {
-            ov::pass::Manager manager;
-            manager.register_pass<ov::pass::MarkPrecisionSensitiveConstants>();
-            manager.register_pass<ov::pass::CompressFloatConstants>();
-            manager.run_passes(model);
+            bool postponed = false;
+            return ov::pass::compress_model_to_f16(model, postponed);
         },
         py::arg("model"));
 
@@ -126,6 +126,26 @@ void regmodule_offline_transformations(py::module m) {
         [](std::shared_ptr<ov::Model> model) {
             ov::pass::Manager manager;
             manager.register_pass<ov::pass::FusedNamesCleanup>();
+            manager.run_passes(model);
+        },
+        py::arg("model"));
+
+    m_offline_transformations.def(
+        "paged_attention_transformation",
+        [](std::shared_ptr<ov::Model> model, bool use_block_indices_inputs, bool use_score_outputs) {
+            ov::pass::Manager manager;
+            manager.register_pass<ov::pass::SDPAToPagedAttention>(use_block_indices_inputs, use_score_outputs);
+            manager.run_passes(model);
+        },
+        py::arg("model"),
+        py::arg("use_block_indices_inputs") = false,
+        py::arg("use_score_outputs") = false);
+
+    m_offline_transformations.def(
+        "stateful_to_stateless_transformation",
+        [](std::shared_ptr<ov::Model> model) {
+            ov::pass::Manager manager;
+            manager.register_pass<ov::pass::StatefulToStateless>();
             manager.run_passes(model);
         },
         py::arg("model"));

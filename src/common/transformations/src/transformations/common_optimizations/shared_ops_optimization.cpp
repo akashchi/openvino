@@ -6,6 +6,7 @@
 
 #include "itt.hpp"
 #include "openvino/core/validation_util.hpp"
+#include "openvino/op/loop.hpp"
 #include "openvino/op/shape_of.hpp"
 #include "openvino/op/util/sub_graph_base.hpp"
 
@@ -52,7 +53,7 @@ private:
     ov::AnyMap m_attributes_map;
 };
 
-bool inputs_from_same_source_or_equal_constants(const Node* lhs, const Node* rhs) {
+bool inputs_from_same_source_or_equal_constants(const std::shared_ptr<Node>& lhs, const std::shared_ptr<Node>& rhs) {
     if (lhs->get_input_size() != rhs->get_input_size())
         return false;
     size_t input_size = lhs->get_input_size();
@@ -65,8 +66,7 @@ bool inputs_from_same_source_or_equal_constants(const Node* lhs, const Node* rhs
             return false;
         if (lhs_constant->get_element_type() != rhs_constant->get_element_type())
             return false;
-        const auto& lhs_shape = lhs_constant->get_shape();
-        if (lhs_shape != rhs_constant->get_shape() || shape_size(lhs_shape) > 10)
+        if (lhs_constant->get_shape() != rhs_constant->get_shape())
             return false;
         if (memcmp(lhs_constant->get_data_ptr(), rhs_constant->get_data_ptr(), lhs_constant->get_byte_size()) != 0)
             return false;
@@ -74,7 +74,7 @@ bool inputs_from_same_source_or_equal_constants(const Node* lhs, const Node* rhs
     return true;
 }
 
-bool nodes_are_equal(Node* lhs, Node* rhs) {
+bool nodes_are_equal(const std::shared_ptr<Node>& lhs, const std::shared_ptr<Node>& rhs) {
     // making sure that nodes are of the same type
     if (lhs->get_type_info() != rhs->get_type_info())
         return false;
@@ -103,8 +103,11 @@ bool nodes_are_equal(Node* lhs, Node* rhs) {
 
 bool shared_node_optimization(const shared_ptr<Model>& model) {
     bool rewritten = false;
-
-    for (const auto& op : model->get_ordered_ops()) {
+    std::unordered_map<std::shared_ptr<ov::Node>, size_t> index_map;
+    const auto& order = model->get_ordered_ops();
+    for (size_t i = 0; i < order.size(); ++i)
+        index_map[order[i]] = i;
+    for (const auto& op : order) {
         // Recursively apply transformation for sub-graph based operations
         if (auto multi_subgraph_op = dynamic_pointer_cast<op::util::MultiSubGraphOp>(op)) {
             for (const auto& sub_graph : multi_subgraph_op->get_functions()) {
@@ -116,14 +119,21 @@ bool shared_node_optimization(const shared_ptr<Model>& model) {
             const auto& target_inputs = output.get_target_inputs();
             if (target_inputs.size() <= 1)
                 continue;  // nothing to optimize
-            unordered_map<Node::type_info_t, vector<Node*>> type_to_node;
+            unordered_map<Node::type_info_t, vector<std::shared_ptr<Node>>> type_to_node;
             for (const auto& input : target_inputs)
-                if (auto node = input.get_node())
+                if (auto node = input.get_node()->shared_from_this())
                     type_to_node[node->get_type_info()].push_back(node);
             for (auto& item : type_to_node) {
                 auto& shared_nodes = item.second;
                 if (shared_nodes.size() < 2)
                     continue;
+                // sort shared_nodes so that root would be the earliest in the topological order
+                // it is critical for continuous application of this optimization
+                std::sort(shared_nodes.begin(),
+                          shared_nodes.end(),
+                          [&index_map](const std::shared_ptr<ov::Node>& a, const std::shared_ptr<ov::Node>& b) {
+                              return index_map[a] < index_map[b];
+                          });
 
                 std::vector<bool> visited_nodes(shared_nodes.size(), false);
                 for (size_t i = 0; i < visited_nodes.size(); ++i) {
@@ -135,6 +145,12 @@ bool shared_node_optimization(const shared_ptr<Model>& model) {
                         if (visited_nodes[j])
                             continue;
                         const auto& child_op = shared_nodes[j];
+
+                        // no functionality is implemented to compare bodies of MultiSubGraphOp operations
+                        if (ov::as_type_ptr<ov::op::util::MultiSubGraphOp>(root_op)) {
+                            continue;
+                        }
+
                         if (nodes_are_equal(root_op, child_op)) {
                             rewritten =
                                 replace_output_update_name(child_op->output(0), root_op->output(0)) || rewritten;

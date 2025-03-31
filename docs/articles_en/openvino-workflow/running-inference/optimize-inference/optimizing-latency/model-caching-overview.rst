@@ -1,5 +1,3 @@
-.. {#openvino_docs_OV_UG_Model_caching_overview}
-
 Model Caching Overview
 ======================
 
@@ -48,26 +46,27 @@ To enable model caching, the application must specify a folder to store the cach
    .. tab-item:: Python
       :sync: py
 
-      .. doxygensnippet:: docs/snippets/ov_caching.py
+      .. doxygensnippet:: docs/articles_en/assets/snippets/ov_caching.py
          :language: py
          :fragment: [ov:caching:part0]
 
    .. tab-item:: C++
       :sync: cpp
 
-      .. doxygensnippet:: docs/snippets/ov_caching.cpp
+      .. doxygensnippet:: docs/articles_en/assets/snippets/ov_caching.cpp
          :language: cpp
          :fragment: [ov:caching:part0]
 
 
 With this code, if the device specified by ``device_name`` supports import/export model capability,
-a cached blob is automatically created inside the ``/path/to/cache/dir`` folder.
+a cached blob (the ``.cl_cache`` and ``.blob`` file for GPU and CPU respectively) is automatically
+created inside the ``/path/to/cache/dir`` folder.
 If the device does not support the import/export capability, cache is not created and no error is thrown.
 
 Note that the first ``compile_model`` operation takes slightly longer, as the cache needs to be created -
 the compiled blob is saved into a cache file:
 
-.. image:: ../../../../_static/images/caching_enabled.svg
+.. image:: ../../../../assets/images/caching_enabled.svg
 
 
 Make it even faster: use compile_model(modelPath)
@@ -82,14 +81,14 @@ For these cases, there is a more convenient API to compile the model in a single
    .. tab-item:: Python
       :sync: py
 
-      .. doxygensnippet:: docs/snippets/ov_caching.py
+      .. doxygensnippet:: docs/articles_en/assets/snippets/ov_caching.py
          :language: py
          :fragment: [ov:caching:part1]
 
    .. tab-item:: C++
       :sync: cpp
 
-      .. doxygensnippet:: docs/snippets/ov_caching.cpp
+      .. doxygensnippet:: docs/articles_en/assets/snippets/ov_caching.cpp
          :language: cpp
          :fragment: [ov:caching:part1]
 
@@ -101,19 +100,19 @@ With model caching enabled, the total load time is even shorter, if ``read_model
    .. tab-item:: Python
       :sync: py
 
-      .. doxygensnippet:: docs/snippets/ov_caching.py
+      .. doxygensnippet:: docs/articles_en/assets/snippets/ov_caching.py
          :language: py
          :fragment: [ov:caching:part2]
 
    .. tab-item:: C++
       :sync: cpp
 
-      .. doxygensnippet:: docs/snippets/ov_caching.cpp
+      .. doxygensnippet:: docs/articles_en/assets/snippets/ov_caching.cpp
          :language: cpp
          :fragment: [ov:caching:part2]
 
 
-.. image:: ../../../../_static/images/caching_times.svg
+.. image:: ../../../../assets/images/caching_times.svg
 
 Advanced Examples
 ++++++++++++++++++++
@@ -126,14 +125,38 @@ To check in advance if a particular device supports model caching, your applicat
    .. tab-item:: Python
       :sync: py
 
-      .. doxygensnippet:: docs/snippets/ov_caching.py
+      .. doxygensnippet:: docs/articles_en/assets/snippets/ov_caching.py
          :language: py
          :fragment: [ov:caching:part3]
 
    .. tab-item:: C++
       :sync: cpp
 
-      .. doxygensnippet:: docs/snippets/ov_caching.cpp
+      .. doxygensnippet:: docs/articles_en/assets/snippets/ov_caching.cpp
          :language: cpp
          :fragment: [ov:caching:part3]
 
+Set "cache_encryption_callbacks" config option to enable cache encryption
++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+If model caching is enabled, the model topology can be encrypted when saving to the cache and decrypted when loading from the cache. This property can currently be set only in ``compile_model``.
+
+.. tab-set::
+
+   .. tab-item:: Python
+      :sync: py
+
+      .. doxygensnippet:: docs/articles_en/assets/snippets/ov_caching.py
+         :language: py
+         :fragment: [ov:caching:part4]
+
+   .. tab-item:: C++
+      :sync: cpp
+
+      .. doxygensnippet:: docs/articles_en/assets/snippets/ov_caching.cpp
+         :language: cpp
+         :fragment: [ov:caching:part4]
+
+.. important::
+
+   Currently, this property is supported only by the CPU plugin. For other HW plugins, setting this property will not encrypt/decrypt the model topology in cache and will not affect performance. 

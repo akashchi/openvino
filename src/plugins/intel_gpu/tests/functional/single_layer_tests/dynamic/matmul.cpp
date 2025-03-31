@@ -157,6 +157,11 @@ const std::vector<ov::element::Type> netPRCs {
     ov::element::f32,
 };
 
+const std::vector<ov::element::Type> netPRCs_f32_i32 {
+    ov::element::f32,
+    ov::element::i32
+};
+
 
 /* ============= FullyConnected ============= */
 
@@ -261,9 +266,10 @@ const std::vector<ShapeRelatedParams> IS3D_smoke = {
     },
 
     {ov::test::static_shapes_to_test_representation({{1, 429}, {1, 429, 1}}), {true, true}},
+
     {
         {
-            {{-1, -1}, {{1, 129}, {2, 129}, {1, 129}, {2, 129}}},
+            {{-1, -1, -1}, {{1, 1, 129}, {1, 2, 129}, {1, 1, 129}, {1, 2, 129}}},
             {{1, 129, 1}, {{1, 129, 1}, {1, 129, 1}, {1, 129, 1}, {1, 129, 1}}}
         },
         {true, true}
@@ -309,7 +315,7 @@ const std::vector<ShapeRelatedParams> IS3D_nightly = {
 };
 
 const auto fullyConnectedParams3D_smoke = ::testing::Combine(::testing::ValuesIn(IS3D_smoke),
-                                                       ::testing::Values(ov::element::f32),
+                                                       ::testing::ValuesIn(netPRCs_f32_i32),
                                                        ::testing::Values(ov::element::undefined),
                                                        ::testing::Values(ov::element::undefined),
                                                        ::testing::Values(ov::test::utils::InputLayerType::CONSTANT),

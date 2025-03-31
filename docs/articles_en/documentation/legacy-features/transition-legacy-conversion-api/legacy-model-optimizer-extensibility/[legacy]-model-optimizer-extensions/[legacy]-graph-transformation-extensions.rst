@@ -1,5 +1,3 @@
-.. {#openvino_docs_MO_DG_prepare_model_customize_model_optimizer_Model_Optimizer_Extensions_Model_Optimizer_Transformation_Extensions}
-
 [LEGACY] Graph Transformation Extensions
 ==========================================
 
@@ -34,7 +32,7 @@ order. To execute the transformation during a proper model conversion phase, Mod
 anchor transformations that do nothing. All transformations are ordered with respect to these anchor transformations.
 The diagram below shows anchor transformations, some of built-in transformations and dependencies between them:
 
-.. image:: ../../../../../_static/images/MO_transformations_graph.svg
+.. image:: ../../../../../assets/images/MO_transformations_graph.svg
 
 User-defined transformations are executed after the corresponding ``Start`` and before the corresponding ``Finish`` anchor
 transformations by default (if ``run_before()`` and ``run_after()`` methods have not been overridden).

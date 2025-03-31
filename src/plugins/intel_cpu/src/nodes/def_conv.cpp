@@ -13,6 +13,7 @@
 #include "openvino/core/parallel.hpp"
 #include "memory_desc/dnnl_blocked_memory_desc.h"
 #include "common/primitive_hashing_utils.hpp"
+#include "openvino/util/pp.hpp"
 
 #include "dnnl_types.h"
 #include "dnnl_extension_utils.h"
@@ -1129,7 +1130,7 @@ void DeformableConvolution::DefConvRefExecutor::exec(const float* src, const flo
 
     const int channel_per_deformable_group = (IC * G) / DG;
     const size_t group_wei_stride = weiStrides[0] * OC;
-    auto compKer = [=](int g, int mb, int oc, int oh, int ow) {
+    auto compKer = [OV_CAPTURE_CPY_AND_THIS](int g, int mb, int oc, int oh, int ow) {
         float d = 0;
         for (int ic = 0; ic < IC; ic++) {
             const float *data_im_ptr = src + mb * srcStrides[0] + (g * IC + ic) * srcStrides[1];
@@ -1183,19 +1184,19 @@ void DeformableConvolution::prepareParams() {
     auto offMemPtr = getSrcMemoryAtPort(OFF_ID);
     auto weiMemPtr = getSrcMemoryAtPort(WEI_ID);
 
-    if (!dstMemPtr || !dstMemPtr->isAllocated())
-        OPENVINO_THROW(errorPrefix, " did not allocate destination memory");
-    if (!srcMemPtr || !srcMemPtr->isAllocated())
-        OPENVINO_THROW(errorPrefix, " did not allocate input memory");
-    if (!offMemPtr || !offMemPtr->isAllocated())
-        OPENVINO_THROW(errorPrefix, " did not allocate offsets shape memory");
-    if (!weiMemPtr || !weiMemPtr->isAllocated())
-        OPENVINO_THROW(errorPrefix, " did not allocate weights memory");
+    if (!dstMemPtr || !dstMemPtr->isDefined())
+        OPENVINO_THROW(errorPrefix, " has undefined destination memory");
+    if (!srcMemPtr || !srcMemPtr->isDefined())
+        OPENVINO_THROW(errorPrefix, " has undefined input memory");
+    if (!offMemPtr || !offMemPtr->isDefined())
+        OPENVINO_THROW(errorPrefix, " has undefined offsets shape memory");
+    if (!weiMemPtr || !weiMemPtr->isDefined())
+        OPENVINO_THROW(errorPrefix, " has undefined weights memory");
 
     if (getOriginalInputsNumber() > 3) {
         auto modMemPtr = getSrcMemoryAtPort(MOD_ID);
-        if (!modMemPtr || !modMemPtr->isAllocated())
-            OPENVINO_THROW(errorPrefix, " did not allocate modulations memory");
+        if (!modMemPtr || !modMemPtr->isDefined())
+            OPENVINO_THROW(errorPrefix, " has undefined modulations memory");
     }
 
     auto selectedPrimitiveDescriptor = getSelectedPrimitiveDescriptor();
@@ -1301,7 +1302,7 @@ void DeformableConvolution::execute(dnnl::stream strm) {
     const auto *weights = srcMemory2.getDataAs<const float>();
     float* modulation = nullptr;
     if (inputsNumber > 3) {
-        modulation = getParentEdgeAt(3)->getMemory().getDataAs<float>();
+        modulation = getSrcDataAtPortAs<float>(3);
     }
 
     float *dst = dstMemory.getDataAs<float>();

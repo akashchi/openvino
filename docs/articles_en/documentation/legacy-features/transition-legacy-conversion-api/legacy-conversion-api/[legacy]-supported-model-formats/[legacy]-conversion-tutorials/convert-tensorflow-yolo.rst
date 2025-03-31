@@ -1,5 +1,3 @@
-.. {#openvino_docs_MO_DG_prepare_model_convert_model_tf_specific_Convert_YOLO_From_Tensorflow}
-
 Converting TensorFlow YOLO Models
 =================================
 
@@ -58,11 +56,18 @@ This section explains how to convert the YOLOv4 Keras model from the `repository
         python keras-YOLOv3-model-set/tools/model_converter/convert.py <path_to_cfg_file>/yolov4-tiny.cfg <path_to_weights>/yolov4-tiny.weights <saved_model_dir>
 
 
-4. Run model conversion for from the TensorFlow 2 format to an IR:
+4. Run model conversion from the TensorFlow 2 to an IR format:
 
    .. note::
 
       Before you run the conversion, make sure you have installed all the model conversion API dependencies for TensorFlow 2.
+
+      If you get errors, you may need to add the additional step to divide the input by 255:
+
+      .. code-block:: sh
+
+         --scale_values=image_input[255]
+
 
    .. code-block:: sh
 
@@ -211,7 +216,7 @@ where:
    The color channel order (RGB or BGR) of an input data should match the channel order of the model training dataset. If they are different, perform the ``RGB<->BGR`` conversion specifying the command-line parameter: ``reverse_input_channels``. Otherwise, inference results may be incorrect. For more information about the parameter, refer to the **When to Reverse Input Channels** section of the :doc:`Converting a Model to Intermediate Representation (IR) <../../[legacy]-setting-input-shapes>` guide.
 
 
-OpenVINO toolkit provides a demo that uses YOLOv3 model. Refer to the :doc:`Object Detection C++ Demo <../../../../../../omz_demos_object_detection_demo_cpp>` for more information.
+OpenVINO toolkit provides a demo that uses YOLOv3 model. Refer to the `Object Detection C++ Demo <https://github.com/openvinotoolkit/open_model_zoo/blob/master/demos/object_detection_demo/cpp/README.md>`__ for more information.
 
 Converting YOLOv1 and YOLOv2 Models to the IR
 #############################################
@@ -229,7 +234,7 @@ To convert DarkNet YOLOv1 and YOLOv2 models to the OpenVINO format, follow these
 
 
 Installing DarkFlow
---------------------------------------------------------------
++++++++++++++++++++++
 
 You need DarkFlow to convert YOLOv1 and YOLOv2 models to TensorFlow. To install DarkFlow:
 
@@ -252,7 +257,7 @@ You need DarkFlow to convert YOLOv1 and YOLOv2 models to TensorFlow. To install 
 
 
 Converting a DarkNet YOLOv1 or YOLOv2 Model to TensorFlow
---------------------------------------------------------------
++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
 To convert YOLOv1 or YOLOv2 model to TensorFlow, go to the root directory of the cloned DarkFlow repository, place the previously downloaded \*.cfg and \*.weights files in the current directory and run the following command:
 
@@ -285,7 +290,7 @@ in ``built_graph``  subdirectory of the cloned DarkFlow repository.
 File ``<model_name>.pb`` is a TensorFlow representation of the YOLO model.
 
 Converting a TensorFlow YOLOv1 or YOLOv2 Model to the IR
----------------------------------------------------------
+++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
 Converted TensorFlow YOLO model is missing ``Region`` layer and its parameters. Original YOLO ``Region`` layer parameters are stored in the configuration ``<path_to_model>/<model_name>.cfg`` file under the ``[region]`` title.
 

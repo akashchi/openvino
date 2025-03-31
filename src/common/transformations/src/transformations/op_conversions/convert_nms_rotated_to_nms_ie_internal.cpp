@@ -11,6 +11,7 @@
 #include "openvino/core/rt_info.hpp"
 #include "openvino/op/constant.hpp"
 #include "openvino/op/convert.hpp"
+#include "openvino/op/nms_rotated.hpp"
 #include "openvino/op/non_max_suppression.hpp"
 #include "openvino/op/reshape.hpp"
 #include "openvino/pass/pattern/op/wrap_type.hpp"
@@ -22,7 +23,7 @@ ov::pass::ConvertNMSRotatedToNMSIEInternal::ConvertNMSRotatedToNMSIEInternal() {
     auto nms = ov::pass::pattern::wrap_type<ov::op::v13::NMSRotated>();
 
     matcher_pass_callback callback = [OV_CAPTURE_CPY_AND_THIS](pattern::Matcher& m) {
-        auto nms_rotated = std::dynamic_pointer_cast<ov::op::v13::NMSRotated>(m.get_match_root());
+        auto nms_rotated = ov::as_type_ptr<ov::op::v13::NMSRotated>(m.get_match_root());
         if (!nms_rotated || transformation_callback(nms_rotated)) {
             return false;
         }

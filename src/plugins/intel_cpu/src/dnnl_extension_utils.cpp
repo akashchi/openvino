@@ -3,14 +3,16 @@
 //
 
 #include "dnnl_extension_utils.h"
-#include "memory_desc/dnnl_blocked_memory_desc.h"
-#include "onednn/iml_type_mapper.h"
-#include "utils/general_utils.h"
+
 #include <common/primitive_desc.hpp>
 #include <common/primitive_desc_iface.hpp>
 #include <oneapi/dnnl/dnnl.hpp>
-
 #include <vector>
+
+#include "cpu_memory.h"
+#include "memory_desc/dnnl_blocked_memory_desc.h"
+#include "onednn/iml_type_mapper.h"
+#include "utils/general_utils.h"
 
 using namespace dnnl;
 
@@ -33,6 +35,8 @@ uint8_t DnnlExtensionUtils::sizeOfDataType(dnnl::memory::data_type dataType) {
     case dnnl::memory::data_type::nf4:
     case dnnl::memory::data_type::s4:
     case dnnl::memory::data_type::u4:
+    case dnnl::memory::data_type::f8_e8m0:
+    case dnnl::memory::data_type::f4_e2m1:
         return 1;
     case dnnl::memory::data_type::undef:
         return 0;
@@ -64,6 +68,10 @@ dnnl::memory::data_type DnnlExtensionUtils::ElementTypeToDataType(const ov::elem
             return memory::data_type::s4;
         case ov::element::u4:
             return memory::data_type::u4;
+        case ov::element::f8e8m0:
+            return memory::data_type::f8_e8m0;
+        case ov::element::f4e2m1:
+            return memory::data_type::f4_e2m1;
         case ov::element::undefined:
             return memory::data_type::undef;
         default: {
@@ -96,6 +104,10 @@ ov::element::Type DnnlExtensionUtils::DataTypeToElementType(const dnnl::memory::
             return ov::element::i4;
         case memory::data_type::u4:
             return ov::element::u4;
+        case memory::data_type::f8_e8m0:
+            return ov::element::f8e8m0;
+        case memory::data_type::f4_e2m1:
+            return ov::element::f4e2m1;
         case memory::data_type::undef:
             return ov::element::undefined;
         default: {
@@ -160,16 +172,13 @@ DnnlMemoryDescPtr DnnlExtensionUtils::makeDescriptor(const_dnnl_memory_desc_t de
 }
 
 size_t DnnlExtensionUtils::getMemSizeForDnnlDesc(const dnnl::memory::desc& desc) {
-    auto tmpDesc = desc;
+    OPENVINO_ASSERT(IMPLICATION(desc.get_format_kind() == dnnl::memory::format_kind::blocked, desc.get()->offset0 == 0),
+                    "Unexpected non zero offset for a dnnl blocked memory desc");
 
-    const auto offset0 = tmpDesc.get()->offset0;
-    tmpDesc.get()->offset0 = 0;
-
-    size_t size = tmpDesc.get_size();
+    size_t size = desc.get_size();
     if (size == DNNL_RUNTIME_SIZE_VAL)
         return MemoryDesc::UNDEFINED_SIZE;
 
-    size += offset0 * sizeOfDataType(tmpDesc.get_data_type());
     return size;
 }
 
@@ -222,50 +231,6 @@ const char* DnnlExtensionUtils::query_pd_info(const_dnnl_primitive_desc_t pd) {
     return pd->info();
 }
 
-dnnl::algorithm DnnlExtensionUtils::convertToDnnlAlgorithm(Algorithm alg) {
-    switch (alg) {
-        case Algorithm::EltwiseRelu: return dnnl::algorithm::eltwise_relu;
-        case Algorithm::EltwiseTanh: return dnnl::algorithm::eltwise_tanh;
-        case Algorithm::EltwiseElu: return dnnl::algorithm::eltwise_elu;
-        case Algorithm::EltwiseAbs: return dnnl::algorithm::eltwise_abs;
-        case Algorithm::EltwiseSqrt: return dnnl::algorithm::eltwise_sqrt;
-        case Algorithm::EltwiseSwish: return dnnl::algorithm::eltwise_swish;
-        case Algorithm::EltwiseHswish: return dnnl::algorithm::eltwise_hardswish;
-        case Algorithm::EltwiseSoftRelu: return dnnl::algorithm::eltwise_soft_relu;
-        case Algorithm::EltwiseMish: return dnnl::algorithm::eltwise_mish;
-        case Algorithm::EltwiseExp: return dnnl::algorithm::eltwise_exp;
-        case Algorithm::EltwiseGeluErf: return dnnl::algorithm::eltwise_gelu_erf;
-        case Algorithm::EltwiseGeluTanh: return dnnl::algorithm::eltwise_gelu_tanh;
-        case Algorithm::EltwiseSigmoid: return dnnl::algorithm::eltwise_logistic;
-        case Algorithm::EltwiseClamp: return dnnl::algorithm::eltwise_clip;
-        case Algorithm::EltwisePowerStatic: return dnnl::algorithm::eltwise_pow;
-        case Algorithm::EltwiseHsigmoid: return dnnl::algorithm::eltwise_hsigmoid;
-        case Algorithm::EltwiseRoundHalfToEven: return dnnl::algorithm::eltwise_round_half_to_even;
-        case Algorithm::EltwiseRoundHalfAwayFromZero: return dnnl::algorithm::eltwise_round_half_away_from_zero;
-        case Algorithm::EltwiseAdd: return dnnl::algorithm::binary_add;
-        case Algorithm::EltwiseMultiply: return dnnl::algorithm::binary_mul;
-        case Algorithm::EltwiseSubtract: return dnnl::algorithm::binary_sub;
-        case Algorithm::EltwiseDivide: return dnnl::algorithm::binary_div;
-        case Algorithm::EltwiseMaximum: return dnnl::algorithm::binary_max;
-        case Algorithm::EltwiseMinimum: return dnnl::algorithm::binary_min;
-        case Algorithm::EltwiseEqual: return dnnl::algorithm::binary_eq;
-        case Algorithm::EltwiseNotEqual: return dnnl::algorithm::binary_ne;
-        case Algorithm::EltwiseGreater: return dnnl::algorithm::binary_gt;
-        case Algorithm::EltwiseGreaterEqual: return dnnl::algorithm::binary_ge;
-        case Algorithm::EltwiseLess: return dnnl::algorithm::binary_lt;
-        case Algorithm::EltwiseLessEqual: return dnnl::algorithm::binary_le;
-        case Algorithm::EltwisePrelu: return dnnl::algorithm::binary_prelu;
-        case Algorithm::ReduceMax: return dnnl::algorithm::reduction_max;
-        case Algorithm::ReduceMin: return dnnl::algorithm::reduction_min;
-        case Algorithm::ReduceSum: return dnnl::algorithm::reduction_sum;
-        case Algorithm::ReduceMean: return dnnl::algorithm::reduction_mean;
-        case Algorithm::FQCommon: return dnnl::algorithm::quantization_quantize_dequantize;
-        case Algorithm::FQQuantization: return dnnl::algorithm::quantization_quantize;
-        case Algorithm::FQBinarization: return dnnl::algorithm::binarization_depthwise;
-        default: return dnnl::algorithm::undef;
-    }
-}
-
 bool DnnlExtensionUtils::isUnarySupportedAsPostOp(Algorithm alg) {
 #if defined(OV_CPU_WITH_ACL)
     return one_of(alg, Algorithm::EltwiseRelu,
@@ -296,6 +261,12 @@ bool DnnlExtensionUtils::isUnarySupportedAsPostOp(Algorithm alg) {
 #else
     return false;
 #endif
+}
+
+std::string DnnlExtensionUtils::computeWeightsStringHash(const std::shared_ptr<const IMemory>& memory,
+                                                         const std::shared_ptr<DnnlMemoryDesc>& dstDesc) {
+    const auto desc_hash = dnnl::impl::primitive_hashing::get_md_hash(*dstDesc->getDnnlDesc().get());
+    return std::to_string(desc_hash) + "_" + std::to_string(reinterpret_cast<uint64_t>(memory->getData()));
 }
 
 }   // namespace intel_cpu

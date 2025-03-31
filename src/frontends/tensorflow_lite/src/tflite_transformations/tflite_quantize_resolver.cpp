@@ -6,7 +6,9 @@
 
 #include <memory>
 
-#include "openvino/opsets/opset9.hpp"
+#include "openvino/core/validation_util.hpp"
+#include "openvino/opsets/opset10.hpp"
+#include "openvino/pass/manager.hpp"
 #include "openvino/pass/pattern/matcher.hpp"
 #include "openvino/pass/pattern/op/wrap_type.hpp"
 #include "tflite_ops/tflite_quantize.hpp"
@@ -15,19 +17,19 @@
 
 using namespace std;
 using namespace ov::pass;
+using namespace ov::opset10;
 using namespace ov::pass::pattern;
-using namespace ov::opset9;
 using namespace ov::frontend::tensorflow_lite;
 
 pass::TFLQuantizeConvert::TFLQuantizeConvert() {
     auto tfl_quantize_label = wrap_type<tensorflow_lite::TFLQuantize>();
-    auto convert_label = wrap_type<Convert>({tfl_quantize_label});
+    auto convert_label = wrap_type<opset10::Convert>({tfl_quantize_label});
 
     matcher_pass_callback callback = [=](Matcher& m) {
         auto pattern_map = m.get_pattern_map();
         auto tfl_quantize_node = pattern_map.at(tfl_quantize_label);
         auto convert_node = pattern_map.at(convert_label);
-        auto convert = ov::as_type_ptr<opset9::Convert>(convert_node);
+        auto convert = ov::as_type_ptr<opset10::Convert>(convert_node);
         if (!convert)
             return false;
         auto type = convert->get_destination_type();
@@ -196,7 +198,7 @@ pass::TFLQuantizeReplacer::TFLQuantizeReplacer() {
 }
 
 bool pass::TFLQuantizeResolver::run_on_model(const std::shared_ptr<ov::Model>& m) {
-    ov::pass::Manager manager;
+    ov::pass::Manager manager("Frontend:TFLite:TFLQuantizeResolver");
     manager.register_pass<pass::TFLQuantizeConvert>();
     manager.register_pass<pass::TFLQuantizeReplacer>();
     manager.run_passes(m);

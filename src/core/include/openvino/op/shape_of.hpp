@@ -36,8 +36,9 @@ public:
     bool evaluate(TensorVector& output_values, const TensorVector& input_values) const override;
     bool evaluate_lower(TensorVector& output_values) const override;
     bool evaluate_upper(TensorVector& output_values) const override;
-    bool evaluate_label(TensorLabelVector& output_labels) const override;
+    bool evaluate_symbol(TensorSymbolVector& output_symbols) const override;
     bool constant_fold(OutputVector& output_values, const OutputVector& input_values) override;
+    bool can_constant_fold(const OutputVector& inputs_values) const override;
 
 private:
     element::Type m_output_type;
@@ -62,8 +63,9 @@ public:
     bool evaluate(TensorVector& output_values, const TensorVector& input_values) const override;
     bool evaluate_lower(TensorVector& output_values) const override;
     bool evaluate_upper(TensorVector& output_values) const override;
-    bool evaluate_label(TensorLabelVector& output_labels) const override;
+    bool evaluate_symbol(TensorSymbolVector& output_symbols) const override;
     bool constant_fold(OutputVector& output_values, const OutputVector& input_values) override;
+    bool can_constant_fold(const OutputVector& inputs_values) const override;
 };
 }  // namespace v0
 }  // namespace op

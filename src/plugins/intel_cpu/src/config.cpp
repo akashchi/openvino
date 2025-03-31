@@ -82,7 +82,9 @@ void Config::readProperties(const ov::AnyMap& prop, const ModelType modelType) {
                 ov::Any value = val.as<std::string>();
                 auto streams_value = value.as<ov::streams::Num>();
                 if (streams_value == ov::streams::NUMA) {
-                    latencyThreadingMode = Config::LatencyThreadingMode::PER_NUMA_NODE;
+                    modelDistributionPolicy = {};
+                    hintPerfMode = ov::hint::PerformanceMode::LATENCY;
+                    changedHintPerfMode = true;
                 } else if (streams_value == ov::streams::AUTO) {
                     hintPerfMode = ov::hint::PerformanceMode::THROUGHPUT;
                     changedHintPerfMode = true;
@@ -234,6 +236,7 @@ void Config::readProperties(const ov::AnyMap& prop, const ModelType modelType) {
             }
         } else if (key == ov::hint::dynamic_quantization_group_size.name()) {
             try {
+                fcDynamicQuantizationGroupSizeSetExplicitly = true;
                 fcDynamicQuantizationGroupSize = val.as<uint64_t>();
             } catch (const ov::Exception&) {
                 OPENVINO_THROW("Wrong value for property key ",
@@ -287,8 +290,8 @@ void Config::readProperties(const ov::AnyMap& prop, const ModelType modelType) {
                     if (hasHardwareSupport(ov::element::f16)) {
                         inferencePrecision = ov::element::f16;
                     }
-                } else if (prec == ov::element::f32) {
-                    inferencePrecision = ov::element::f32;
+                } else if (one_of(prec, element::f32, element::undefined)) {
+                    inferencePrecision = prec;
                 } else {
                     OPENVINO_THROW("invalid value");
                 }
@@ -297,7 +300,7 @@ void Config::readProperties(const ov::AnyMap& prop, const ModelType modelType) {
                                val.as<std::string>(),
                                " for property key ",
                                ov::hint::inference_precision.name(),
-                               ". Supported values: bf16, f16, f32");
+                               ". Supported values: bf16, f16, f32, undefined");
             }
         } else if (ov::intel_cpu::cpu_runtime_cache_capacity.name() == key) {
             int val_i = -1;
@@ -368,6 +371,15 @@ void Config::readProperties(const ov::AnyMap& prop, const ModelType modelType) {
                                ov::hint::kv_cache_precision.name(),
                                ". Supported values: u8, bf16, f16, f32");
             }
+        } else if (key == ov::cache_encryption_callbacks.name()) {
+            try {
+                auto encryption_callbacks = val.as<EncryptionCallbacks>();
+                cacheEncrypt = encryption_callbacks.encrypt;
+                cacheDecrypt = encryption_callbacks.decrypt;
+            } catch (ov::Exception&) {
+                OPENVINO_THROW("Wrong value for property key ", ov::cache_encryption_callbacks.name());
+            }
+        } else if (key == ov::internal::caching_with_mmap.name()) {
         } else {
             OPENVINO_THROW("NotFound: Unsupported property ", key, " by CPU plugin.");
         }
@@ -385,7 +397,19 @@ void Config::readProperties(const ov::AnyMap& prop, const ModelType modelType) {
             if (mayiuse(avx512_core_bf16))
                 inferencePrecision = ov::element::bf16;
         } else {
-            inferencePrecision = ov::element::f32;
+            inferencePrecision = ov::element::undefined;
+        }
+    }
+    // enable ACL fast math in PERFORMANCE mode
+#if defined(OV_CPU_WITH_ACL)
+    if (executionMode == ov::hint::ExecutionMode::PERFORMANCE) {
+        aclFastMath = true;
+    }
+#endif
+    // disable dynamic quantization and kv quantization for best accuracy
+    if (executionMode == ov::hint::ExecutionMode::ACCURACY) {
+        if (!fcDynamicQuantizationGroupSizeSetExplicitly) {
+            fcDynamicQuantizationGroupSize = 0;
         }
     }
 
@@ -396,6 +420,13 @@ void Config::readProperties(const ov::AnyMap& prop, const ModelType modelType) {
         streams = 1;
         streamsChanged = true;
     }
+
+#if defined(OV_CPU_WITH_SHL)
+    // TODO: multi-stream execution is unsafe when SHL is used:
+    //       The library uses global static variables as flags and counters.
+    streams = 1;
+    streamsChanged = true;
+#endif
 
     this->modelType = modelType;
 

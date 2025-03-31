@@ -1,12 +1,11 @@
 # Copyright (C) 2018-2024 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
-import platform
-
 import numpy as np
 import pytest
 import tensorflow as tf
 from common.tf_layer_test_class import CommonTFLayerTest
+from common.utils.tf_utils import run_in_jenkins
 
 rng = np.random.default_rng()
 
@@ -16,7 +15,7 @@ class TestStringSplitV2(CommonTFLayerTest):
         assert 'input:0' in inputs_info
         input_shape = inputs_info['input:0']
         inputs_data = {}
-        strings_dictionary = ['UPPER<>CASE SENTENCE', 'lower case\n\s sentence', ' UppEr LoweR CAse SENtence \t\n',
+        strings_dictionary = ['UPPER<>CASE SENTENCE', 'lower case\n sentence', ' UppEr LoweR CAse SENtence \t\n',
                               '  some sentence', 'another sentence HERE    ']
         inputs_data['input:0'] = rng.choice(strings_dictionary, input_shape)
         return inputs_data
@@ -38,16 +37,14 @@ class TestStringSplitV2(CommonTFLayerTest):
 
     @pytest.mark.parametrize('input_shape', [[1], [2], [5]])
     @pytest.mark.parametrize('sep', ['', '<>'])
-    @pytest.mark.parametrize('maxsplit', [None, -1])
-    @pytest.mark.precommit_tf_fe
+    @pytest.mark.parametrize('maxsplit', [None, -1, 5, 10])
+    @pytest.mark.precommit
     @pytest.mark.nightly
-    @pytest.mark.xfail(condition=platform.system() in ('Darwin', 'Linux') and platform.machine() in ['arm', 'armv7l',
-                                                                                                     'aarch64',
-                                                                                                     'arm64', 'ARM64'],
-                       reason='126314, 132699: Build tokenizers for ARM and MacOS')
     def test_string_split_v2(self, input_shape, sep, maxsplit,
                              ie_device, precision, ir_version, temp_dir,
                              use_legacy_frontend):
+        if ie_device == 'GPU' or run_in_jenkins():
+            pytest.skip("operation extension is not supported on GPU")
         self._test(*self.create_string_split_v2_net(input_shape=input_shape, sep=sep, maxsplit=maxsplit),
                    ie_device, precision, ir_version, temp_dir=temp_dir,
                    use_legacy_frontend=use_legacy_frontend)

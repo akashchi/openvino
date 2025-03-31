@@ -90,6 +90,8 @@ size_t ReduceKey::hash() const {
     seed = hash_combine(seed, jcp.layout);
     seed = hash_combine(seed, jcp.reduce_mode);
     seed = hash_combine(seed, jcp.fuse_low_precision);
+    seed = hash_combine(seed, jcp.fuse_broadcast);
+    seed = hash_combine(seed, jcp.round_to_zero);
     seed = hash_combine(seed, jcp.src_dt);
     seed = hash_combine(seed, jcp.dst_dt);
     seed = get_post_op_hash(seed, *postOps.get());
@@ -100,16 +102,17 @@ size_t ReduceKey::hash() const {
 bool ReduceKey::operator==(const ReduceKey &rhs) const {
     return jcp.layout == rhs.jcp.layout && jcp.reduce_mode == rhs.jcp.reduce_mode &&
            jcp.fuse_low_precision == rhs.jcp.fuse_low_precision &&
+           jcp.fuse_broadcast == rhs.jcp.fuse_broadcast && jcp.round_to_zero == rhs.jcp.round_to_zero &&
            jcp.src_dt == rhs.jcp.src_dt && jcp.dst_dt == rhs.jcp.dst_dt && *postOps.get() == *rhs.postOps.get();
 }
 } // namespace
-
-#if defined(OPENVINO_ARCH_X86_64)
 
 // some utility functions
 static inline bool isFloatCompatible(memory::data_type type) {
     return memory::data_type::f32 == type || memory::data_type::bf16 == type || memory::data_type::f16 == type;
 }
+
+#if defined(OPENVINO_ARCH_X86_64)
 
 template <cpu_isa_t isa>
 struct jit_uni_reduce_kernel_f32 : public jit_uni_reduce_kernel, public jit_generator {
@@ -134,6 +137,7 @@ struct jit_uni_reduce_kernel_f32 : public jit_uni_reduce_kernel, public jit_gene
         this->preamble();
 
         planar_layout = jcp_.layout == ReduceLayoutType::reduce_ncsp || jcp_.layout == ReduceLayoutType::reduce_nspc;
+        support_intermediate_int = jcp_.reduce_mode == Algorithm::ReduceProd;
 
         mov(reg_src, ptr[reg_params + GET_OFF(src)]);
         mov(reg_dst, ptr[reg_params + GET_OFF(dst)]);
@@ -175,6 +179,7 @@ private:
             Xbyak::Ymm, Xbyak::Zmm>::type;
     size_t vlen = cpu_isa_traits<isa>::vlen;
     bool planar_layout = false;
+    bool support_intermediate_int = false;
 
     Xbyak::Address table_val(int index) { return ptr[reg_table + index * vlen]; }
 
@@ -189,6 +194,7 @@ private:
     Xbyak::Reg64 reg_params = abi_param1;
 
     Xbyak::Reg8 reg_tmp_8 = r15b;
+    Xbyak::Reg16 reg_tmp_16 = r15w;
     Xbyak::Reg32 reg_tmp_32 = r15d;
     Xbyak::Reg64 reg_tmp_64 = r15;
 
@@ -335,8 +341,13 @@ private:
             // init dst, dst loading is embedded in horiz_reduce_store
             switch (jcp_.reduce_mode) {
                 case Algorithm::ReduceAnd:
-                case Algorithm::ReduceProd:
                     uni_vmovups(vmm_dst, table_val(0));
+                    break;
+                case Algorithm::ReduceProd:
+                    if (isFloatCompatible(jcp_.src_dt))
+                        uni_vmovups(vmm_dst, table_val(0));
+                    else
+                        uni_vmovups(vmm_dst, table_val(6));
                     break;
                 case Algorithm::ReduceL1:
                     uni_vmovups(vmm_aux, table_val(1));
@@ -575,7 +586,9 @@ private:
                         vgatherdps(vmm_src | k_mask, ptr[reg_src + offset + vmm_idx]);
                     } else {
                         vpgatherdd(vmm_src | k_mask, ptr[reg_src + offset + vmm_idx]);
-                        uni_vcvtdq2ps(vmm_src, vmm_src);
+                        if (!support_intermediate_int) {
+                            uni_vcvtdq2ps(vmm_src, vmm_src);
+                        }
                     }
                 } else if (isa == cpu::x64::avx2) {
                     uni_vpcmpeqd(vmm_mask, vmm_mask, vmm_mask);
@@ -583,7 +596,9 @@ private:
                         vgatherdps(vmm_src, ptr[reg_src + offset + vmm_idx], vmm_mask);
                     } else {
                         vpgatherdd(vmm_src, ptr[reg_src + offset + vmm_idx], vmm_mask);
-                        uni_vcvtdq2ps(vmm_src, vmm_src);
+                        if (!support_intermediate_int) {
+                            uni_vcvtdq2ps(vmm_src, vmm_src);
+                        }
                     }
                 } else {
                     pack_gathered_vector(vmm_src, vmm_idx, offset, jcp_.src_dt);
@@ -651,7 +666,7 @@ private:
                 assert(!"unknown src_dt");
         }
 
-        if (!isFloatCompatible(src_dt))
+        if (convert_i32_to_f32(src_dt))
             uni_vcvtdq2ps(vmm_val, vmm_val);
         add(rsp, vlen);
     }
@@ -816,7 +831,11 @@ private:
                 uni_vorps(vmm_dst, vmm_dst, vmm_src);
                 break;
             case Algorithm::ReduceProd:
-                uni_vmulps(vmm_dst, vmm_dst, vmm_src);
+                if (isFloatCompatible(jcp_.src_dt)) {
+                    uni_vmulps(vmm_dst, vmm_dst, vmm_src);
+                } else {
+                    uni_vpmulld(vmm_dst, vmm_dst, vmm_src);
+                }
                 break;
             default:
                 assert(!"unsupported reduce mode");
@@ -857,7 +876,11 @@ private:
                 uni_vorps(xmm_dst, xmm_dst, xmm_src);
                 break;
             case Algorithm::ReduceProd:
-                uni_vmulps(xmm_dst, xmm_dst, xmm_src);
+                if (isFloatCompatible(jcp_.src_dt)) {
+                    uni_vmulps(xmm_dst, xmm_dst, xmm_src);
+                } else {
+                    uni_vpmulld(xmm_dst, xmm_dst, xmm_src);
+                }
                 break;
             default:
                 assert(!"unsupported reduce mode");
@@ -908,7 +931,7 @@ private:
                 assert(!"unknown src_dt");
         }
 
-        if (!isFloatCompatible(src_dt))
+        if (convert_i32_to_f32(src_dt))
             uni_vcvtdq2ps(vmm_src, vmm_src);
     }
 
@@ -937,7 +960,7 @@ private:
                 assert(!"unknown src_dt");
         }
 
-        if (!isFloatCompatible(src_dt)) {
+        if (convert_i32_to_f32(src_dt)) {
             uni_vcvtdq2ps(xmm_src, xmm_src);
         }
     }
@@ -945,8 +968,10 @@ private:
     inline void store_vector(const Xbyak::Address &op, Vmm vmm_dst, memory::data_type dst_dt) {
         Xmm xmm_dst = Xmm(vmm_dst.getIdx());
         Ymm ymm_dst = Ymm(vmm_dst.getIdx());
-
-        if (!isFloatCompatible(dst_dt)) {
+        if (jcp_.round_to_zero && !support_intermediate_int) {
+            uni_vroundps(vmm_dst, vmm_dst, 3); // rounding to zero
+        }
+        if (convert_f32_to_i32(dst_dt)) {
             uni_vcvtps2dq(vmm_dst, vmm_dst);
         }
 
@@ -997,7 +1022,10 @@ private:
     }
 
     inline void store_scalar(const Xbyak::Address &op, Xmm xmm_dst, memory::data_type dst_dt) {
-        if (!isFloatCompatible(dst_dt)) {
+        if (jcp_.round_to_zero && !support_intermediate_int) {
+            uni_vroundps(xmm_dst, xmm_dst, 3);
+        }
+        if (convert_f32_to_i32(dst_dt)) {
             uni_vcvtps2dq(xmm_dst, xmm_dst);
         }
 
@@ -1011,7 +1039,9 @@ private:
                 uni_vpextrw(op, xmm_dst, 0x0);
                 break;
             case memory::data_type::f16:
-                vcvtps2ph(op, xmm_dst, 0x4);
+                vcvtps2ph(xmm_dst, xmm_dst, 0x4);
+                movq(reg_tmp_64, xmm_dst);
+                mov(op, reg_tmp_16);
                 break;
             case memory::data_type::s8:
                 uni_vpackssdw(xmm_dst, xmm_dst, xmm_dst);
@@ -1088,11 +1118,22 @@ private:
                 uni_vorps(xmm, xmm, op);
                 break;
             case Algorithm::ReduceProd:
-                uni_vmulps(xmm, xmm, op);
+                if (isFloatCompatible(jcp_.src_dt))
+                    uni_vmulps(xmm, xmm, op);
+                else
+                    uni_vpmulld(xmm, xmm, op);
                 break;
             default:
                 assert(!"unsupported reduce mode");
         }
+    }
+
+    inline bool convert_i32_to_f32(memory::data_type src_dt) {
+        return !isFloatCompatible(src_dt) && !support_intermediate_int;
+    }
+
+    inline bool convert_f32_to_i32(memory::data_type dst_dt) {
+        return !isFloatCompatible(dst_dt) && !support_intermediate_int;
     }
 
     void prepare_aux_table() {
@@ -1111,6 +1152,7 @@ private:
         broadcast_int(aux_vals.float_max);
         broadcast_int(aux_vals.int32_min);
         broadcast_int(aux_vals.int32_max);
+        broadcast_int(aux_vals.int32_one);
     }
 
     const struct aux_vals_type {
@@ -1120,6 +1162,7 @@ private:
         int float_max = 0x7f7fffff; // float maximum
         int int32_min = 0xcf000000; // -2^31 presented in float
         int int32_max = 0x4effffff; // 2^31-1 presented in float
+        int int32_one = 0x00000001; // integer 1
     } aux_vals;
 };
 
@@ -1164,6 +1207,7 @@ struct jit_uni_reduce_post_kernel_f32 : public jit_uni_reduce_post_kernel, publi
         post_reduce = jcp_.reduce_mode == Algorithm::ReduceL2 || jcp_.reduce_mode == Algorithm::ReduceMean ||
                       jcp_.reduce_mode == Algorithm::ReduceLogSum || jcp_.reduce_mode == Algorithm::ReduceLogSumExp;
         post_ops_fusing = attr_.post_ops_.len() != 0;
+        increase_oc_off = !jcp_.fuse_broadcast && jcp_.layout != ReduceLayoutType::reduce_blocked;
 
         mov(reg_dst, ptr[reg_params + GET_OFF_POST(dst)]);
         mov(reg_work_amount, ptr[reg_params + GET_OFF_POST(work_amount)]);
@@ -1227,6 +1271,7 @@ private:
     bool planar_layout = false;
     bool post_reduce = true;
     bool post_ops_fusing = false;
+    bool increase_oc_off = false;
 
     Xbyak::Reg64 reg_src = rbp;
     Xbyak::Reg64 reg_dst = r8;
@@ -1238,6 +1283,7 @@ private:
     Xbyak::Reg64 reg_params = abi_param1;
 
     Xbyak::Reg8 reg_tmp_8 = r14b;
+    Xbyak::Reg16 reg_tmp_16 = r14w;
     Xbyak::Reg32 reg_tmp_32 = r14d;
     Xbyak::Reg64 reg_tmp_64 = r14;
 
@@ -1337,7 +1383,7 @@ private:
                     wrap_load_vector(vmm_dst, 0);
                     reduce_map_kernel(vmm_dst);
                     if (post_ops_fusing)
-                        apply_post_ops(jcp_.dst_dt, jcp_.layout == ReduceLayoutType::reduce_ncsp);
+                        apply_post_ops(jcp_.dst_dt, jcp_.fuse_broadcast);
                     store_vector(ptr[reg_dst], vmm_dst, jcp_.dst_dt);
 
                     if (isa == cpu::x64::sse41) {
@@ -1346,7 +1392,7 @@ private:
                         if (post_ops_fusing) {
                             if (jcp_.layout != ReduceLayoutType::reduce_ncsp)
                                 add(reg_oc_off, 4 * sizeof(float));
-                            apply_post_ops(jcp_.dst_dt, jcp_.layout == ReduceLayoutType::reduce_ncsp);
+                            apply_post_ops(jcp_.dst_dt, jcp_.fuse_broadcast);
                             if (jcp_.layout != ReduceLayoutType::reduce_ncsp)
                                 sub(reg_oc_off, 4 * sizeof(float));
                         }
@@ -1356,7 +1402,7 @@ private:
                     add(reg_dst, step * jcp_.dst_data_size);
                     if (jcp_.fuse_low_precision)
                         add(reg_src, step * sizeof(float));
-                    if (jcp_.layout == ReduceLayoutType::reduce_nspc && post_ops_fusing)
+                    if (post_ops_fusing && increase_oc_off)
                         add(reg_oc_off, step * sizeof(float));
                     sub(reg_work_amount, step);
 
@@ -1375,14 +1421,14 @@ private:
                         jl(reduce_loop_end_label, T_NEAR);
 
                         wrap_load_vector(vmm_dst, 0);
-                        apply_post_ops(jcp_.dst_dt, jcp_.layout == ReduceLayoutType::reduce_ncsp);
+                        apply_post_ops(jcp_.dst_dt, jcp_.fuse_broadcast);
                         store_vector(ptr[reg_dst], vmm_dst, jcp_.dst_dt);
 
                         if (isa == cpu::x64::sse41) {
                             wrap_load_vector(vmm_dst, 4);
                             if (jcp_.layout != ReduceLayoutType::reduce_ncsp)
                                 add(reg_oc_off, 4 * sizeof(float));
-                            apply_post_ops(jcp_.dst_dt, jcp_.layout == ReduceLayoutType::reduce_ncsp);
+                            apply_post_ops(jcp_.dst_dt, jcp_.fuse_broadcast);
                             if (jcp_.layout != ReduceLayoutType::reduce_ncsp)
                                 sub(reg_oc_off, 4 * sizeof(float));
                             store_vector(ptr[reg_dst + 4 * jcp_.dst_data_size], vmm_dst, jcp_.dst_dt);
@@ -1391,7 +1437,7 @@ private:
                         add(reg_dst, step * jcp_.dst_data_size);
                         if (jcp_.fuse_low_precision)
                             add(reg_src, step * sizeof(float));
-                        if (jcp_.layout == ReduceLayoutType::reduce_nspc && post_ops_fusing)
+                        if (post_ops_fusing && increase_oc_off)
                             add(reg_oc_off, step * sizeof(float));
                         sub(reg_work_amount, step);
 
@@ -1427,13 +1473,13 @@ private:
 
                 // store
                 if (post_ops_fusing)
-                    apply_post_ops(jcp_.dst_dt, jcp_.layout == ReduceLayoutType::reduce_ncsp);
+                    apply_post_ops(jcp_.dst_dt, jcp_.fuse_broadcast);
                 store_scalar(ptr[reg_dst], xmm_dst, jcp_.dst_dt);
 
                 add(reg_dst, step * jcp_.dst_data_size);
                 if (jcp_.fuse_low_precision)
                     add(reg_src, step * sizeof(float));
-                if (jcp_.layout == ReduceLayoutType::reduce_nspc && post_ops_fusing)
+                if (post_ops_fusing && increase_oc_off)
                     add(reg_oc_off, step * sizeof(float));
                 sub(reg_work_amount, step);
 
@@ -1455,13 +1501,13 @@ private:
                     wrap_load_scalar(xmm_dst, 0);
 
                     // store
-                    apply_post_ops(jcp_.dst_dt, jcp_.layout == ReduceLayoutType::reduce_ncsp);
+                    apply_post_ops(jcp_.dst_dt, jcp_.fuse_broadcast);
                     store_scalar(ptr[reg_dst], xmm_dst, jcp_.dst_dt);
 
                     add(reg_dst, step * jcp_.dst_data_size);
                     if (jcp_.fuse_low_precision)
                         add(reg_src, step * sizeof(float));
-                    if (jcp_.layout == ReduceLayoutType::reduce_nspc && post_ops_fusing)
+                    if (post_ops_fusing && increase_oc_off)
                         add(reg_oc_off, step * sizeof(float));
                     sub(reg_work_amount, step);
 
@@ -1478,6 +1524,10 @@ private:
         int depthwise_inj_idx = 0;
         int quantization_inj_idx = 0;
         int post_ops_data_offset = 0;
+        if (jcp_.round_to_zero) {
+            uni_vroundps(vmm_dst, vmm_dst, 3); // rounding to zero
+        }
+
         for (int i = 0; i < p.len(); i++) {
             auto& post_op = p.entry_[i];
             if (post_op.is_eltwise()) {
@@ -1607,7 +1657,10 @@ private:
     inline void store_vector(const Xbyak::Address &op, Vmm vmm_dst, memory::data_type dst_dt) {
         Xmm xmm_dst = Xmm(vmm_dst.getIdx());
         Ymm ymm_dst = Ymm(vmm_dst.getIdx());
-
+        // If there is post ops fusing, necessary rounding has ready been done, no need to do it again.
+        if (!post_ops_fusing && jcp_.round_to_zero) {
+            uni_vroundps(vmm_dst, vmm_dst, 3);
+        }
         if (!isFloatCompatible(dst_dt)) {
             uni_vcvtps2dq(vmm_dst, vmm_dst);
         }
@@ -1659,6 +1712,9 @@ private:
     }
 
     inline void store_scalar(const Xbyak::Address &op, Xmm xmm_dst, memory::data_type dst_dt) {
+        if (!post_ops_fusing && jcp_.round_to_zero) {
+            uni_vroundps(xmm_dst, xmm_dst, 3);
+        }
         if (!isFloatCompatible(dst_dt)) {
             uni_vcvtps2dq(xmm_dst, xmm_dst);
         }
@@ -1673,7 +1729,9 @@ private:
                 uni_vpextrw(op, xmm_dst, 0x0);
                 break;
             case memory::data_type::f16:
-                vcvtps2ph(op, xmm_dst, 0x4);
+                vcvtps2ph(xmm_dst, xmm_dst, 0x4);
+                movq(reg_tmp_64, xmm_dst);
+                mov(op, reg_tmp_16);
                 break;
             case memory::data_type::s8:
                 uni_vpackssdw(xmm_dst, xmm_dst, xmm_dst);
@@ -1857,6 +1915,7 @@ Reduce::Reduce(const std::shared_ptr<ov::Node>& op, const GraphContext::CPtr con
         }
         set_use_aux_kernel = false;
         fuse_low_precision = false;
+        round_to_zero = false;
         vec_reduceDH_prc.clear();
         vec_reduceCDW_prc.clear();
         setJITBeyond5D();
@@ -1894,18 +1953,9 @@ void Reduce::initSupportedPrimitiveDescriptors() {
     input_prec = getOriginalInputPrecisionAtPort(REDUCE_DATA);
     output_prec = getOriginalOutputPrecisionAtPort(0);
 
-    if (!fusedWith.empty()) {
-        // In jit mode we use the output memory as an intermediate accumulator for certain reduce modes.
-        // If the post ops node has a lower precision for such modes, working buffer with original precision is needed,
-        // in order to avoid accuracy loss.
-        auto fused_prec = fusedWith[fusedWith.size() - 1]->getOriginalOutputPrecisionAtPort(0);
-        if (output_prec == ov::element::f32 && fused_prec != ov::element::f32) {
-            if (algorithm != Algorithm::ReduceAnd && algorithm != Algorithm::ReduceOr &&
-                algorithm != Algorithm::ReduceMin && algorithm != Algorithm::ReduceMax) {
-                fuse_low_precision = true;
-            }
-        }
-        output_prec = fused_prec;
+    if (!isFloatCompatible(DnnlExtensionUtils::ElementTypeToDataType(input_prec)) &&
+        !isFloatCompatible(DnnlExtensionUtils::ElementTypeToDataType(output_prec))) {
+        round_to_zero = true;
     }
 
     jit_mode = canApplyJIT(input_prec, output_prec);
@@ -1924,6 +1974,20 @@ void Reduce::initSupportedPrimitiveDescriptors() {
         } else if (ov::element::f16 == output_prec) {
             if (!mayiuse(cpu::x64::avx2) || is_precision_sensitive_reduce(algorithm))
                 output_prec = ov::element::f32;
+        }
+
+        if (!fusedWith.empty()) {
+            // In jit mode we use the output memory as an intermediate accumulator for certain reduce modes.
+            // If the post ops node has a lower precision for such modes, working buffer with original precision is needed,
+            // in order to avoid accuracy loss.
+            auto fused_prec = fusedWith[fusedWith.size() - 1]->getOriginalOutputPrecisionAtPort(0);
+            if (output_prec == ov::element::f32 && fused_prec != ov::element::f32) {
+                if (algorithm != Algorithm::ReduceAnd && algorithm != Algorithm::ReduceOr &&
+                    algorithm != Algorithm::ReduceMin && algorithm != Algorithm::ReduceMax) {
+                    fuse_low_precision = true;
+                }
+            }
+            output_prec = fused_prec;
         }
     }
 
@@ -1983,8 +2047,7 @@ void Reduce::initSupportedPrimitiveDescriptors() {
             if (axis < 0)
                 axis += static_cast<int>(getInputShapeAtPort(REDUCE_DATA).getRank());
         }
-        // TODO: Per-channel layout is disabled due to accuracy issue in ACL Reduce Executor
-        // pushDesc(LayoutType::nspc, LayoutType::nspc, input_prec, output_prec, undef, true);
+        pushDesc(LayoutType::nspc, LayoutType::nspc, input_prec, output_prec, impl_desc_type::undef, true);
         pushDesc(LayoutType::ncsp, LayoutType::ncsp, input_prec, output_prec, impl_desc_type::undef, true);
         canUseAclExecutor = !supportedPrimitiveDescriptors.empty();
         if (canUseAclExecutor)
@@ -2084,7 +2147,10 @@ void Reduce::prepareParams() {
     if (compile_post_kernel) {
         setPostOps(attr, dst_dims, true);
 
-        ReduceKey key = {jcp, attr.get_post_ops()};
+        auto reduce_post_jcp = jcp;
+        reduce_post_jcp.src_dt = fuse_low_precision ? DnnlExtensionUtils::ElementTypeToDataType(intermediate_prec) : jcp.src_dt;
+        reduce_post_jcp.src_data_size = DnnlExtensionUtils::sizeOfDataType(reduce_post_jcp.src_dt);
+        ReduceKey key = {reduce_post_jcp, attr.get_post_ops()};
         auto cache = context->getParamsCache();
         auto result = cache->getOrCreate(key, builder);
         if (!result.first) {
@@ -2106,10 +2172,10 @@ void Reduce::createPrimitive() {
     }
     auto dstMemPtr = getDstMemoryAtPort(0);
     auto srcMemPtr = getSrcMemoryAtPort(REDUCE_DATA);
-    if (!dstMemPtr || !dstMemPtr->isAllocated())
-        OPENVINO_THROW(errorPrefix, " has not allocated destination memory.");
-    if (!srcMemPtr || !srcMemPtr->isAllocated())
-        OPENVINO_THROW(errorPrefix, " has not allocate input memory.");
+    if (!dstMemPtr)
+        OPENVINO_THROW(errorPrefix, " has null destination memory.");
+    if (!srcMemPtr)
+        OPENVINO_THROW(errorPrefix, " has null input memory.");
     if (getSelectedPrimitiveDescriptor() == nullptr)
         OPENVINO_THROW(errorPrefix, " has nullable preferable primitive descriptor");
 
@@ -2136,6 +2202,7 @@ void Reduce::createPrimitive() {
     jcp.layout = layout;
     jcp.reduce_mode = getAlgorithm();
     jcp.fuse_low_precision = fuse_low_precision;
+    jcp.round_to_zero = round_to_zero;
 
 #if defined(OPENVINO_ARCH_X86_64)
     compile_post_kernel = true;
@@ -2675,12 +2742,12 @@ inline void Reduce::reduce_kernel_post_process(uint8_t *out_ptr) {
             (*reduce_post_kernel)(&arg);
         });
     } else if (layout == ReduceLayoutType::reduce_nspc) {
-        size_t num_threads = static_cast<size_t>(parallel_get_max_threads());
+        const size_t num_threads = static_cast<size_t>(parallel_get_max_threads());
         size_t OP = OB * OC >= num_threads ? OB * OC : OB * OC * OD;
         if (OP < num_threads && OW > blk_size)
             OP *= OH;
         size_t work_amount = OB * OC * OD * OH * OW / OP;
-        parallel_for(OP, [&](size_t op) {
+        auto op_loop = [&](size_t op) {
             const uint8_t *in_p = in_ptr + op * work_amount * intermediate_data_size;
             uint8_t *out_p = out_ptr + op * work_amount * dst_data_size;
             auto arg = jit_reduce_post_call_args();
@@ -2692,6 +2759,10 @@ inline void Reduce::reduce_kernel_post_process(uint8_t *out_ptr) {
             arg.divisor = &divisor;
             arg.post_op_data = static_cast<const void **>(postOpsDataPtrs.data());
             (*reduce_post_kernel)(&arg);
+        };
+
+        parallel_nt_static(num_threads, [&](const int ithr, const int nthr) {
+            for_1d(ithr, nthr, OP, op_loop);
         });
     } else {
         size_t OCB = div_up(OC, blk_size);
@@ -3060,6 +3131,10 @@ inline void Reduce::set_reduce_dim_flags() {
         SET_SRC_DIM_VALUE(1, src_dims[0], 1, 1, 1);
         SET_DST_DIM_VALUE(1, process_dst_dims[0], 1, 1, 1);
     }
+
+    // Depthwise fusion can be computed like eltwise fusion without broadcast, if is_depthwise_compatible is true.
+    bool is_depthwise_compatible = dims_size > 1 && process_dst_dims[1] == OC * OD * OH * OW;
+    jcp.fuse_broadcast = jcp.layout == ReduceLayoutType::reduce_ncsp && !is_depthwise_compatible;
 
     // must be done before the following dimension change
     if (is_hybrid_layout) {

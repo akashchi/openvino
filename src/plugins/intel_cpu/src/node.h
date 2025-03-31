@@ -10,6 +10,7 @@
 #include "cpu_shape.h"
 #include "cpu_types.h"
 #include "edge.h"
+#include "memory_desc/cpu_memory_desc.h"
 #include "selective_build.h"
 #include "memory_desc/dnnl_memory_desc.h"
 #include "onednn/dnnl.h"
@@ -18,8 +19,6 @@
 #include "openvino/cc/factory.h"
 #include "openvino/core/node.hpp"
 #include <nodes/common/blocked_desc_creator.h>
-#include "cpu_types.h"
-#include "cpu_shape.h"
 #include "nodes/node_config.h"
 #include <shape_inference/shape_inference_cpu.hpp>
 #include "perf_count.h"
@@ -34,7 +33,7 @@
 #include <vector>
 #include <string>
 
-#define THROW_CPU_NODE_ERR(...) OPENVINO_THROW(getTypeStr(), " node with name '", getName(), "' ", __VA_ARGS__)
+#define THROW_CPU_NODE_ERR(...) OPENVINO_THROW("[CPU] ", getTypeStr(), " node with name '", getName(), "' ", __VA_ARGS__)
 #define CPU_NODE_ASSERT(condition, ...) OPENVINO_ASSERT(condition, getTypeStr(), " node with name '", getName(), "' ", __VA_ARGS__)
 
 namespace ov {
@@ -354,6 +353,10 @@ public:
         return originalLayers;
     }
 
+    const std::string &getParallelDomain() const {
+        return parallelDomain;
+    }
+
     Type getType() const {
         return type;
     }
@@ -393,6 +396,13 @@ public:
     MemoryDescPtr getBaseMemDescAtOutputPort(size_t portNum) const;
 
     /**
+     * @brief Returns parent output memory descriptor from given \p edge
+     * must be used after selectOptimalPrimitiveDescriptor stage
+     * @param edge
+     * @return pointer to parent output memory descriptor with type MemoryDesc
+     */
+    static MemoryDescPtr getParentOutputMemDesc(const EdgePtr& edge);
+    /**
      * @brief Returns input selected primitive descriptor on the specified port
      * must be used after selectOptimalPrimitiveDescriptor stage
      * @param portNum port number
@@ -431,10 +441,13 @@ public:
 
     virtual void resolveInPlaceEdges(Edge::LOOK look = Edge::LOOK_BOTH);
 
-    virtual void execute(dnnl::stream strm) = 0;
+    // @todo this supposed to be 'execute + executeImpl' instead of 'executeStatic + execute'
+    // but this requires changes in all the nodes. Since moving to a numa node right before an execute
+    // is a temprorary solution, do it this way for now.
+    void executeStatic(const dnnl::stream strm, int numaId = -1);
     void updateShapes();
     void updateDynamicParams();
-    void executeDynamic(dnnl::stream strm);
+    void executeDynamic(dnnl::stream strm, int numaId = -1);
     virtual void redefineOutputMemory(const std::vector<VectorDims> &newShapes);
     void redefineOutputMemory(const size_t port, const VectorDims& new_output_shape);
     bool outputShapeDataDependency() const;
@@ -652,6 +665,12 @@ protected:
 
     std::vector <NodePtr> fusedWith;
     std::vector <NodePtr> mergedWith;
+
+    int curNumaNode = -1;
+
+    void toNumaNode(int numaID);
+    virtual void toNumaNodeImpl(int numaID);
+
     std::string primitivesPriority;
     std::vector <impl_desc_type> customImplPriorities;
     std::vector <dnnl::memory::format_tag> inputMemoryFormatsFilter;
@@ -660,6 +679,7 @@ protected:
     bool keepOriginalPrecision  = false;
 
     std::string originalLayers;  // contains names of the original layers separated by comma
+    std::string parallelDomain;
 
     Node(const std::shared_ptr<ov::Node>& op, const GraphContext::CPtr ctx, const ShapeInferFactory& shapeInferFactory);
     Node(const std::string& type,
@@ -695,6 +715,9 @@ protected:
     friend class GraphOptimizer;
 
     void selectPreferPrimitiveDescriptor(const std::vector<impl_desc_type>& priority, bool ignoreConstInputs);
+    void selectPreferPrimitiveDescriptorWithShape(const std::vector<impl_desc_type>& priority, bool ignoreConstInputs);
+    bool isOneDimShape(const ov::PartialShape& pshape);
+    bool isReorderRequired(ov::intel_cpu::MemoryDescPtr desc1, ov::intel_cpu::MemoryDescPtr desc2);
     bool isConfigDefined(const NodeConfig &config) const;
     virtual bool canBeInPlace() const;
 
@@ -725,7 +748,7 @@ protected:
                               impl_desc_type implType);
 
     void prepareMemory(const std::vector<DnnlMemoryDescPtr>& intDescs);
-    void prepareMemory(const DnnlMemoryDescPtr& intDesc, size_t indx);
+    virtual void prepareMemory(const DnnlMemoryDescPtr& intDesc, size_t indx);
     void prepareMemory(dnnl::primitive_desc_iterator& itpd);
 
     MemoryPtr prepareWeightMemory(DnnlMemoryDescPtr dstWeightDesc, DnnlMemoryDescPtr srcWeightDesc = nullptr);
@@ -746,8 +769,11 @@ protected:
     bool inputShapesModified() const;
     virtual bool needShapeInfer() const;
     std::vector<VectorDims> shapeInferGeneric(const std::vector<Shape>& inputDims) const;
-    IShapeInfer::Result shapeInfer() const;
-    // TODO [DS] : make pure after all nodes will be support dynamic shapes
+    virtual IShapeInfer::Result shapeInfer() const;
+
+    void execute(dnnl::stream stream, int numaId);
+    virtual void execute(dnnl::stream strm) = 0;
+    // TODO [DS] : make pure after all nodes support dynamic shapes
     virtual void executeDynamicImpl(dnnl::stream strm) {
         OPENVINO_THROW_NOT_IMPLEMENTED("[DS] executeDynamicImpl not implemented for node with type: ", getTypeStr());
     }
@@ -760,9 +786,9 @@ protected:
                                        NameFromType(getType()));
     }
 
-    MemoryPtr getScratchPadMem(const DnnlMemoryDescPtr& desc) {
+    MemoryPtr getScratchPadMem(const MemoryDescPtr& desc) {
         if (!scratchpadMem || !scratchpadMem->getDesc().isCompatible(*desc)) {
-            scratchpadMem = context->getScratchPad()->createScratchPadMem(desc);
+            scratchpadMem = context->getScratchPad(curNumaNode)->createScratchPadMem(desc);
         }
         return scratchpadMem;
     }
@@ -818,6 +844,12 @@ private:
 
     CPU_DEBUG_CAP_ENABLE(friend class Verbose);
 };
+
+#ifndef CPU_DEBUG_CAPS
+std::ostream& operator<<(std::ostream&, const Node&);
+
+std::ostream& operator<<(std::ostream&, const Node*);
+#endif
 
 template <class... T>
 constexpr uint64_t PortMask(T... rest) {

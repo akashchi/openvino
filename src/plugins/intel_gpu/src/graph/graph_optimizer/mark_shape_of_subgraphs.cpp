@@ -7,6 +7,7 @@
 #include "reshape_inst.h"
 #include "eltwise_inst.h"
 #include "select_inst.h"
+#include "strided_slice_inst.h"
 #include "gather_inst.h"
 #include "pass_manager.h"
 
@@ -78,13 +79,14 @@ bool mark_shape_of_subgraphs::can_mark_node(const program_node& node) {
             return false;
     }
 
-    auto available_impls = node.type()->get_available_impls(node);
-    auto cpu_impl_found = available_impls.find(impl_types::cpu) != available_impls.end();
+    // Exclude stride_slice primitive if it's input is big const ternsor, else CPU reference implementation
+    // will lead to huge performance drop.
+    if (node.is_type<strided_slice>() && node.get_dependency(0).is_constant() &&
+        node.get_dependency(0).get_output_layout().count() > 128 * 1024) {
+        return false;
+    }
 
-    if (cpu_impl_found)
-        return true;
-
-    return false;
+    return true;
 }
 
 void mark_shape_of_subgraphs::mark_node(program_node& node) {
@@ -103,16 +105,10 @@ void mark_shape_of_subgraphs::mark_node(program_node& node) {
             }
         }
     }
-
-    // Update impl if needed
-    const auto default_subgraph_impl = impl_types::cpu;
-    if (_update_impls)
-        if (!node.is_type<reshape>())
-            node.set_preferred_impl_type(default_subgraph_impl);
 }
 
 void mark_shape_of_subgraphs::run(program& p) {
-    if (p.get_config().get_property(ov::intel_gpu::allow_new_shape_infer)) {
+    if (p.is_new_shape_infer()) {
         for (auto& node : p.get_processing_order()) {
             look_for_shape_of_subgraph(*node);
         }

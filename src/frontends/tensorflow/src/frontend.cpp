@@ -9,12 +9,11 @@
 #include "graph_iterator_proto_txt.hpp"
 #include "graph_iterator_saved_model.hpp"
 #include "helper_ops/internal_operation.hpp"
-#include "helper_transforms/block_lstm_replacer.hpp"
 #include "helper_transforms/const_to_result_remover.hpp"
 #include "helper_transforms/embedding_segments_feature_fusing.hpp"
-#include "helper_transforms/gru_block_cell_replacer.hpp"
 #include "helper_transforms/saved_model_unused_remover.hpp"
 #include "helper_transforms/tensor_array_v3_replacer.hpp"
+#include "helper_transforms/tensor_list_ops_resolver.hpp"
 #include "input_model.hpp"
 #include "op_table.hpp"
 #include "openvino/core/so_extension.hpp"
@@ -28,6 +27,7 @@
 #include "openvino/util/file_util.hpp"
 #include "openvino/util/log.hpp"
 #include "tf_framework_node.hpp"
+#include "transformations/common_optimizations/eliminate_loop_inputs_outputs.hpp"
 #include "transformations/common_optimizations/remove_concat_zero_dim_input.hpp"
 #include "transformations/common_optimizations/reverse_shape_and_type_infer.hpp"
 #include "transformations/control_flow/unroll_if.hpp"
@@ -35,6 +35,7 @@
 #include "transformations/resolve_names_collisions.hpp"
 #include "transformations/switch_merge_resolve.hpp"
 #include "transformations/transpose_sinking/ts_general.hpp"
+#include "transformations/uninitialized_variable_resolve.hpp"
 #include "translate_session.hpp"
 #include "utils.hpp"
 
@@ -281,9 +282,8 @@ ov::frontend::InputModel::Ptr FrontEnd::load_impl(const std::vector<ov::Any>& va
                                                 HashTableKeysValuesMap{},
                                                 graph_iterator->get_checkpoint_v1_reader(),
                                                 false);
-        }
-        auto saved_model_tags = paths[1];
-        if (GraphIteratorSavedModel::is_supported(model_path)) {
+        } else if (GraphIteratorSavedModel::is_supported(model_path)) {
+            auto saved_model_tags = paths[1];
             std::shared_ptr<GraphIteratorSavedModel> graph_iterator;
             graph_iterator = std::make_shared<GraphIteratorSavedModel>(model_path, saved_model_tags, mmap_enabled);
             return std::make_shared<InputModel>(graph_iterator,
@@ -439,17 +439,40 @@ std::shared_ptr<ov::Model> FrontEnd::convert(const ov::frontend::InputModel::Ptr
     if (unsupported_operations.size() > 0) {
         exception_message << "[TensorFlow Frontend] Internal error, no translator found for operation(s): ";
         size_t counter = 0;
+        size_t tokenizer_counter = 0;
+        std::string unsupported_ops_from_tokenizers;
+        const auto& all_tokenizer_ops = ov::frontend::tensorflow::op::get_supported_ops_via_tokenizers();
         for (const auto& unsupported_operation : unsupported_operations) {
             if (counter > 0) {
                 exception_message << ", ";
             }
             exception_message << unsupported_operation;
             ++counter;
+
+            // collect a list of unconverted operations for which openvino-tokenizers provides conversion extensions
+            if (std::find(all_tokenizer_ops.begin(), all_tokenizer_ops.end(), unsupported_operation) !=
+                all_tokenizer_ops.end()) {
+                if (tokenizer_counter > 0) {
+                    unsupported_ops_from_tokenizers += ", ";
+                }
+                unsupported_ops_from_tokenizers += unsupported_operation;
+                ++tokenizer_counter;
+            }
         }
         exception_message
             << "\nTo facilitate the conversion of unsupported operations, refer to Frontend Extension "
                "documentation: "
                "https://docs.openvino.ai/latest/openvino_docs_Extensibility_UG_Frontend_Extensions.html \n";
+
+        // recommend to use openvino-tokenizers if some unconverted operations from tokenizers are met
+        if (unsupported_ops_from_tokenizers.size() > 0) {
+            exception_message
+                << "\nEncountered unconverted operation(s) for which openvino-tokenizers package "
+                   "provides conversion extension(s): "
+                << unsupported_ops_from_tokenizers
+                << ". Install OpenVINO Tokenizers, refer to the documentation: "
+                   "https://docs.openvino.ai/2024/learn-openvino/llm_inference_guide/ov-tokenizers.html \n";
+        }
     }
 
     bool is_conversion_successful = ((unsupported_operations.size() == 0) && (failures.size() == 0));
@@ -465,7 +488,7 @@ std::shared_ptr<ov::Model> FrontEnd::convert_partially(const ov::frontend::Input
     if (!m_transformation_extensions.empty()) {
         auto function = decode(model);
 
-        ov::pass::Manager manager;
+        ov::pass::Manager manager("Frontend:TF:convert_partially");
         for (const auto& transformation : m_transformation_extensions) {
             transformation->register_pass(manager);
         }
@@ -534,23 +557,33 @@ void FrontEnd::convert(const std::shared_ptr<ov::Model>& partiallyConverted) con
 }
 
 void FrontEnd::normalize(const std::shared_ptr<ov::Model>& model) const {
-    ov::pass::Manager manager;
+    ov::pass::Manager manager("Frontend:TF:normalize");
 
     // Mark quantized and f16/bf16 compressed constants to prevent CF for them,
     // so that not extra memory is used for intermediate decompressed constants.
     manager.register_pass<ov::pass::MarkCompressedFloatConstants>();
     manager.register_pass<pass::SavedModelUnusedRemover>();
+    manager.register_pass<pass::UninitializedVariableResolver>();
     manager.register_pass<pass::EmbeddingSegmentSingleFeatureFusion>();
-    manager.register_pass<pass::BlockLSTMReplacer>();
-    manager.register_pass<pass::GRUBlockCellReplacer>();
     manager.register_pass<pass::TensorArrayV3Replacer>();
     manager.register_pass<pass::ConstToResultRemover>();
     manager.register_pass<pass::SwitchMergeResolver>();
+
+    // apply EliminateLoopInputsOutputs to avoid extra Results
+    // that output the same value as receiving on input
+    // it is needed for applying TensorListInLoopOptimization
+    manager.register_pass<ov::pass::EliminateLoopInputsOutputs>();
+    manager.register_pass<pass::TensorListReplacer>();
+    manager.register_pass<pass::TensorListInLoopOptimization>();
+    manager.register_pass<pass::TensorListSetItemReplacer>();
+    manager.register_pass<pass::TensorListPushBackReplacer>();
+    manager.register_pass<pass::TensorListGetItemReplacer>();
+
     manager.register_pass<ov::pass::UnrollIf>();
     manager.register_pass<ov::pass::RemoveConcatZeroDimInput>();
     manager.register_pass<ov::pass::TransposeSinkingGeneral>();
     manager.register_pass<ov::pass::ReverseShapeAndTypeInfer>();
-    manager.register_pass<ov::pass::ResolveNameCollisions>();
+    manager.register_pass<ov::pass::ResolveNameCollisions>(true);
     manager.run_passes(model);
 }
 

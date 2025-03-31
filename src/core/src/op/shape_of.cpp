@@ -8,7 +8,7 @@
 #include <vector>
 
 #include "itt.hpp"
-#include "openvino/core/dimension_tracker.hpp"
+#include "openvino/core/dimension.hpp"
 #include "openvino/op/constant.hpp"
 #include "openvino/op/select.hpp"
 #include "openvino/reference/shape_of.hpp"
@@ -68,17 +68,16 @@ bool evaluate_bound(const Node* const node, ov::TensorVector& outputs, const boo
         // use node output type as it can be different than output tensor type
         // e.g. when v3::ShapeOf is converted to v0::ShapeOf then the output tensor will have always i64
         // but node output type is transferred from v3 and can be i32 (dimension inf bound is i32 max)
-        const auto is_out_type_i32 = node->get_output_element_type(0) == element::i32;
-        if (is_out_type_i32 || !is_upper) {
+        if (node->get_output_element_type(0) == element::i32) {
             const auto in_shape_rank = in_shape.size();
-            const auto max_et_val = is_out_type_i32 ? static_cast<int64_t>(std::numeric_limits<int32_t>::max())
-                                                    : std::numeric_limits<int64_t>::max();
+            constexpr auto max_et_val = static_cast<int64_t>(std::numeric_limits<int32_t>::max());
 
+            const auto get_val = is_upper ? &Interval::get_max_val : &Interval::get_min_val;
             auto limit_val = is_upper ? max_et_val : static_cast<decltype(max_et_val)>(0);
 
             auto dynamic_mask = std::vector<char>(in_shape_rank);
             std::transform(in_shape.begin(), in_shape.end(), dynamic_mask.begin(), [&](const Dimension& d) {
-                return static_cast<char>(d.get_interval().get_max_val() >= max_et_val);
+                return static_cast<char>((d.get_interval().*get_val)() >= max_et_val);
             });
 
             const auto limit = Tensor(out_et, Shape{}, &limit_val);
@@ -91,20 +90,20 @@ bool evaluate_bound(const Node* const node, ov::TensorVector& outputs, const boo
     }
 }
 
-bool evaluate_label(const Node* shape_of_node, TensorLabelVector& output_labels) {
+bool evaluate_symbol(const Node* shape_of_node, TensorSymbolVector& output_symbols) {
     const auto& shape = shape_of_node->get_input_partial_shape(0);
     OPENVINO_ASSERT(shape.rank().is_static());  // sanity check. at this point value propagation was successful
 
-    auto common_label = ov::no_label;
-    auto& labels = output_labels[0];
-    labels.reserve(shape.size());
+    bool at_least_one_symbol_set = false;
+    auto& symbols = output_symbols[0];
+    symbols.reserve(shape.size());
 
     for (const auto& d : shape) {
-        const auto label = ov::DimensionTracker::get_label(d);
-        labels.emplace_back(label);
-        common_label |= label;
+        const auto symbol = d.get_symbol();
+        symbols.emplace_back(symbol);
+        at_least_one_symbol_set |= (symbol != nullptr);
     }
-    return common_label != ov::no_label;
+    return at_least_one_symbol_set;
 }
 }  // namespace
 }  // namespace shape_of
@@ -120,7 +119,7 @@ void ShapeOf::validate_and_infer_types() {
                           m_output_type == element::i64 || m_output_type == element::i32,
                           "Output type must be i32 or i64");
     set_input_is_relevant_to_value(0, false);
-    const auto input_partial_shape = get_input_partial_shape(0);
+    const auto& input_partial_shape = get_input_partial_shape(0);
     set_output_type(0, m_output_type, PartialShape{input_partial_shape.rank()});
 }
 
@@ -165,13 +164,17 @@ bool ShapeOf::evaluate_upper(ov::TensorVector& output_values) const {
     return shape_of::evaluate_bound(this, output_values, true);
 }
 
-bool ShapeOf::evaluate_label(TensorLabelVector& output_labels) const {
-    return shape_of::evaluate_label(this, output_labels);
+bool ShapeOf::evaluate_symbol(TensorSymbolVector& output_symbols) const {
+    return shape_of::evaluate_symbol(this, output_symbols);
+}
+
+bool ShapeOf::can_constant_fold(const OutputVector& input_values) const {
+    return !is_const_fold_disabled() && input_values[0].get_partial_shape().is_static();
 }
 
 bool ShapeOf::constant_fold(OutputVector& output_values, const OutputVector& input_values) {
     OV_OP_SCOPE(v3_ShapeOf_constant_fold);
-    if (is_const_fold_disabled()) {
+    if (!can_constant_fold(input_values)) {
         return false;
     }
     return shape_of::constant_fold_shape_of(this, output_values[0], input_values[0]);
@@ -223,9 +226,13 @@ bool ShapeOf::has_evaluate() const {
     }
 }
 
+bool ShapeOf::can_constant_fold(const OutputVector& input_values) const {
+    return !is_const_fold_disabled() && input_values[0].get_partial_shape().is_static();
+}
+
 bool ShapeOf::constant_fold(OutputVector& output_values, const OutputVector& input_values) {
     OV_OP_SCOPE(v0_ShapeOf_constant_fold);
-    if (is_const_fold_disabled()) {
+    if (!can_constant_fold(input_values)) {
         return false;
     }
     return shape_of::constant_fold_shape_of(this, output_values[0], input_values[0]);
@@ -239,8 +246,8 @@ bool ShapeOf::evaluate_upper(ov::TensorVector& output_values) const {
     return shape_of::evaluate_bound(this, output_values, true);
 }
 
-bool ShapeOf::evaluate_label(TensorLabelVector& output_labels) const {
-    return shape_of::evaluate_label(this, output_labels);
+bool ShapeOf::evaluate_symbol(TensorSymbolVector& output_symbols) const {
+    return shape_of::evaluate_symbol(this, output_symbols);
 }
 }  // namespace v0
 }  // namespace op

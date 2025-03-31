@@ -10,9 +10,11 @@
 #include <regex>
 #include <sstream>
 #include <vector>
+#include <fstream>
 
 namespace cldnn {
 const char *debug_configuration::prefix = "GPU_Debug: ";
+std::ostream* debug_configuration::verbose_stream;
 
 // Default policy is that dump_configuration will override other configuration from IE.
 
@@ -66,6 +68,28 @@ std::string convert_to(const std::string &str) {
     return str;
 }
 
+static std::set<int64_t> parse_int_set(std::string& str) {
+    std::set<int64_t> int_array;
+    // eliminate '"' from string to avoid parsing error
+    str.erase(std::remove_if(str.begin(), str.end(), [](char c) {
+                return c == '\"'; }), str.end());
+    if (str.size() > 0) {
+        str = " " + str + " ";
+        std::istringstream ss(str);
+        std::string token;
+        while (ss >> token) {
+            try {
+                int_array.insert(static_cast<int64_t>(std::stol(token)));
+            } catch(const std::exception &) {
+                int_array.clear();
+                GPU_DEBUG_COUT << "Argument was ignored. It cannot be parsed to integer array: " << str << std::endl;
+                break;
+            }
+        }
+    }
+    return int_array;
+}
+
 template<typename T>
 void get_debug_env_var(const std::string &var, T &val, std::vector<std::string> allowed_option_prefixes) {
     bool found = false;
@@ -106,6 +130,7 @@ static void print_help_messages() {
     message_list.emplace_back("OV_GPU_Help", "Print help messages");
     message_list.emplace_back("OV_GPU_Verbose", "Verbose execution");
     message_list.emplace_back("OV_GPU_VerboseColor", "Print verbose color");
+    message_list.emplace_back("OV_GPU_VerboseFile", "Filename to dump verbose log");
     message_list.emplace_back("OV_GPU_ListLayers", "Print layers names");
     message_list.emplace_back("OV_GPU_PrintMultiKernelPerf", "Print execution time of each kernel in multi-kernel primitimive");
     message_list.emplace_back("OV_GPU_PrintInputDataShapes",  "Print data_shapes of input layers for benchmark_app.");
@@ -121,6 +146,7 @@ static void print_help_messages() {
                               "from one specific iteration by giving the same values for the start and end, and the open "
                               "ended range is also available by range from given start to the last iteration as -1. e.g. "
                               "OV_GPU_DumpProfilingDataIteration='10..-1'");
+    message_list.emplace_back("OV_GPU_HostTimeProfiling", "Enable collecting of model enqueue time spent on the host");
     message_list.emplace_back("OV_GPU_DumpGraphs", "1) dump ngraph before and after transformation. 2) dump graph in model compiling."
                               "3) dump graph in execution.");
     message_list.emplace_back("OV_GPU_DumpSources", "Dump opencl sources");
@@ -148,10 +174,21 @@ static void print_help_messages() {
     message_list.emplace_back("OV_GPU_DisableDynamicImpl", "Disable dynamic implementation");
     message_list.emplace_back("OV_GPU_DisableRuntimeBufferFusing", "Disable runtime buffer fusing");
     message_list.emplace_back("OV_GPU_DisableMemoryReuse", "Disable memory reuse");
-    message_list.emplace_back("OV_GPU_DumpRuntimeMemoryPool", "Dump memory pool contents of each iteration");
+    message_list.emplace_back("OV_GPU_EnableSDPA", "This allows the enforcement of SDPA decomposition logic: 0 completely disables SDPA kernel usage, "
+                              "and 1 enables it for all the cases.");
+    message_list.emplace_back("OV_GPU_DumpMemoryPool", "Dump memory pool contents of each iteration");
+    message_list.emplace_back("OV_GPU_DumpMemoryPoolIters", "List of iterations to dump memory pool status, separated by space.");
+    message_list.emplace_back("OV_GPU_DumpMemoryPoolPath", "Enable dumping memory pool status to csv file and set the dest path");
     message_list.emplace_back("OV_GPU_DisableBuildTimeWeightReorderForDynamicNodes", "Disable build time weight reorder for dynmaic nodes.");
     message_list.emplace_back("OV_GPU_DisableRuntimeSkipReorder", "Disable runtime skip reorder.");
     message_list.emplace_back("OV_GPU_DisablePrimitiveFusing", "Disable primitive fusing");
+    message_list.emplace_back("OV_GPU_DisableFakeAlignment", "Disable fake alignment");
+    message_list.emplace_back("OV_GPU_KVCacheCompression", "Enable/Disable KV-cache compression");
+    message_list.emplace_back("OV_GPU_DynamicQuantizeLayersWithoutOnednn", "Enable Dynamic quantization for specified Fully connected layers only, "
+                                "separated by space. Support case-insensitive and regular expression. For example .*fully_connected.*");
+    message_list.emplace_back("OV_GPU_DynamicQuantizeGroupSize", "Specify a group size of dynamic quantization to enable "
+                              "dynamic quantization for Fully-connected primitive.");
+    message_list.emplace_back("OV_GPU_DisableHorizontalFCFusion", "Disable horizontal fc fusion");
     message_list.emplace_back("OV_GPU_DumpIteration", "Dump n-th execution of network, separated by space.");
     message_list.emplace_back("OV_GPU_MemPreallocationOptions", "Controls buffer pre-allocation feature. Expects 4 values separated by space in "
                               "the following order: number of iterations for pre-allocation(int), max size of single iteration in bytes(int), "
@@ -181,6 +218,7 @@ debug_configuration::debug_configuration()
         : help(0)
         , verbose(0)
         , verbose_color(0)
+        , verbose_file()
         , list_layers(0)
         , print_multi_kernel_perf(0)
         , print_input_data_shapes(0)
@@ -189,6 +227,7 @@ debug_configuration::debug_configuration()
         , disable_onednn_opt_post_ops(0)
         , dump_profiling_data(std::string(""))
         , dump_profiling_data_per_iter(0)
+        , host_time_profiling(0)
         , dump_graphs(std::string())
         , dump_sources(std::string())
         , dump_layers_path(std::string())
@@ -199,11 +238,13 @@ debug_configuration::debug_configuration()
         , dump_layers_limit_batch(std::numeric_limits<int>::max())
         , dump_layers_raw(0)
         , dump_layers_binary(0)
-        , dump_runtime_memory_pool(0)
+        , dump_memory_pool(0)
+        , dump_memory_pool_path(std::string())
         , base_batch_for_memory_estimation(-1)
         , serialize_compile(0)
         , max_kernels_per_batch(0)
         , impls_cache_capacity(-1)
+        , enable_sdpa(-1)
         , disable_async_compilation(0)
         , disable_winograd_conv(0)
         , disable_dynamic_impl(0)
@@ -211,11 +252,16 @@ debug_configuration::debug_configuration()
         , disable_memory_reuse(0)
         , disable_build_time_weight_reorder_for_dynamic_nodes(0)
         , disable_runtime_skip_reorder(0)
-        , disable_primitive_fusing(0) {
+        , disable_primitive_fusing(0)
+        , disable_fake_alignment(0)
+        , use_kv_cache_compression(-1)
+        , dynamic_quantize_group_size(DYNAMIC_QUANTIZE_GROUP_SIZE_NOT_SET)
+        , disable_horizontal_fc_fusion(0) {
 #ifdef GPU_DEBUG_CONFIG
     get_gpu_debug_env_var("Help", help);
     get_common_debug_env_var("Verbose", verbose);
     get_gpu_debug_env_var("VerboseColor", verbose_color);
+    get_gpu_debug_env_var("VerboseFile", verbose_file);
     get_gpu_debug_env_var("ListLayers", list_layers);
     get_gpu_debug_env_var("PrintMultiKernelPerf", print_multi_kernel_perf);
     get_gpu_debug_env_var("PrintInputDataShapes", print_input_data_shapes);
@@ -233,10 +279,14 @@ debug_configuration::debug_configuration()
     get_gpu_debug_env_var("DisableOnednnOptPostOps", disable_onednn_opt_post_ops);
     get_gpu_debug_env_var("DumpProfilingData", dump_profiling_data);
     get_gpu_debug_env_var("DumpProfilingDataPerIter", dump_profiling_data_per_iter);
+    get_gpu_debug_env_var("HostTimeProfiling", host_time_profiling);
     std::string dump_prof_data_iter_str;
     get_gpu_debug_env_var("DumpProfilingDataIteration", dump_prof_data_iter_str);
     get_gpu_debug_env_var("DryRunPath", dry_run_path);
-    get_gpu_debug_env_var("DumpRuntimeMemoryPool", dump_runtime_memory_pool);
+    get_gpu_debug_env_var("DumpMemoryPool", dump_memory_pool);
+    std::string dump_runtime_memory_pool_iters_str;
+    get_gpu_debug_env_var("DumpMemoryPoolIters", dump_runtime_memory_pool_iters_str);
+    get_gpu_debug_env_var("DumpMemoryPoolPath", dump_memory_pool_path);
     get_gpu_debug_env_var("BaseBatchForMemEstimation", base_batch_for_memory_estimation);
     std::string dump_layers_str;
     get_gpu_debug_env_var("DumpLayers", dump_layers_str);
@@ -247,6 +297,7 @@ debug_configuration::debug_configuration()
     get_gpu_debug_env_var("ForceImplTypes", forced_impl_types_str);
     get_gpu_debug_env_var("MaxKernelsPerBatch", max_kernels_per_batch);
     get_gpu_debug_env_var("ImplsCacheCapacity", impls_cache_capacity);
+    get_gpu_debug_env_var("EnableSDPA", enable_sdpa);
     get_gpu_debug_env_var("DisableAsyncCompilation", disable_async_compilation);
     get_gpu_debug_env_var("DisableWinogradConv", disable_winograd_conv);
     get_gpu_debug_env_var("DisableDynamicImpl", disable_dynamic_impl);
@@ -255,16 +306,30 @@ debug_configuration::debug_configuration()
     get_gpu_debug_env_var("DisableBuildTimeWeightReorderForDynamicNodes", disable_build_time_weight_reorder_for_dynamic_nodes);
     get_gpu_debug_env_var("DisableRuntimeSkipReorder", disable_runtime_skip_reorder);
     get_gpu_debug_env_var("DisablePrimitiveFusing", disable_primitive_fusing);
+    get_gpu_debug_env_var("DisableFakeAlignment", disable_fake_alignment);
+    get_gpu_debug_env_var("KVCacheCompression", use_kv_cache_compression);
+    get_gpu_debug_env_var("DynamicQuantizeGroupSize", dynamic_quantize_group_size);
+    get_gpu_debug_env_var("DisableHorizontalFCFusion", disable_horizontal_fc_fusion);
     std::string dump_iteration_str;
     get_gpu_debug_env_var("DumpIteration", dump_iteration_str);
     std::string mem_preallocation_params_str;
     get_gpu_debug_env_var("MemPreallocationOptions", mem_preallocation_params_str);
     std::string load_dump_raw_bin_str;
     get_gpu_debug_env_var("LoadDumpRawBinary", load_dump_raw_bin_str);
+    std::string dynamic_quantize_layers_without_onednn_str;
+    get_gpu_debug_env_var("DynamicQuantizeLayersWithoutOnednn", dynamic_quantize_layers_without_onednn_str);
 
     if (help > 0) {
         print_help_messages();
         exit(0);
+    }
+
+    if (verbose_file.length() > 0) {
+        static std::ofstream fout;
+        fout.open(verbose_file);
+        verbose_stream = &fout;
+    } else {
+        verbose_stream = &std::cout;
     }
 
     if (dump_prof_data_iter_str.length() > 0) {
@@ -279,7 +344,7 @@ debug_configuration::debug_configuration()
                     is_valid_range = true;
                     dump_prof_data_iter_params.start = start;
                     dump_prof_data_iter_params.end = end;
-                } catch(const std::exception& ex) {
+                } catch(const std::exception &) {
                     is_valid_range = false;
                 }
             }
@@ -296,6 +361,16 @@ debug_configuration::debug_configuration()
         std::string layer;
         while (ss >> layer) {
             dump_layers.push_back(layer);
+        }
+    }
+
+    if (dynamic_quantize_layers_without_onednn_str.length() > 0) {
+        // Insert delimiter for easier parsing when used
+        dynamic_quantize_layers_without_onednn_str = " " + dynamic_quantize_layers_without_onednn_str + " ";
+        std::stringstream ss(dynamic_quantize_layers_without_onednn_str);
+        std::string layer;
+        while (ss >> layer) {
+            dynamic_quantize_layers_without_onednn.push_back(layer);
         }
     }
 
@@ -319,18 +394,11 @@ debug_configuration::debug_configuration()
     }
 
     if (dump_iteration_str.size() > 0) {
-        dump_iteration_str = " " + dump_iteration_str + " ";
-        std::istringstream ss(dump_iteration_str);
-        std::string token;
-        while (ss >> token) {
-            try {
-                dump_iteration.insert(static_cast<int64_t>(std::stol(token)));
-            } catch(const std::exception& ex) {
-                dump_iteration.clear();
-                GPU_DEBUG_COUT << "OV_GPU_DumpIteration was ignored. It cannot be parsed to integer array." << std::endl;
-                break;
-            }
-        }
+        dump_iteration = parse_int_set(dump_iteration_str);
+    }
+
+    if (dump_runtime_memory_pool_iters_str.size() > 0) {
+        dump_memory_pool_iters = parse_int_set(dump_runtime_memory_pool_iters_str);
     }
 
     if (mem_preallocation_params_str.size() > 0) {
@@ -348,7 +416,7 @@ debug_configuration::debug_configuration()
                 mem_preallocation_params.max_per_iter_size = std::stol(params[1]);
                 mem_preallocation_params.max_per_dim_diff = std::stol(params[2]);
                 mem_preallocation_params.buffers_preallocation_ratio = std::stof(params[3]);
-            } catch(const std::exception& ex) {
+            } catch(const std::exception &) {
                 correct_params = false;
             }
         }
@@ -462,6 +530,28 @@ std::string debug_configuration::get_name_for_dump(const std::string& file_name)
     return filename;
 }
 
+bool debug_configuration::is_layer_name_matched(const std::string& layer_name, const std::string& pattern) const {
+#ifdef GPU_DEBUG_CONFIG
+    auto upper_layer_name = std::string(layer_name.length(), '\0');
+    std::transform(layer_name.begin(), layer_name.end(), upper_layer_name.begin(), ::toupper);
+    auto upper_pattern = std::string(pattern.length(), '\0');
+    std::transform(pattern.begin(), pattern.end(), upper_pattern.begin(), ::toupper);
+
+    // Check pattern from exec_graph
+    size_t pos = upper_layer_name.find(':');
+    auto upper_exec_graph_name = upper_layer_name.substr(pos + 1, upper_layer_name.size());
+    if (upper_exec_graph_name.compare(upper_pattern) == 0) {
+        return true;
+    }
+
+    // Check pattern with regular expression
+    std::regex re(upper_pattern);
+    return std::regex_match(upper_layer_name, re);
+#else
+    return false;
+#endif
+}
+
 bool debug_configuration::is_layer_for_dumping(const std::string& layer_name, bool is_output, bool is_input) const {
 #ifdef GPU_DEBUG_CONFIG
     // Dump result layer
@@ -478,24 +568,8 @@ bool debug_configuration::is_layer_for_dumping(const std::string& layer_name, bo
     if (is_input == true && type == "parameter" && dump_layers_input == 1)
         return true;
 
-    auto is_match = [](const std::string& layer_name, const std::string& pattern) -> bool {
-        auto upper_layer_name = std::string(layer_name.length(), '\0');
-        std::transform(layer_name.begin(), layer_name.end(), upper_layer_name.begin(), ::toupper);
-        auto upper_pattern = std::string(pattern.length(), '\0');
-        std::transform(pattern.begin(), pattern.end(), upper_pattern.begin(), ::toupper);
-        // Check pattern from exec_graph
-        size_t pos = upper_layer_name.find(':');
-        auto upper_exec_graph_name = upper_layer_name.substr(pos + 1, upper_layer_name.size());
-        if (upper_exec_graph_name.compare(upper_pattern) == 0) {
-            return true;
-        }
-        // Check pattern with regular expression
-        std::regex re(upper_pattern);
-        return std::regex_match(upper_layer_name, re);
-    };
-
     auto iter = std::find_if(dump_layers.begin(), dump_layers.end(), [&](const std::string& dl){
-        return is_match(layer_name, dl);
+        return is_layer_name_matched(layer_name, dl);
     });
     return (iter != dump_layers.end());
 #else

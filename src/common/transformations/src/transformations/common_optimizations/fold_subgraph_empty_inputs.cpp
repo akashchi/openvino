@@ -11,6 +11,7 @@
 #include "itt.hpp"
 #include "openvino/core/rt_info.hpp"
 #include "openvino/op/constant.hpp"
+#include "openvino/op/util/multi_subgraph_base.hpp"
 #include "openvino/pass/pattern/op/wrap_type.hpp"
 #include "transformations/utils/utils.hpp"
 
@@ -34,7 +35,7 @@ ov::pass::FoldSubgraphEmptyInputs::FoldSubgraphEmptyInputs() {
                      std::back_inserter(empty_inputs),
                      [](const Output<Node>& input) {
                          // skip constants
-                         if (std::dynamic_pointer_cast<ov::op::v0::Constant>(input.get_node_shared_ptr())) {
+                         if (ov::as_type_ptr<ov::op::v0::Constant>(input.get_node_shared_ptr())) {
                              return false;
                          }
                          // skip non-static shapes

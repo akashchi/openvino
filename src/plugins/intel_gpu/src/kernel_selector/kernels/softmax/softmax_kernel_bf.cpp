@@ -45,7 +45,6 @@ SoftmaxKernel_bf::Parent::DispatchData SoftmaxKernel_bf::SetDefault(const softma
     auto local_mem_per_wi = 2 * BytesPerElement(params.inputs[0].GetDType());
     // Combining device execution and local memory restrictions to compute maximum possible LWS.
     auto max_lws = std::min(params.engineInfo.maxWorkGroupSize, params.engineInfo.maxLocalMemSize / local_mem_per_wi);
-    dispatchData.maxSlmSize = max_lws;
     if (!params.has_dynamic_tensors()) {
         // start with 1 thread per data set
         dispatchData.gws[0] = 1;
@@ -115,7 +114,7 @@ JitConstants SoftmaxKernel_bf::GetJitConstants(const softmax_params& params, Dis
 
     if (params.has_dynamic_tensors()) {
         const auto& input = params.inputs[0];
-        DimensionAccessHelper dims(input);
+        DimensionAccessHelperJit dims(input);
         auto softmax_dim_y_bfyx = (params.dim == SoftmaxDim::Y && input.GetLayout() == DataLayout::bfyx);
         auto softmax_dim_x_bfyx = (params.dim == SoftmaxDim::X && input.GetLayout() == DataLayout::bfyx);
         const std::string lws_0 = "get_local_size(0)";
@@ -134,11 +133,10 @@ JitConstants SoftmaxKernel_bf::GetJitConstants(const softmax_params& params, Dis
         }
 
         // It can be expected that the maximum possible itemsNum will not exceed 32
-        // Therefore, in dynamic shape, stack_size including additional buffer is set to 33
-        constexpr size_t stack_size = 33; // The size of stack for my_chunk
+        // Therefore, in dynamic shape, stack_size including additional buffer is set to 34(32 + 2(aligned offset + leftovers))
+        constexpr size_t stack_size = 34; // The size of stack for my_chunk
         jit.AddConstants({
             MakeJitConstant("LWS", lws_0),
-            MakeJitConstant("SLM_SIZE", dispatchData.maxSlmSize),
             MakeJitConstant("DATA_SETS_COUNT", data_set_count),
             MakeJitConstant("DATA_SET_SIZE", data_set_size),
             MakeJitConstant("STACK_SIZE", stack_size),
@@ -147,11 +145,9 @@ JitConstants SoftmaxKernel_bf::GetJitConstants(const softmax_params& params, Dis
         jit.AddConstants({
             MakeJitConstant("ITEMS_NUM", dispatchData.itemsNum),
             MakeJitConstant("LWS", dispatchData.lws[0]),
-            MakeJitConstant("SLM_SIZE", dispatchData.lws[0]),
             MakeJitConstant("DATA_SETS_COUNT", dispatchData.dataSetsCount),
             MakeJitConstant("DATA_SET_SIZE", dispatchData.dataSetSize),
-            MakeJitConstant("LEFTOVERS", dispatchData.leftovers),
-            MakeJitConstant("STACK_SIZE", dispatchData.itemsNum + 1),
+            MakeJitConstant("STACK_SIZE", dispatchData.itemsNum + 2), // (aligned offset + leftovers)
         });
     }
     jit.AddConstant(MakeJitConstant("SUB_GROUP_SIZE", subgroup_size));

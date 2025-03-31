@@ -8,23 +8,17 @@
 
 #include "primitive_inst.h"
 #include "intel_gpu/graph/serialization/binary_buffer.hpp"
-#include "intel_gpu/plugin/common_utils.hpp"
 #include "intel_gpu/runtime/memory.hpp"
 #include "intel_gpu/runtime/file_util.hpp"
 #include "to_string_utils.h"
-#include "register.hpp"
 #include "utils.hpp"
 #include "runtime/ocl/ocl_event.hpp"
 
-#include "quantize_inst.h"
-#include "reorder_inst.h"
+#include "intel_gpu/primitives/reorder.hpp"
 
-#include "reorder/reorder_weights_kernel_selector.h"
-#include "reorder/reorder_kernel_base.h"
 #include "impls/ocl/kernel_selector_helper.h"
 
 #include <vector>
-#include <list>
 #include <utility>
 
 #include <oneapi/dnnl/dnnl.hpp>
@@ -58,10 +52,6 @@ struct typed_primitive_onednn_impl : public typed_primitive_impl<PType> {
             _scratchpad_md = _pd.scratchpad_desc();
 
             GPU_DEBUG_GET_INSTANCE(debug_config);
-            GPU_DEBUG_IF(!debug_config->dump_profiling_data.empty()) {
-                _enable_profiling = true;
-            }
-
             GPU_DEBUG_IF(debug_config->verbose >= 4) {
                 if (_scratchpad_md.get_size() > 0) {
                     static std::atomic_llong total{0};
@@ -76,7 +66,7 @@ struct typed_primitive_onednn_impl : public typed_primitive_impl<PType> {
         }
 
     typed_primitive_onednn_impl(const engine& engine, const ExecutionConfig& config = {})
-        : typed_primitive_impl<PType>({}, "undef"),
+        : typed_primitive_impl<PType>("undef"),
         _engine(&engine),
         _pd(),
         _prim() {
@@ -88,7 +78,7 @@ struct typed_primitive_onednn_impl : public typed_primitive_impl<PType> {
         }
 
     typed_primitive_onednn_impl()
-        : typed_primitive_impl<PType>({}, "undef"),
+        : typed_primitive_impl<PType>("undef"),
           _engine(nullptr),
           _pd(), _prim() {
         _attrs = std::make_shared<dnnl::primitive_attr>();
@@ -116,8 +106,11 @@ struct typed_primitive_onednn_impl : public typed_primitive_impl<PType> {
                 ob << make_data(&_scratchpad_mode, sizeof(dnnl::scratchpad_mode));
             }
             {
-                dnnl::fpmath_mode _fmath_mode = _attrs->get_fpmath_mode();
+                dnnl::fpmath_mode _fmath_mode;
+                bool _apply_to_int;
+                _attrs->get_fpmath_mode(_fmath_mode, _apply_to_int);
                 ob << make_data(&_fmath_mode, sizeof(dnnl::fpmath_mode));
+                ob << _apply_to_int;
             }
             {
                 const dnnl::post_ops _post_ops = _attrs->get_post_ops();
@@ -218,8 +211,10 @@ struct typed_primitive_onednn_impl : public typed_primitive_impl<PType> {
             }
             {
                 dnnl::fpmath_mode _fmath_mode = dnnl::fpmath_mode::any;
+                bool _apply_to_int = false;
                 ib >> make_data(&_fmath_mode, sizeof(dnnl::fpmath_mode));
-                _attrs->set_fpmath_mode(_fmath_mode);
+                ib >> _apply_to_int;
+                _attrs->set_fpmath_mode(_fmath_mode, _apply_to_int);
             }
             {
                 const kernel_impl_params* impl_params = reinterpret_cast<kernel_impl_params*>(ib.getKernelImplParams());
@@ -460,9 +455,13 @@ protected:
         auto dnnl_engine = engine.get_onednn_engine();
 
         {
+            dnnl::memory input_mem;
             auto& input = instance.input_memory(0);
             auto offset = onednn::get_offset(instance.get_input_layout(0), _pd.dnnl::primitive_desc_base::src_desc(0));
-            args.insert({DNNL_ARG_SRC, input.get_onednn_memory(_pd.dnnl::primitive_desc_base::src_desc(0), offset)});
+            if (instance.get_input_layout(0).count() != 0) {
+                input_mem = input.get_onednn_memory(_pd.dnnl::primitive_desc_base::src_desc(0), offset);
+            }
+            args.insert({DNNL_ARG_SRC, input_mem});
         }
 
         {
@@ -545,11 +544,8 @@ protected:
             try {
                 _prim.execute(stream.get_onednn_stream(), _args[net_id]);
             } catch (dnnl::error& err) {
-                /// WA: Force exit. Any opencl api call can be hang after CL_OUT_OF_RESOURCES.
-                if (err.status == dnnl_status_t::dnnl_out_of_memory) {
-                    ov::intel_gpu::ForceExit();
-                }
-                throw;    // rethrowing dnnl::error if not out_of_memory
+                auto err_code = err.status == dnnl_status_t::dnnl_out_of_memory ? CL_OUT_OF_RESOURCES : CL_INVALID_OPERATION;
+                ocl::rethrow_or_exit(err.what(), err_code, _engine->get_device_info());
             }
 
             if (_enable_profiling) {
@@ -558,10 +554,14 @@ protected:
                 stream.wait();
 
                 std::vector<uint64_t> duration = dnnl::get_profiling_data(stream.get_onednn_stream(), dnnl::profiling_data_kind::time);
-                OPENVINO_ASSERT(duration.size() == 1, "[GPU] oneDNN profiling data is expected to have info only for single primitive ",
+                if (duration.empty()) {
+                    event = std::make_shared<ocl::ocl_event>(0);
+                } else {
+                    OPENVINO_ASSERT(duration.size() == 1, "[GPU] oneDNN profiling data is expected to have info only for single primitive ",
                                                       "actual number is ", duration.size());
+                    event = std::make_shared<ocl::ocl_event>(duration[0]);
+                }
 
-                event = std::make_shared<ocl::ocl_event>(duration[0]);
             } else {
                 // If oneDNN primitive is the output primitive or it's user is CPU implementation, then enqueue marker
                 // with empty events wait list (which will trigger wait for all previously enqueued tasks) and

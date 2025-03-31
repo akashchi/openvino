@@ -8,7 +8,7 @@
 
 #include "openvino/op/constant.hpp"
 #include "openvino/op/gather.hpp"
-#include "intel_gpu/op/gather_compressed.hpp"
+#include "ov_ops/gather_compressed.hpp"
 
 #include "intel_gpu/primitives/gather.hpp"
 #include "intel_gpu/primitives/reorder.hpp"
@@ -18,7 +18,7 @@
 namespace ov {
 namespace op {
 namespace internal {
-using GatherCompressed = ov::intel_gpu::op::GatherCompressed;
+using GatherCompressed = ov::op::internal::GatherCompressed;
 }  // namespace internal
 }  // namespace op
 }  // namespace ov
@@ -100,8 +100,12 @@ void CreateGatherOpBase(ProgramBuilder& p, const std::shared_ptr<T>& op, const i
     const auto input_shape = op->get_input_partial_shape(0);
     const auto input_rank = input_shape.rank().get_length();
     const auto& indices = op->input_value(1);
+    const auto& indices_node = indices.get_node_shared_ptr();
+    auto indices_constant = std::dynamic_pointer_cast<ov::op::v0::Constant>(indices_node);
+    bool is_indices_constant = (indices_constant) ? true : false;
+
     if (is_static && axis == 0 && input_rank > 1 && indices.get_partial_shape().rank().get_length() == 0 &&
-        std::equal(input_shape.begin()+1, input_shape.end(), out_shape.begin()+1)) {
+        std::equal(input_shape.begin()+1, input_shape.end(), out_shape.begin()+1) && is_indices_constant) {
         // Gather -> Crop
         // this Gather simply divides an input tensor along Batch axis
         auto get_crop_layer_name = [&](std::string name, size_t idx)->std::string {
@@ -109,8 +113,6 @@ void CreateGatherOpBase(ProgramBuilder& p, const std::shared_ptr<T>& op, const i
         };
 
         // Get indices info to calculate offset
-        const auto& indices_node = indices.get_node_shared_ptr();
-        auto indices_constant = std::dynamic_pointer_cast<ov::op::v0::Constant>(indices_node);
         float result = 0.f;
         OPENVINO_ASSERT(ov::op::util::get_single_value(indices_constant, result),
                         "Unsupported indices node in ", op->get_friendly_name(), " (", op->get_type_name(), ")");
@@ -154,7 +156,7 @@ void CreateGatherOpBase(ProgramBuilder& p, const std::shared_ptr<T>& op, const i
                 }
             }
 
-            std::shared_ptr<ov::intel_gpu::op::GatherCompressed> op_compressed = std::dynamic_pointer_cast<ov::intel_gpu::op::GatherCompressed>(op);
+            std::shared_ptr<ov::op::internal::GatherCompressed> op_compressed = std::dynamic_pointer_cast<ov::op::internal::GatherCompressed>(op);
 
             auto gatherPrim = cldnn::gather(layerName,
                                             reordered_inputs[0],
@@ -162,7 +164,7 @@ void CreateGatherOpBase(ProgramBuilder& p, const std::shared_ptr<T>& op, const i
                                             axis,
                                             reordered_inputs[3],
                                             (has_scalar_zp || op->get_input_size() == 4) ? cldnn::input_info() : reordered_inputs[4],
-                                            op_compressed->get_output_type(),
+                                            op_compressed->get_output_element_type(0),
                                             input_rank,
                                             out_shape,
                                             batch_dim,

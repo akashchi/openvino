@@ -5,6 +5,7 @@
 #include "openvino/runtime/threading/istreams_executor.hpp"
 
 #include <algorithm>
+#include <future>
 #include <string>
 #include <thread>
 #include <vector>
@@ -28,7 +29,7 @@ void IStreamsExecutor::Config::set_property(const std::string& key, const ov::An
 void IStreamsExecutor::Config::set_property(const ov::AnyMap& property) {
     for (const auto& it : property) {
         const auto& key = it.first;
-        const auto value = it.second;
+        const auto& value = it.second;
         if (key == ov::num_streams) {
             auto streams = value.as<ov::streams::Num>();
             if (streams == ov::streams::NUMA) {
@@ -117,11 +118,11 @@ IStreamsExecutor::Config IStreamsExecutor::Config::make_default_multi_threaded(
     int num_cores = proc_type_table[0][ALL_PROC];
 
     if (proc_type_table[0][EFFICIENT_CORE_PROC] > 0 && proc_type_table[0][MAIN_CORE_PROC] > 0) {
-        if (streamConfig._thread_preferred_core_type == IStreamsExecutor::Config::ANY) {
+        if (streamConfig._thread_preferred_core_type == ov::hint::SchedulingCoreType::ANY_CORE) {
             num_cores = proc_type_table[0][ALL_PROC];
-        } else if (streamConfig._thread_preferred_core_type == IStreamsExecutor::Config::BIG) {
+        } else if (streamConfig._thread_preferred_core_type == ov::hint::SchedulingCoreType::PCORE_ONLY) {
             num_cores = proc_type_table[0][MAIN_CORE_PROC];
-        } else if (streamConfig._thread_preferred_core_type == IStreamsExecutor::Config::LITTLE) {
+        } else if (streamConfig._thread_preferred_core_type == ov::hint::SchedulingCoreType::ECORE_ONLY) {
             num_cores = proc_type_table[0][EFFICIENT_CORE_PROC];
         }
     }
@@ -129,7 +130,7 @@ IStreamsExecutor::Config IStreamsExecutor::Config::make_default_multi_threaded(
     const auto threads = streamConfig._threads ? streamConfig._threads : num_cores;
     int threads_per_stream = streamConfig._streams ? std::max(1, threads / streamConfig._streams) : threads;
     if (proc_type_table[0][EFFICIENT_CORE_PROC] > 0 && proc_type_table[0][MAIN_CORE_PROC] > 0 &&
-        streamConfig._thread_preferred_core_type == IStreamsExecutor::Config::ANY) {
+        streamConfig._thread_preferred_core_type == ov::hint::SchedulingCoreType::ANY_CORE) {
         if (streamConfig._streams > 1) {
             threads_per_stream =
                 std::min(std::min(proc_type_table[0][MAIN_CORE_PROC], proc_type_table[0][EFFICIENT_CORE_PROC]),
@@ -154,48 +155,16 @@ IStreamsExecutor::Config IStreamsExecutor::Config::make_default_multi_threaded(
     return streamConfig;
 }
 
-void IStreamsExecutor::Config::reserve_cpu_threads() {
-    int status = _name.find("StreamsExecutor") != std::string::npos ? NOT_USED : CPU_USED;
-
-    if (_streams_info_table.size() == 0 || (status == CPU_USED && !_cpu_reservation)) {
-        return;
-    }
-
-    reserve_available_cpus(_streams_info_table, _stream_processor_ids, status);
-}
-
-IStreamsExecutor::Config IStreamsExecutor::Config::reserve_cpu_threads(const IStreamsExecutor::Config& initial) {
-    auto config = initial;
-    int status = config._name.find("StreamsExecutor") != std::string::npos ? NOT_USED : CPU_USED;
-
-    if (config._streams_info_table.size() == 0 || (status == CPU_USED && !config._cpu_reservation)) {
-        return config;
-    }
-
-    reserve_available_cpus(config._streams_info_table, config._stream_processor_ids, status);
-
-    config._streams = 0;
-    config._threads = 0;
-    for (size_t i = 0; i < config._streams_info_table.size(); i++) {
-        if (config._streams_info_table[i][NUMBER_OF_STREAMS] > 0) {
-            config._streams += config._streams_info_table[i][NUMBER_OF_STREAMS];
-            config._threads +=
-                config._streams_info_table[i][NUMBER_OF_STREAMS] * config._streams_info_table[i][THREADS_PER_STREAM];
-        }
-    }
-    config._threads_per_stream = config._streams_info_table[0][THREADS_PER_STREAM];
-    OPENVINO_DEBUG << "[ threading ] " << config._name << " reserve_cpu_threads " << config._streams << "("
-                   << config._threads << ")";
-
-    return config;
-}
-
 void IStreamsExecutor::Config::update_executor_config() {
     const auto proc_type_table = get_proc_type_table();
     bool streams_info_available = false;
 
     if (proc_type_table.empty()) {
         return;
+    }
+
+    if (_cpu_reservation && !_cpu_pinning) {
+        _cpu_pinning = true;
     }
 
     if (!_streams_info_table.empty()) {
@@ -222,16 +191,16 @@ void IStreamsExecutor::Config::update_executor_config() {
         const auto total_num_big_cores = proc_type_table[0][MAIN_CORE_PROC] + proc_type_table[0][HYPER_THREADING_PROC];
         const auto total_num_little_cores = proc_type_table[0][EFFICIENT_CORE_PROC];
 
-        if ((total_num_little_cores == 0 && _thread_preferred_core_type == IStreamsExecutor::Config::LITTLE) ||
-            (total_num_big_cores == 0 && _thread_preferred_core_type == IStreamsExecutor::Config::BIG) ||
-            (proc_type_table.size() > 1 && _thread_preferred_core_type == IStreamsExecutor::Config::BIG)) {
-            _thread_preferred_core_type = IStreamsExecutor::Config::ANY;
+        if ((total_num_little_cores == 0 && _thread_preferred_core_type == ov::hint::SchedulingCoreType::ECORE_ONLY) ||
+            (total_num_big_cores == 0 && _thread_preferred_core_type == ov::hint::SchedulingCoreType::PCORE_ONLY) ||
+            (proc_type_table.size() > 1 && _thread_preferred_core_type == ov::hint::SchedulingCoreType::PCORE_ONLY)) {
+            _thread_preferred_core_type = ov::hint::SchedulingCoreType::ANY_CORE;
         }
 
         int num_cores = total_num_cores;
-        if (_thread_preferred_core_type == IStreamsExecutor::Config::BIG) {
+        if (_thread_preferred_core_type == ov::hint::SchedulingCoreType::PCORE_ONLY) {
             num_cores = total_num_big_cores;
-        } else if (_thread_preferred_core_type == IStreamsExecutor::Config::LITTLE) {
+        } else if (_thread_preferred_core_type == ov::hint::SchedulingCoreType::ECORE_ONLY) {
             num_cores = total_num_little_cores;
         }
 
@@ -253,7 +222,7 @@ void IStreamsExecutor::Config::update_executor_config() {
         stream_info[STREAM_NUMA_NODE_ID] = 0;
         stream_info[STREAM_SOCKET_ID] = 0;
         int cur_threads = _streams * _threads_per_stream;
-        if (_thread_preferred_core_type == IStreamsExecutor::Config::LITTLE) {
+        if (_thread_preferred_core_type == ov::hint::SchedulingCoreType::ECORE_ONLY) {
             stream_info[PROC_TYPE] = EFFICIENT_CORE_PROC;
             stream_info[NUMBER_OF_STREAMS] = _streams;
             _streams_info_table.push_back(stream_info);
@@ -269,7 +238,7 @@ void IStreamsExecutor::Config::update_executor_config() {
                 _streams_info_table.push_back(stream_info);
                 stream_info[NUMBER_OF_STREAMS] = 0;
             }
-            if (_thread_preferred_core_type == IStreamsExecutor::Config::BIG &&
+            if (_thread_preferred_core_type == ov::hint::SchedulingCoreType::PCORE_ONLY &&
                 proc_type_table[0][EFFICIENT_CORE_PROC] > 0) {
                 core_types = {MAIN_CORE_PROC, HYPER_THREADING_PROC};
             } else {
@@ -296,37 +265,54 @@ void IStreamsExecutor::Config::update_executor_config() {
         }
     }
 
-    if (_cpu_reservation) {
-        reserve_cpu_threads();
+    if (_cpu_pinning) {
+        reserve_available_cpus(_streams_info_table, _stream_processor_ids, _cpu_reservation ? CPU_USED : NOT_USED);
     }
 
     // Recaculate _streams, _threads and _threads_per_stream by _streams_info_table
     int num_streams = 0;
     _threads = 0;
+    _sub_streams = 0;
     for (size_t i = 0; i < _streams_info_table.size(); i++) {
         if (_streams_info_table[i][NUMBER_OF_STREAMS] > 0) {
             num_streams += _streams_info_table[i][NUMBER_OF_STREAMS];
             _threads += _streams_info_table[i][NUMBER_OF_STREAMS] * _streams_info_table[i][THREADS_PER_STREAM];
+        } else if (_streams_info_table[i][NUMBER_OF_STREAMS] == -1) {
+            _sub_streams += 1;
         }
     }
     _threads_per_stream = _streams_info_table[0][THREADS_PER_STREAM];
     _streams = _streams > 0 ? num_streams : _streams;
 
-    OPENVINO_DEBUG << "[ threading ] proc_type_table:";
+#ifdef ENABLE_OPENVINO_DEBUG
+    OPENVINO_DEBUG("[ threading ] proc_type_table:");
     for (size_t i = 0; i < proc_type_table.size(); i++) {
-        OPENVINO_DEBUG << proc_type_table[i][ALL_PROC] << " " << proc_type_table[i][MAIN_CORE_PROC] << " "
-                       << proc_type_table[i][EFFICIENT_CORE_PROC] << " " << proc_type_table[i][HYPER_THREADING_PROC]
-                       << " " << proc_type_table[i][PROC_NUMA_NODE_ID] << " " << proc_type_table[i][PROC_SOCKET_ID];
+        OPENVINO_DEBUG(proc_type_table[i][ALL_PROC],
+                       proc_type_table[i][MAIN_CORE_PROC],
+                       " ",
+                       proc_type_table[i][EFFICIENT_CORE_PROC],
+                       " ",
+                       proc_type_table[i][HYPER_THREADING_PROC],
+                       " ",
+                       proc_type_table[i][PROC_NUMA_NODE_ID],
+                       " ",
+                       proc_type_table[i][PROC_SOCKET_ID]);
     }
 
-    OPENVINO_DEBUG << "[ threading ] streams_info_table:";
+    OPENVINO_DEBUG("[ threading ] streams_info_table:");
     for (size_t i = 0; i < _streams_info_table.size(); i++) {
-        OPENVINO_DEBUG << _streams_info_table[i][NUMBER_OF_STREAMS] << " " << _streams_info_table[i][PROC_TYPE] << " "
-                       << _streams_info_table[i][THREADS_PER_STREAM] << " "
-                       << _streams_info_table[i][STREAM_NUMA_NODE_ID] << " "
-                       << _streams_info_table[i][STREAM_SOCKET_ID];
+        OPENVINO_DEBUG(_streams_info_table[i][NUMBER_OF_STREAMS],
+                       " ",
+                       _streams_info_table[i][PROC_TYPE],
+                       " ",
+                       _streams_info_table[i][THREADS_PER_STREAM],
+                       " ",
+                       _streams_info_table[i][STREAM_NUMA_NODE_ID],
+                       " ",
+                       _streams_info_table[i][STREAM_SOCKET_ID]);
     }
-    OPENVINO_DEBUG << "[ threading ] " << _name << ": " << _streams << "(" << _threads << ")";
+    OPENVINO_DEBUG("[ threading ] )", _name, ": ", _streams, "(", _threads, ")");
+#endif
 }
 
 void IStreamsExecutor::Config::set_config_zero_stream() {
@@ -343,7 +329,7 @@ void IStreamsExecutor::Config::set_config_zero_stream() {
         socket_id = std::max(0, proc_type_table[0][PROC_SOCKET_ID]);
     }
     _streams_info_table.push_back({1, core_type, 1, numa_id, socket_id});
-    _cpu_reservation = false;
+    _cpu_pinning = false;
 }
 
 }  // namespace threading

@@ -1,5 +1,3 @@
-.. {#openvino_docs_OV_UG_Integrate_OV_with_your_application}
-
 Integrate OpenVINO™ with Your Application
 ===========================================
 
@@ -19,18 +17,21 @@ Integrate OpenVINO™ with Your Application
                  Runtime in an application.
 
 
-Following these steps, you can implement a typical OpenVINO™ Runtime inference
-pipeline in your application. Before proceeding, make sure you have
-:doc:`installed OpenVINO Runtime <../../get-started/install-openvino>` and set environment variables (run ``<INSTALL_DIR>/setupvars.sh`` for Linux, ``setupvars.ps1`` for Windows PowerShell, or ``setupvars.bat`` for Windows CMD), otherwise, the ``OpenVINO_DIR`` variable won't be configured properly to pass ``find_package`` calls).
+Following these steps, you can implement a typical OpenVINO™ Runtime inference pipeline in your
+application. Before proceeding, make sure you have :doc:`installed OpenVINO Runtime <../../get-started/install-openvino>`
+and set environment variables (run ``<INSTALL_DIR>/setupvars.sh`` for Linux, ``setupvars.ps1``
+for Windows PowerShell, or ``setupvars.bat`` for Windows CMD). Otherwise, the ``OpenVINO_DIR``
+variable won't be configured properly to pass ``find_package`` calls.
 
 
-.. image:: ../../_static/images/IMPLEMENT_PIPELINE_with_API_C.svg
+.. image:: ../../assets/images/IMPLEMENT_PIPELINE_with_API_C.svg
 
 
 Step 1. Create OpenVINO Runtime Core
 ####################################
 
-Include next files to work with OpenVINO™ Runtime:
+Include the necessary files to work with OpenVINO™ Runtime and create OpenVINO™ Core to manage
+available devices and read model objects:
 
 .. tab-set::
 
@@ -41,28 +42,6 @@ Include next files to work with OpenVINO™ Runtime:
           :language: python
           :fragment: [import]
 
-    .. tab-item:: C++
-       :sync: cpp
-
-       .. doxygensnippet:: docs/snippets/src/main.cpp
-          :language: cpp
-          :fragment: [include]
-
-    .. tab-item:: C
-       :sync: c
-
-       .. doxygensnippet:: docs/snippets/src/main.c
-          :language: cpp
-          :fragment: [include]
-
-
-Use the following code to create OpenVINO™ Core to manage available devices and read model objects:
-
-.. tab-set::
-
-    .. tab-item:: Python
-       :sync: py
-
        .. doxygensnippet:: docs/snippets/src/main.py
           :language: python
           :fragment: [part1]
@@ -72,6 +51,10 @@ Use the following code to create OpenVINO™ Core to manage available devices an
 
        .. doxygensnippet:: docs/snippets/src/main.cpp
           :language: cpp
+          :fragment: [include]
+
+       .. doxygensnippet:: docs/snippets/src/main.cpp
+          :language: cpp
           :fragment: [part1]
 
     .. tab-item:: C
@@ -79,13 +62,19 @@ Use the following code to create OpenVINO™ Core to manage available devices an
 
        .. doxygensnippet:: docs/snippets/src/main.c
           :language: cpp
+          :fragment: [include]
+
+       .. doxygensnippet:: docs/snippets/src/main.c
+          :language: cpp
           :fragment: [part1]
+
 
 
 Step 2. Compile the Model
 #########################
 
 ``ov::CompiledModel`` class represents a device specific compiled model. ``ov::CompiledModel`` allows you to get information inputs or output ports by a tensor name or index. This approach is aligned with the majority of frameworks.
+:doc:`AUTO mode <./inference-devices-and-modes/auto-device-selection>` automatically selects the most suitable hardware for running inference.
 
 Compile the model for a specific device using ``ov::Core::compile_model()``:
 
@@ -238,7 +227,8 @@ For more details please read article about :doc:`OpenVINO™ Model representatio
 
 The code above creates a compiled model associated with a single hardware device from the model object.
 It is possible to create as many compiled models as needed and use them simultaneously (up to the limitation of the hardware).
-To learn how to change the device configuration, read the :doc:`Query device properties <inference-devices-and-modes/query-device-properties>` article.
+To learn more about supported devices and inference modes, read the :doc:`Inference Devices and Modes <./inference-devices-and-modes>` article.
+
 
 Step 3. Create an Inference Request
 ###################################
@@ -425,7 +415,13 @@ For details on additional CMake build options, refer to the `CMake page <https:/
        .. doxygensnippet:: docs/snippets/CMakeLists.txt
           :language: cpp
           :fragment: [cmake:integration_example_c]
-
+          
+    .. tab-item:: C++ (PyPI)
+      :sync: cpp 
+      
+      .. doxygensnippet:: docs/snippets/CMakeLists.txt
+         :language: cpp
+         :fragment: [cmake:integration_example_cpp_py]
 
 Build Project
 ++++++++++++++++++++
@@ -442,8 +438,10 @@ To build your project using CMake with the default build tools currently availab
 Additional Resources
 ####################
 
-* See the :doc:`OpenVINO Samples <../../learn-openvino/openvino-samples>` page or the `Open Model Zoo Demos <https://docs.openvino.ai/2024/omz_demos.html>`__ page for specific examples of how OpenVINO pipelines are implemented for applications like image classification, text prediction, and many others.
+* `OpenVINO™ Runtime API Tutorial <./../../notebooks/openvino-api-with-output.html>`__
+* See the :doc:`OpenVINO Samples <../../learn-openvino/openvino-samples>` page for specific examples of how OpenVINO pipelines are implemented for applications like image classification, text prediction, and many others.
+* Models in the OpenVINO IR format on `Hugging Face <https://huggingface.co/models>`__.
 * :doc:`OpenVINO™ Runtime Preprocessing <optimize-inference/optimize-preprocessing>`
 * :doc:`String Tensors <string-tensors>`
-* :doc:`Using Encrypted Models with OpenVINO <../../documentation/openvino-security/openvino-encrypted-models>`
+* :ref:`Using Encrypted Models with OpenVINO <encrypted-models>`
 

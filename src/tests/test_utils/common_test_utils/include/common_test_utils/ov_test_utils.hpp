@@ -38,6 +38,7 @@ public:
 protected:
     float m_abs_threshold = 5e-4f;
     float m_rel_threshold = 1e-3f;
+    bool test_skipped = false;
 
 private:
     std::shared_ptr<ov::pass::UniqueNamesHolder> m_unh;
@@ -69,8 +70,6 @@ std::shared_ptr<ov::op::v0::Constant> create_constant(const std::vector<T>& data
     ov::Shape shape = scalar ? ov::Shape{} : ov::Shape{data.size()};
     return ov::op::v0::Constant::create(et, shape, data);
 }
-
-std::shared_ptr<ov::op::v0::Constant> create_zero_constant(const ov::element::Type_t& et, const ov::Shape& shape);
 
 namespace ov {
 namespace test {

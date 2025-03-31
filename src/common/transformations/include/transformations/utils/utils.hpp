@@ -13,23 +13,12 @@
 
 #include "openvino/core/descriptor_tensor.hpp"
 #include "openvino/core/rt_info.hpp"
-#include "openvino/opsets/opset4.hpp"
-#include "openvino/opsets/opset8.hpp"
+#include "openvino/op/constant.hpp"
+#include "openvino/op/convert.hpp"
 #include "openvino/pass/graph_rewrite.hpp"
+#include "openvino/util/pp.hpp"
 #include "transformations/rt_info/attributes.hpp"
 #include "transformations_visibility.hpp"
-
-/* This macro is intended to fix C++20 [=] lambda
-warning. Although C++20 identifier is 202002L,
-some compilers supporting C++20, or their drafts like
-C++2a, producing the warning, are using 201402L value.
-Also, MSVC requires a special check due to the
-__cplusplus value compatibility issues.*/
-#if (defined(_MSVC_LANG) && (_MSVC_LANG >= 202002L)) || (__cplusplus >= 201402L)
-#    define OV_CAPTURE_CPY_AND_THIS =, this
-#else
-#    define OV_CAPTURE_CPY_AND_THIS =
-#endif /* C++20 */
 
 namespace ov {
 namespace op {
@@ -65,7 +54,7 @@ bool has_op_with_type(const std::shared_ptr<const ov::Model>& function) {
 
 inline bool has_decompression_converts(const std::shared_ptr<const ov::Model>& function) {
     for (const auto& op : function->get_ops()) {
-        if (std::dynamic_pointer_cast<opset8::Convert>(op)) {
+        if (std::dynamic_pointer_cast<ov::op::v0::Convert>(op)) {
             if (ov::is_decompression(op))
                 return true;
         }
@@ -126,6 +115,17 @@ inline std::string get_ie_output_name(const Output<Node>& output) {
 float cast_eps_to_float(double eps_d);
 
 template <typename T>
+bool get_constant_value(const std::shared_ptr<ov::Node>& node, T& value) {
+    auto constant = ov::as_type_ptr<ov::op::v0::Constant>(node);
+    if (!constant)
+        return false;
+    if (shape_size(constant->get_shape()) != 1)
+        return false;
+    value = constant->cast_vector<T>()[0];
+    return true;
+}
+
+template <typename T>
 bool has_constant_value(const std::shared_ptr<Node>& node,
                         const T value,
                         T epsilon = std::numeric_limits<T>::epsilon()) {
@@ -133,7 +133,7 @@ bool has_constant_value(const std::shared_ptr<Node>& node,
         return false;
     }
 
-    auto constant = std::dynamic_pointer_cast<opset4::Constant>(node);
+    auto constant = std::dynamic_pointer_cast<ov::op::v0::Constant>(node);
     if (!constant) {
         return false;
     }
@@ -167,7 +167,7 @@ bool has_constant_value(const std::shared_ptr<Node>& node,
         return false;
     }
 
-    auto constant = std::dynamic_pointer_cast<opset4::Constant>(node);
+    auto constant = std::dynamic_pointer_cast<ov::op::v0::Constant>(node);
     if (!constant) {
         return false;
     }
@@ -184,23 +184,29 @@ bool has_constant_value(const std::shared_ptr<Node>& node,
     return const_values == values;
 }
 
-TRANSFORMATIONS_API bool get_single_value(const std::shared_ptr<opset4::Constant>& const_node,
+TRANSFORMATIONS_API bool get_single_value(const std::shared_ptr<ov::op::v0::Constant>& const_node,
                                           float& value,
                                           bool check_value_range = true);
 
-TRANSFORMATIONS_API std::shared_ptr<Node> normalize_constant(const std::shared_ptr<opset4::Constant>& constant,
+TRANSFORMATIONS_API std::shared_ptr<Node> normalize_constant(const std::shared_ptr<ov::op::v0::Constant>& constant,
                                                              const PartialShape& shape);
 
 TRANSFORMATIONS_API std::shared_ptr<Node> broadcastTo(const Output<Node>& input, const Shape& shape);
 
 TRANSFORMATIONS_API std::shared_ptr<Node> reshapeTo(const Output<Node>& input, const Shape& shape);
 
-TRANSFORMATIONS_API bool constantIsEqualTo(const std::shared_ptr<opset4::Constant>& const_node,
+TRANSFORMATIONS_API bool constantIsEqualTo(const std::shared_ptr<ov::op::v0::Constant>& const_node,
                                            float value,
                                            float eps = 1e-5);
 
 TRANSFORMATIONS_API bool has_f16_constants(const std::shared_ptr<const ov::Model>& function);
 
+/**
+ * \brief Check if 'other_shape' can be broadcasted to 'ref_shape'
+ *
+ * \param ref_shape  The target shape we use as reference we are trying to broadcast to.
+ * \param other_shape  The shape we use to check if it can be broadcasted to 'ref_shape'.
+ */
 TRANSFORMATIONS_API bool check_for_broadcast(const PartialShape& ref_shape, const PartialShape& other_shape);
 
 TRANSFORMATIONS_API std::shared_ptr<Node> activation(const std::string& activation_name, const Output<Node>& apply_to);
@@ -214,6 +220,19 @@ TRANSFORMATIONS_API std::shared_ptr<Node> clone_try_fold(const std::shared_ptr<N
 
 TRANSFORMATIONS_API bool shapes_equal_except_dynamic_expected_batch(const PartialShape& expected,
                                                                     const PartialShape& actual);
+
+/**
+ * \brief Traverses path starting from `node`, and calls "func" for each ov::Node.
+ *
+ * \param node  The node from which path is started.
+ * \param visited  Set of nodes which were visited.
+ * \param func  The function which is called for each visited node.
+ * \param skip_node_predicate  predicte to skip nodes.
+ */
+TRANSFORMATIONS_API void visit_path(ov::Node* node,
+                                    std::unordered_set<ov::Node*>& visited,
+                                    std::function<void(ov::Node*)> func,
+                                    std::function<bool(ov::Node*)> skip_node_predicate);
 
 /**
  * \brief Traverses a shapeOf subgraph starting from the node and not including the ShapeOf nodes,

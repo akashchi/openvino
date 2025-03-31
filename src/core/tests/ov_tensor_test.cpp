@@ -12,6 +12,7 @@
 #include <openvino/core/strides.hpp>
 #include <openvino/core/type/element_type.hpp>
 
+#include "common_test_utils/test_assertions.hpp"
 #include "openvino/core/except.hpp"
 #include "openvino/core/partial_shape.hpp"
 #include "openvino/core/type/element_type_traits.hpp"
@@ -22,6 +23,7 @@
 #include "openvino/runtime/tensor.hpp"
 
 using OVTensorTest = ::testing::Test;
+using testing::_;
 
 const size_t string_size = ov::element::string.size();
 
@@ -186,14 +188,47 @@ struct OVMockAllocator {
 };
 
 TEST_F(OVTensorTest, canCreateTensorUsingMockAllocator) {
+    constexpr size_t exp_size = 24;
     ov::Shape shape = {1, 2, 3};
     OVMockAllocator allocator;
 
-    EXPECT_CALL(*allocator.impl, allocate(::testing::_, ::testing::_))
-        .WillRepeatedly(testing::Return(reinterpret_cast<void*>(1)));
-    EXPECT_CALL(*allocator.impl, deallocate(::testing::_, ::testing::_, ::testing::_)).Times(1);
+    EXPECT_CALL(*allocator.impl, allocate(exp_size, _)).WillRepeatedly(testing::Return(reinterpret_cast<void*>(1)));
+    EXPECT_CALL(*allocator.impl, deallocate(_, exp_size, _)).Times(1);
 
     { ov::Tensor t{ov::element::f32, shape, allocator}; }
+}
+
+TEST_F(OVTensorTest, canCreateTensorU2UsingMockAllocator) {
+    constexpr size_t exp_size = 2;
+    ov::Shape shape = {1, 2, 3};
+    OVMockAllocator allocator;
+
+    EXPECT_CALL(*allocator.impl, allocate(exp_size, _)).WillRepeatedly(testing::Return(reinterpret_cast<void*>(1)));
+    EXPECT_CALL(*allocator.impl, deallocate(_, exp_size, _)).Times(1);
+
+    { ov::Tensor t{ov::element::u2, shape, allocator}; }
+}
+
+TEST_F(OVTensorTest, canCreateTensorU3UsingMockAllocator) {
+    constexpr size_t exp_size = 3;
+    ov::Shape shape = {1, 2, 3};
+    OVMockAllocator allocator;
+
+    EXPECT_CALL(*allocator.impl, allocate(exp_size, _)).WillRepeatedly(testing::Return(reinterpret_cast<void*>(1)));
+    EXPECT_CALL(*allocator.impl, deallocate(_, exp_size, _)).Times(1);
+
+    { ov::Tensor t{ov::element::u3, shape, allocator}; }
+}
+
+TEST_F(OVTensorTest, canCreateTensorU6UsingMockAllocator) {
+    constexpr size_t exp_size = 6;
+    ov::Shape shape = {1, 2, 3};
+    OVMockAllocator allocator;
+
+    EXPECT_CALL(*allocator.impl, allocate(exp_size, _)).WillRepeatedly(testing::Return(reinterpret_cast<void*>(1)));
+    EXPECT_CALL(*allocator.impl, deallocate(_, exp_size, _)).Times(1);
+
+    { ov::Tensor t{ov::element::u6, shape, allocator}; }
 }
 
 TEST_F(OVTensorTest, canAccessExternalData) {
@@ -357,7 +392,7 @@ TEST_F(OVTensorTest, canSetShape) {
 
     const void* orig_data = t.data();
     ASSERT_EQ(t.get_shape(), origShape);
-    ASSERT_NO_THROW(t.set_shape(newShape));
+    OV_ASSERT_NO_THROW(t.set_shape(newShape));
     ASSERT_EQ(newShape, t.get_shape());
     ASSERT_EQ(byteStrides(ov::row_major_strides(newShape), t.get_element_type()), t.get_strides());
     ASSERT_NE(orig_data, t.data());
@@ -365,7 +400,7 @@ TEST_F(OVTensorTest, canSetShape) {
     // check that set_shape for copy changes original Tensor
     {
         ov::Tensor t2 = t;
-        ASSERT_NO_THROW(t2.set_shape(newShape2));
+        OV_ASSERT_NO_THROW(t2.set_shape(newShape2));
         ASSERT_EQ(newShape2, t.get_shape());
         ASSERT_EQ(t2.get_shape(), t.get_shape());
         ASSERT_EQ(t2.data(), t.data());
@@ -387,7 +422,7 @@ TEST_F(OVTensorTest, canSetShapeStringTensor) {
 
     const void* orig_data = t.data();
     ASSERT_EQ(t.get_shape(), origShape);
-    ASSERT_NO_THROW(t.set_shape(newShape));
+    OV_ASSERT_NO_THROW(t.set_shape(newShape));
     ASSERT_EQ(newShape, t.get_shape());
     ASSERT_EQ(byteStrides(ov::row_major_strides(newShape), t.get_element_type()), t.get_strides());
     ASSERT_NE(orig_data, t.data());
@@ -395,7 +430,7 @@ TEST_F(OVTensorTest, canSetShapeStringTensor) {
     // check that setShape for copy changes original Tensor
     {
         ov::Tensor t2 = t;
-        ASSERT_NO_THROW(t2.set_shape(newShape2));
+        OV_ASSERT_NO_THROW(t2.set_shape(newShape2));
         ASSERT_EQ(newShape2, t2.get_shape());
         ASSERT_EQ(t2.get_shape(), t.get_shape());
         ASSERT_EQ(t2.data(), t.data());
@@ -404,7 +439,7 @@ TEST_F(OVTensorTest, canSetShapeStringTensor) {
 
     // set_shape for smaller memory - does not perform reallocation
     {
-        ASSERT_NO_THROW(t.set_shape(origShape));
+        OV_ASSERT_NO_THROW(t.set_shape(origShape));
         ASSERT_EQ(origShape, t.get_shape());
         ASSERT_EQ(orig_data, t.data());
     }
@@ -431,7 +466,7 @@ TEST_F(OVTensorTest, canSetShapeOfSmallerSizeOnPreallocatedMemory) {
     ov::Tensor t{ov::element::f32, {4, 5, 6}, data};
     const ov::Shape newShape({1, 2, 3});
 
-    ASSERT_NO_THROW(t.set_shape(newShape));
+    OV_ASSERT_NO_THROW(t.set_shape(newShape));
 }
 
 TEST_F(OVTensorTest, canSetShapeOfSmallerSizeOnPreallocatedMemoryStringTensor) {
@@ -439,7 +474,7 @@ TEST_F(OVTensorTest, canSetShapeOfSmallerSizeOnPreallocatedMemoryStringTensor) {
     ov::Tensor t{ov::element::string, {4, 5, 6}, data};
     const ov::Shape newShape({1, 2, 3});
 
-    ASSERT_NO_THROW(t.set_shape(newShape));
+    OV_ASSERT_NO_THROW(t.set_shape(newShape));
 }
 
 TEST_F(OVTensorTest, canSetShapeOfSameSizeOnPreallocatedMemory) {
@@ -447,7 +482,7 @@ TEST_F(OVTensorTest, canSetShapeOfSameSizeOnPreallocatedMemory) {
     ov::Tensor t{ov::element::f32, {4, 5, 6}, data};
     const ov::Shape newShape({4, 5, 6});
 
-    ASSERT_NO_THROW(t.set_shape(newShape));
+    OV_ASSERT_NO_THROW(t.set_shape(newShape));
 }
 
 TEST_F(OVTensorTest, canSetShapeOfSameSizeOnPreallocatedMemoryStringTensor) {
@@ -455,7 +490,7 @@ TEST_F(OVTensorTest, canSetShapeOfSameSizeOnPreallocatedMemoryStringTensor) {
     ov::Tensor t{ov::element::string, {4, 5, 6}, data};
     const ov::Shape newShape({4, 5, 6});
 
-    ASSERT_NO_THROW(t.set_shape(newShape));
+    OV_ASSERT_NO_THROW(t.set_shape(newShape));
 }
 
 TEST_F(OVTensorTest, canSetShapeOfOriginalSizeAfterDecreasingOnPreallocatedMemory) {
@@ -464,8 +499,8 @@ TEST_F(OVTensorTest, canSetShapeOfOriginalSizeAfterDecreasingOnPreallocatedMemor
     const ov::Shape smallerShape({1, 2, 3});
     const ov::Shape originalShape({4, 5, 6});
 
-    ASSERT_NO_THROW(t.set_shape(smallerShape));
-    ASSERT_NO_THROW(t.set_shape(originalShape));
+    OV_ASSERT_NO_THROW(t.set_shape(smallerShape));
+    OV_ASSERT_NO_THROW(t.set_shape(originalShape));
 }
 
 TEST_F(OVTensorTest, canSetShapeOfOriginalSizeAfterDecreasingOnPreallocatedMemoryStringTensor) {
@@ -474,8 +509,8 @@ TEST_F(OVTensorTest, canSetShapeOfOriginalSizeAfterDecreasingOnPreallocatedMemor
     const ov::Shape smallerShape({1, 2, 3});
     const ov::Shape originalShape({4, 5, 6});
 
-    ASSERT_NO_THROW(t.set_shape(smallerShape));
-    ASSERT_NO_THROW(t.set_shape(originalShape));
+    OV_ASSERT_NO_THROW(t.set_shape(smallerShape));
+    OV_ASSERT_NO_THROW(t.set_shape(originalShape));
 }
 
 TEST_F(OVTensorTest, canSetShapeOfOriginalSizeAfterDecreasing) {
@@ -483,9 +518,9 @@ TEST_F(OVTensorTest, canSetShapeOfOriginalSizeAfterDecreasing) {
     ov::Tensor t{ov::element::f32, shape};
     void* data = t.data();
 
-    ASSERT_NO_THROW(t.set_shape(small_shape));
+    OV_ASSERT_NO_THROW(t.set_shape(small_shape));
     EXPECT_EQ(data, t.data());
-    ASSERT_NO_THROW(t.set_shape(shape));
+    OV_ASSERT_NO_THROW(t.set_shape(shape));
     EXPECT_EQ(data, t.data());
 }
 
@@ -494,9 +529,9 @@ TEST_F(OVTensorTest, canSetShapeOfOriginalSizeAfterDecreasingStringTensor) {
     ov::Tensor t{ov::element::string, shape};
     void* data = t.data();
 
-    ASSERT_NO_THROW(t.set_shape(small_shape));
+    OV_ASSERT_NO_THROW(t.set_shape(small_shape));
     EXPECT_EQ(data, t.data());
-    ASSERT_NO_THROW(t.set_shape(shape));
+    OV_ASSERT_NO_THROW(t.set_shape(shape));
     EXPECT_EQ(data, t.data());
 }
 
@@ -507,7 +542,7 @@ TEST_F(OVTensorTest, canChangeShapeOnStridedTensor) {
     const ov::Shape correct_shape({1, 1, 2});
 
     ASSERT_THROW(t.set_shape(incorrect_shape), ov::Exception);
-    ASSERT_NO_THROW(t.set_shape(correct_shape));
+    OV_ASSERT_NO_THROW(t.set_shape(correct_shape));
 }
 
 TEST_F(OVTensorTest, canChangeShapeOnStridedTensorStringTensor) {
@@ -517,7 +552,7 @@ TEST_F(OVTensorTest, canChangeShapeOnStridedTensorStringTensor) {
     const ov::Shape correct_shape({1, 1, 2});
 
     ASSERT_THROW(t.set_shape(incorrect_shape), ov::Exception);
-    ASSERT_NO_THROW(t.set_shape(correct_shape));
+    OV_ASSERT_NO_THROW(t.set_shape(correct_shape));
 }
 
 TEST_F(OVTensorTest, makeRangeRoiTensor) {
@@ -615,7 +650,7 @@ TEST_F(OVTensorTest, tensorInt4DataAccess) {
     ASSERT_THROW((ov::Tensor{t, {0, 1, 2, 0}, {1, 5, 4, 3}}), ov::Exception);
     ASSERT_THROW(t.get_strides(), ov::Exception);
     ASSERT_THROW(t.data<int8_t>(), ov::Exception);
-    ASSERT_NO_THROW(t.data());
+    OV_ASSERT_NO_THROW(t.data());
 }
 
 TEST_F(OVTensorTest, makeRangeRoiBlobWrongSize) {
@@ -901,6 +936,18 @@ INSTANTIATE_TEST_SUITE_P(copy_tests,
                                                               TestParams {
                                                                   ov::Shape{}, {},
                                                                   {1}, {}
+                                                              },
+                                                              TestParams{
+                                                                  ov::Shape{3,2,2}, {},
+                                                                  ov::Shape{5}, {}
+                                                              },
+                                                              TestParams{
+                                                                  ov::Shape{3,2,2}, ov::Strides{64,16,8},
+                                                                  ov::Shape{5,2}, {}
+                                                              },
+                                                              TestParams{
+                                                                  ov::Shape{3,2,2}, ov::Strides{64,16,8},
+                                                                  ov::Shape{3,4,3}, ov::Strides{128,24,8}
                                                               }
                                            )));
 

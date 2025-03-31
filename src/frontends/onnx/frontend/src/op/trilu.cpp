@@ -2,9 +2,8 @@
 // SPDX-License-Identifier: Apache-2.0
 //
 
-#include "op/trilu.hpp"
-
 #include "core/null_node.hpp"
+#include "core/operator_set.hpp"
 #include "exceptions.hpp"
 #include "openvino/op/add.hpp"
 #include "openvino/op/constant.hpp"
@@ -16,15 +15,15 @@
 #include "openvino/op/range.hpp"
 #include "openvino/op/select.hpp"
 #include "openvino/op/shape_of.hpp"
+#include "openvino/op/squeeze.hpp"
 #include "openvino/op/unsqueeze.hpp"
-
 using namespace ov::op;
 
 namespace ov {
 namespace frontend {
 namespace onnx {
-namespace op {
-namespace set_1 {
+namespace ai_onnx {
+namespace opset_1 {
 
 ov::OutputVector trilu(const ov::frontend::onnx::Node& node) {
     const auto inputs = node.get_ov_inputs();
@@ -37,9 +36,19 @@ ov::OutputVector trilu(const ov::frontend::onnx::Node& node) {
     if (rank.is_static()) {
         CHECK_VALID_NODE(node, rank.get_length() >= 2, "Trilu first input's rank must be >= 2");
     }
+
+    Output<ov::Node> k;
     bool is_k_available = num_inputs == 2 && !ov::op::util::is_null(inputs[1]);
     if (is_k_available) {
-        CHECK_VALID_NODE(node, inputs[1].get_partial_shape().compatible({}), "Trilu second input must be a scalar");
+        // Trilu-14 documentation allows only 0-D tensor (scalar),
+        // but we extend support to be able work with 1-D with length == 1
+        k = inputs[1];
+        auto axes = v0::Constant::create(ov::element::i64, ov::Shape{}, {0});
+        // Check if k is a tensor with a single value
+        if (k.get_shape().size() == 1 && k.get_shape()[0] == 1) {
+            k = std::make_shared<v0::Squeeze>(k, axes);
+        }
+        CHECK_VALID_NODE(node, k.get_partial_shape().compatible({}), "Trilu second input must be a scalar");
     }
 
     const auto shape = std::make_shared<v3::ShapeOf>(input);
@@ -47,7 +56,7 @@ ov::OutputVector trilu(const ov::frontend::onnx::Node& node) {
     const auto one = v0::Constant::create(ov::element::i64, ov::Shape{}, {1});
 
     // The approach here is to create a mask, that later can be used in Select operator
-    // to choose appropiate values from the input
+    // to choose appropriate values from the input
     //
     // For example N = 4, M = 5, k = -1, upper = false
     // horizontal_range = [[0, 1, 2, 3, 4]]
@@ -83,8 +92,7 @@ ov::OutputVector trilu(const ov::frontend::onnx::Node& node) {
     // create 2D tensor with shape [N, 1] and values [[k], [k + 1], ..., [N + k - 1]]
     std::shared_ptr<ov::Node> vertical_range;
     if (is_k_available) {
-        vertical_range =
-            std::make_shared<v4::Range>(inputs[1], std::make_shared<v1::Add>(N, inputs[1]), one, ov::element::i64);
+        vertical_range = std::make_shared<v4::Range>(k, std::make_shared<v1::Add>(N, k), one, ov::element::i64);
     } else {
         vertical_range = std::make_shared<v4::Range>(zero, N, one, ov::element::i64);
     }
@@ -102,8 +110,9 @@ ov::OutputVector trilu(const ov::frontend::onnx::Node& node) {
         std::make_shared<v1::Select>(mask, input, v0::Constant::create(input.get_element_type(), ov::Shape{}, {0}))};
 }
 
-}  // namespace set_1
-}  // namespace op
+ONNX_OP("Trilu", OPSET_SINCE(1), ai_onnx::opset_1::trilu);
+}  // namespace opset_1
+}  // namespace ai_onnx
 }  // namespace onnx
 }  // namespace frontend
 }  // namespace ov

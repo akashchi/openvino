@@ -3,6 +3,8 @@
 //
 
 #include "ocl_engine.hpp"
+#include "intel_gpu/runtime/utils.hpp"
+#include "ocl/ocl_kernel.hpp"
 #include "ocl_common.hpp"
 #include "ocl_memory.hpp"
 #include "ocl_stream.hpp"
@@ -51,7 +53,6 @@ ocl_engine::ocl_engine(const device::ptr dev, runtime_types runtime_type)
     OPENVINO_ASSERT(casted, "[GPU] Invalid device type passed to ocl engine");
     casted->get_device().getInfo(CL_DEVICE_EXTENSIONS, &_extensions);
 
-    _usm_helper.reset(new cl::UsmHelper(get_cl_context(), get_cl_device(), use_unified_shared_memory()));
     _service_stream.reset(new ocl_stream(*this, ExecutionConfig()));
 }
 
@@ -117,7 +118,9 @@ const cl::Device& ocl_engine::get_cl_device() const {
 }
 
 const cl::UsmHelper& ocl_engine::get_usm_helper() const {
-    return *_usm_helper;
+    auto cl_device = std::dynamic_pointer_cast<ocl_device>(_device);
+    OPENVINO_ASSERT(cl_device, "[GPU] Invalid device type for ocl_engine");
+    return cl_device->get_usm_helper();
 }
 
 allocation_type ocl_engine::detect_usm_allocation_type(const void* memory) const {
@@ -128,21 +131,37 @@ allocation_type ocl_engine::detect_usm_allocation_type(const void* memory) const
 bool ocl_engine::check_allocatable(const layout& layout, allocation_type type) {
     OPENVINO_ASSERT(supports_allocation(type) || type == allocation_type::cl_mem, "[GPU] Unsupported allocation type: ", type);
 
-    OPENVINO_ASSERT(layout.bytes_count() <= get_device_info().max_alloc_mem_size,
+    bool exceed_allocatable_mem_size = (layout.bytes_count() > get_device_info().max_alloc_mem_size);
+
+    // When dynamic shape upper bound makes bigger buffer, then return false.
+    if (exceed_allocatable_mem_size && layout.is_dynamic()) {
+        OPENVINO_ASSERT(layout.has_upper_bound(), "[GPU] Dynamic shape without upper bound tries to allocate");
+        return false;
+    }
+
+    OPENVINO_ASSERT(!exceed_allocatable_mem_size,
                     "[GPU] Exceeded max size of memory object allocation: ",
                     "requested ", layout.bytes_count(), " bytes, "
                     "but max alloc size supported by device is ", get_device_info().max_alloc_mem_size, " bytes.",
                     "Please try to reduce batch size or use lower precision.");
 
     auto used_mem = get_used_device_memory(allocation_type::usm_device) + get_used_device_memory(allocation_type::usm_host);
+    auto exceed_available_mem_size = (layout.bytes_count() + used_mem > get_max_memory_size());
+
+    // When dynamic shape upper bound makes bigger buffer, then return false.
+    if (exceed_available_mem_size && layout.is_dynamic()) {
+        OPENVINO_ASSERT(layout.has_upper_bound(), "[GPU] Dynamic shape without upper bound tries to allocate");
+        return false;
+    }
+
 #ifdef __unix__
     // Prevent from being killed by Ooo Killer of Linux
-    OPENVINO_ASSERT(layout.bytes_count() + used_mem <= get_max_memory_size(),
+    OPENVINO_ASSERT(!exceed_available_mem_size,
                     "[GPU] Exceeded max size of memory allocation: ",
                     "Required ", layout.bytes_count(), " bytes, already occupied : ", used_mem, " bytes, ",
                     "but available memory size is ", get_max_memory_size(), " bytes");
 #else
-    if (layout.bytes_count() + used_mem > get_max_memory_size()) {
+    if (exceed_available_mem_size) {
         GPU_DEBUG_COUT << "[Warning] [GPU] Exceeded max size of memory allocation: " << "Required " << layout.bytes_count() << " bytes, already occupied : "
                        << used_mem << " bytes, but available memory size is " << get_max_memory_size() << " bytes" << std::endl;
         GPU_DEBUG_COUT << "Please note that performance might drop due to memory swap." << std::endl;
@@ -281,6 +300,11 @@ bool ocl_engine::is_the_same_buffer(const memory& mem1, const memory& mem2) {
 void* ocl_engine::get_user_context() const {
     auto& cl_device = downcast<ocl_device>(*_device);
     return static_cast<void*>(cl_device.get_context().get());
+}
+
+kernel::ptr ocl_engine::prepare_kernel(const kernel::ptr kernel) const {
+    OPENVINO_ASSERT(downcast<const ocl::ocl_kernel>(kernel.get()) != nullptr);
+    return kernel;
 }
 
 bool ocl_engine::extension_supported(std::string extension) const {

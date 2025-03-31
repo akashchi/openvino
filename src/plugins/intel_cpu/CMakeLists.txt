@@ -22,12 +22,71 @@ if(CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
     # oneDNN arm64: unary minus operator applied to unsigned type, result still unsigned
     ov_add_compiler_flags(/wd4146)
 elseif(OV_COMPILER_IS_CLANG)
-    # -Wno-delete-non-abstract-non-virtual-dtor is support > clang8.0
-    if (CMAKE_CXX_COMPILER_VERSION VERSION_GREATER_EQUAL 8)
+    # -Wno-delete-non-abstract-non-virtual-dtor is support > clang 9.0
+    if(CMAKE_CXX_COMPILER_VERSION VERSION_GREATER_EQUAL 9.0)
         ov_add_compiler_flags(-Wno-delete-non-abstract-non-virtual-dtor)
     else()
         ov_add_compiler_flags(-Wno-delete-non-virtual-dtor)
     endif()
+elseif(CMAKE_COMPILER_IS_GNUCXX)
+    if(CMAKE_CXX_COMPILER_VERSION VERSION_GREATER_EQUAL 11)
+        ov_add_compiler_flags(-Wno-array-bounds)
+    endif()
+elseif (OV_COMPILER_IS_INTEL_LLVM AND WIN32)
+    ov_add_compiler_flags("/Wno-microsoft-include")
+endif()
+if(NOT BUILD_SHARED_LIBS)
+    # Symbols are located in both src and include folders
+    file(GLOB_RECURSE onednn_files
+        "${CMAKE_CURRENT_SOURCE_DIR}/thirdparty/onednn/include/*.cpp"
+        "${CMAKE_CURRENT_SOURCE_DIR}/thirdparty/onednn/include/*.hpp"
+        "${CMAKE_CURRENT_SOURCE_DIR}/thirdparty/onednn/include/*.h"
+        "${CMAKE_CURRENT_SOURCE_DIR}/thirdparty/onednn/include/*.hpp"
+        "${CMAKE_CURRENT_SOURCE_DIR}/thirdparty/onednn/src/*.cpp"
+        "${CMAKE_CURRENT_SOURCE_DIR}/thirdparty/onednn/src/*.hpp"
+        "${CMAKE_CURRENT_SOURCE_DIR}/thirdparty/onednn/src/*.h"
+        "${CMAKE_CURRENT_SOURCE_DIR}/thirdparty/onednn/src/*.hpp")
+
+    # parse API symbols
+    foreach(onednn_file IN LISTS onednn_files)
+        # symbols in form:
+        # dnnl_status_t DNNL_API dnnl_engine_get_kind
+        file(STRINGS "${onednn_file}" onednn_symbols_defined_on_single_line
+             REGEX "DNNL_API[ \*]*dnnl[a-zA-Z0-9_]*")
+        # symbols in form (cmake has issue with symbols defined on multiple lines and we have to use new pattern):
+        # dnnl_status_t DNNL_API
+        # dnnl_engine_get_kind
+        file(STRINGS "${onednn_file}" onednn_symbols_defined_on_multiple_lines
+             REGEX "^dnnl[a-zA-Z0-9_]*\\(")
+        # symbols in form:
+        # typedef struct dnnl_graph_graph *dnnl_graph_graph_t;
+        file(STRINGS "${onednn_file}" onednn_symbols_typedef
+             REGEX "^typedef struct dnnl_.*")
+
+        if(onednn_symbols_defined_on_single_line OR
+           onednn_symbols_defined_on_multiple_lines OR
+           onednn_symbols_typedef)
+            # parse concrete symbols from read line
+            string(REGEX MATCHALL "dnnl[a-zA-Z0-9_]+" onednn_parsed_symbols
+                ${onednn_symbols_defined_on_single_line}
+                ${onednn_symbols_defined_on_multiple_lines}
+                ${onednn_symbols_typedef})
+            list(APPEND onednn_symbols ${onednn_parsed_symbols})
+        endif()
+    endforeach()
+
+    # remove all duplicates
+    list(REMOVE_DUPLICATES onednn_symbols)
+
+    # also override namespaces
+    list(APPEND onednn_symbols dnnl oneapi)
+
+    # redefine all collected symbols
+    foreach(onednn_symbol IN LISTS onednn_symbols)
+        if(NOT onednn_symbol MATCHES "^#.+")
+            add_compile_definitions(${onednn_symbol}=ov_cpu_${onednn_symbol})
+        endif()
+    endforeach()
 endif()
 
 if (AARCH64 AND NOT APPLE AND CMAKE_COMPILER_IS_GNUCXX AND CMAKE_CXX_COMPILER_VERSION VERSION_GREATER_EQUAL 10.2)
@@ -72,8 +131,9 @@ set(OV_CPU_ARM_TARGET_ARCH ${OV_CPU_ARM_TARGET_ARCH_DEFAULT} CACHE STRING "Archi
 set_property(CACHE OV_CPU_ARM_TARGET_ARCH PROPERTY STRINGS ${OV_CPU_ARM_TARGET_ARCHS})
 
 if(X86 OR X86_64 OR AARCH64)
-    # disable mlas with webassembly
-    if(EMSCRIPTEN OR (WIN32 AND AARCH64) OR MINGW OR (CMAKE_COMPILER_IS_GNUCXX AND CMAKE_CXX_COMPILER_VERSION VERSION_LESS 7))
+    # disable mlas with webassembly and intel compiler on windows
+    if(EMSCRIPTEN OR (WIN32 AND AARCH64) OR MINGW OR
+       (CMAKE_COMPILER_IS_GNUCXX AND CMAKE_CXX_COMPILER_VERSION VERSION_LESS 7) OR (OV_COMPILER_IS_INTEL_LLVM AND WIN32))
         set(ENABLE_MLAS_FOR_CPU_DEFAULT OFF)
     else()
         set(ENABLE_MLAS_FOR_CPU_DEFAULT ON)
@@ -83,6 +143,13 @@ else()
 endif()
 ov_option(ENABLE_MLAS_FOR_CPU "Enable MLAS for OpenVINO CPU Plugin" ${ENABLE_MLAS_FOR_CPU_DEFAULT})
 
+if(RISCV64_XUANTIE)
+    set(ENABLE_SHL_FOR_CPU_DEFAULT ON)
+else()
+    set(ENABLE_SHL_FOR_CPU_DEFAULT OFF)
+endif()
+ov_dependent_option(ENABLE_SHL_FOR_CPU "Enable SHL for OpenVINO CPU Plugin" ${ENABLE_SHL_FOR_CPU_DEFAULT} "RISCV64" OFF)
+
 add_subdirectory(thirdparty)
 
 if(WIN32)
@@ -91,6 +158,11 @@ endif()
 
 if(ENABLE_CPU_DEBUG_CAPS)
     add_definitions(-DCPU_DEBUG_CAPS)
+endif()
+
+if (ENABLE_SNIPPETS_LIBXSMM_TPP)
+    # Note: LIBXSMM_DEFAULT_CONFIG needed so libxsmm_config can be included without issues
+    add_definitions(-DSNIPPETS_LIBXSMM_TPP -DLIBXSMM_DEFAULT_CONFIG)
 endif()
 
 set(OV_CPU_WITH_DNNL ON)
@@ -107,20 +179,35 @@ if(OV_CPU_WITH_ACL)
     set(CMAKE_CXX_STANDARD 14)
 endif()
 
+if (ENABLE_SHL_FOR_CPU)
+    add_definitions(-DOV_CPU_WITH_SHL)
+    set(OV_CPU_WITH_SHL ON)
+endif()
+
 file(GLOB_RECURSE SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/src/*.cpp)
 file(GLOB_RECURSE HEADERS ${CMAKE_CURRENT_SOURCE_DIR}/src/*.h
                           ${CMAKE_CURRENT_SOURCE_DIR}/src/*.hpp)
 
 if(NOT OV_CPU_WITH_ACL)
-    list(APPEND EXCLUDE_PATHS ${CMAKE_CURRENT_SOURCE_DIR}/src/nodes/executors/acl/*)
+    list(APPEND EXCLUDE_PATHS ${CMAKE_CURRENT_SOURCE_DIR}/src/nodes/executors/acl/*
+                              ${CMAKE_CURRENT_SOURCE_DIR}/src/nodes/kernels/acl/*)
+endif()
+
+if(NOT OV_CPU_WITH_SHL)
+    list(APPEND EXCLUDE_PATHS ${CMAKE_CURRENT_SOURCE_DIR}/src/nodes/executors/shl/*)
 endif()
 
 if(NOT X86_64)
     list(APPEND EXCLUDE_PATHS ${CMAKE_CURRENT_SOURCE_DIR}/src/nodes/executors/x64/*
                               ${CMAKE_CURRENT_SOURCE_DIR}/src/nodes/kernels/x64/*
-                              ${CMAKE_CURRENT_SOURCE_DIR}/src/emitters/x64/*
-                              ${CMAKE_CURRENT_SOURCE_DIR}/src/transformations/cpu_opset/x64/*
-                              ${CMAKE_CURRENT_SOURCE_DIR}/src/transformations/snippets/x64/*)
+                              ${CMAKE_CURRENT_SOURCE_DIR}/src/emitters/plugin/x64/*
+                              ${CMAKE_CURRENT_SOURCE_DIR}/src/emitters/snippets/x64/*
+                              ${CMAKE_CURRENT_SOURCE_DIR}/src/transformations/cpu_opset/x64/*)
+endif()
+
+if (AARCH64)
+    # this directory is reused on RISCV64
+    list(APPEND EXCLUDE_PATHS ${CMAKE_CURRENT_SOURCE_DIR}/src/transformations/snippets/x64/*)
 endif()
 
 if(NOT (AARCH64 OR ARM))
@@ -130,10 +217,20 @@ if(NOT (AARCH64 OR ARM))
                               ${CMAKE_CURRENT_SOURCE_DIR}/src/nodes/kernels/aarch64/*)
 endif()
 
+if(NOT AARCH64)
+    list(APPEND EXCLUDE_PATHS ${CMAKE_CURRENT_SOURCE_DIR}/src/transformations/snippets/aarch64/*
+                              ${CMAKE_CURRENT_SOURCE_DIR}/src/emitters/snippets/aarch64/*)
+endif()
+
 if (NOT ENABLE_MLAS_FOR_CPU)
     list(APPEND EXCLUDE_PATHS ${CMAKE_CURRENT_SOURCE_DIR}/src/nodes/executors/mlas/*)
     list(APPEND EXCLUDE_PATHS ${CMAKE_CURRENT_SOURCE_DIR}/src/mlas/*)
 endif()
+
+if (NOT ENABLE_SNIPPETS_LIBXSMM_TPP)
+    list(APPEND EXCLUDE_PATHS ${CMAKE_CURRENT_SOURCE_DIR}/src/emitters/tpp/*
+                              ${CMAKE_CURRENT_SOURCE_DIR}/src/transformations/tpp/*)
+endif ()
 
 file(GLOB_RECURSE FILES_TO_REMOVE ${EXCLUDE_PATHS})
 list(REMOVE_ITEM SOURCES ${FILES_TO_REMOVE})
@@ -166,7 +263,20 @@ if (ENABLE_MLAS_FOR_CPU)
     target_include_directories(${TARGET_NAME} SYSTEM PRIVATE $<TARGET_PROPERTY:mlas,INCLUDE_DIRECTORIES>)
     add_definitions(-DOV_CPU_WITH_MLAS)
 endif()
+if (ENABLE_SNIPPETS_LIBXSMM_TPP)
+    target_compile_definitions(xsmm PRIVATE __BLAS=0)
+    target_link_libraries(${TARGET_NAME} PRIVATE xsmm)
+    target_include_directories(${TARGET_NAME} SYSTEM PRIVATE $<TARGET_PROPERTY:xsmm,INCLUDE_DIRECTORIES>)
+endif ()
+if(ENABLE_SHL_FOR_CPU)
+    target_link_libraries(${TARGET_NAME} PRIVATE shl)
+endif()
 target_include_directories(${TARGET_NAME} SYSTEM PRIVATE $<TARGET_PROPERTY:dnnl,INCLUDE_DIRECTORIES>)
+
+# Temporal solution to use template reference implementations in cases where optimizied implementation
+# is not (yet) needed.
+target_include_directories(${TARGET_NAME} PRIVATE $<TARGET_PROPERTY:openvino::reference,INTERFACE_INCLUDE_DIRECTORIES>)
+
 # Cross compiled function
 # TODO: The same for proposal, proposalONNX, topk
 cross_compiled_file(${TARGET_NAME}
@@ -177,14 +287,14 @@ cross_compiled_file(${TARGET_NAME}
         NAMESPACE   ov::Extensions::Cpu::XARCH
 )
 cross_compiled_file(${TARGET_NAME}
-        ARCH AVX512F AVX2 ANY
+        ARCH AVX512F AVX2 NEON_FP16 ANY
                     src/nodes/kernels/scaled_attn/softmax.cpp
         API         src/nodes/kernels/scaled_attn/softmax.hpp
         NAME        attn_softmax
         NAMESPACE   ov::Extensions::Cpu::XARCH
 )
 cross_compiled_file(${TARGET_NAME}
-        ARCH AVX512F AVX2 ANY
+        ARCH AVX512F AVX2 NEON_FP16 ANY
                     src/nodes/kernels/scaled_attn/mha_single_token.cpp
         API         src/nodes/kernels/scaled_attn/mha_single_token.hpp
         NAME        mha_single_token
@@ -192,18 +302,34 @@ cross_compiled_file(${TARGET_NAME}
 )
 cross_compiled_file(${TARGET_NAME}
         ARCH AVX512F AVX2 ANY
+                    src/nodes/kernels/scaled_attn/executor_pa.cpp
+        API         src/nodes/kernels/scaled_attn/executor_pa.hpp
+        NAME        make_pa_executor
+        NAMESPACE   ov::Extensions::Cpu::XARCH
+)
+cross_compiled_file(${TARGET_NAME}
+        ARCH AVX512F AVX2 ANY
                     src/nodes/kernels/scaled_attn/attn_memcpy.cpp
         API         src/nodes/kernels/scaled_attn/attn_memcpy.hpp
-        NAME        attn_memcpy paged_attn_memcpy
+        NAME        attn_memcpy paged_attn_memcpy attn_memcpy2d_kernel
         NAMESPACE   ov::Extensions::Cpu::XARCH
 )
 cross_compiled_file(${TARGET_NAME}
         ARCH AVX512F AVX2 ANY
                     src/nodes/kernels/scaled_attn/attn_quant.cpp
         API         src/nodes/kernels/scaled_attn/attn_quant.hpp
-        NAME        attn_quantkv attn_quant_u8 attn_dequant_u8
+        NAME        attn_quantkv paged_attn_quantkv attn_quant_u8 attn_dequant_u8
         NAMESPACE   ov::Extensions::Cpu::XARCH
 )
+
+cross_compiled_file(${TARGET_NAME}
+        ARCH AVX512F ANY
+                    src/nodes/kernels/x64/mlp_utils.cpp
+        API         src/nodes/kernels/x64/mlp_utils.hpp
+        NAME        llm_mlp_transpose_epi32_16x16  llm_mlp_quantize_bf16_i8 llm_mlp_quantize_f16_i8 llm_mlp_dequantize_i32_f32
+        NAMESPACE   ov::Extensions::Cpu::XARCH
+)
+
 # system dependencies must go last
 target_link_libraries(${TARGET_NAME} PRIVATE openvino::pugixml)
 ov_set_threading_interface_for(${TARGET_NAME})
@@ -230,14 +356,22 @@ if(BUILD_SHARED_LIBS)
             $<TARGET_PROPERTY:openvino::itt,INTERFACE_INCLUDE_DIRECTORIES>
             $<TARGET_PROPERTY:openvino::shape_inference,INTERFACE_INCLUDE_DIRECTORIES>
             $<TARGET_PROPERTY:openvino::snippets,INTERFACE_INCLUDE_DIRECTORIES>
+            $<TARGET_PROPERTY:openvino::reference,INTERFACE_INCLUDE_DIRECTORIES>
         PUBLIC
             ${CMAKE_CURRENT_SOURCE_DIR}/src
             $<TARGET_PROPERTY:openvino::conditional_compilation,INTERFACE_INCLUDE_DIRECTORIES>)
 
     target_include_directories(${TARGET_NAME}_obj SYSTEM PUBLIC $<TARGET_PROPERTY:dnnl,INCLUDE_DIRECTORIES>)
+    if(ENABLE_SNIPPETS_LIBXSMM_TPP)
+        target_include_directories(${TARGET_NAME}_obj SYSTEM PUBLIC $<TARGET_PROPERTY:xsmm,INCLUDE_DIRECTORIES>)
+    endif()
 
     if(ENABLE_MLAS_FOR_CPU)
         target_include_directories(${TARGET_NAME}_obj SYSTEM PUBLIC $<TARGET_PROPERTY:mlas,INCLUDE_DIRECTORIES>)
+    endif()
+
+    if(ENABLE_SHL_FOR_CPU)
+        target_include_directories(${TARGET_NAME}_obj SYSTEM PUBLIC $<TARGET_PROPERTY:shl,INTERFACE_INCLUDE_DIRECTORIES>)
     endif()
 
     ov_set_threading_interface_for(${TARGET_NAME}_obj)

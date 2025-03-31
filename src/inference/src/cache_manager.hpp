@@ -14,9 +14,30 @@
 #include <memory>
 #include <string>
 
+#include "openvino/runtime/shared_buffer.hpp"
 #include "openvino/util/file_util.hpp"
+#include "openvino/util/mmap_object.hpp"
 
 namespace ov {
+
+/**
+ * @brief This class limits the locale env to a special value in sub-scope
+ *
+ */
+class ScopedLocale {
+public:
+    ScopedLocale(int category, std::string newLocale) : m_category(category) {
+        m_oldLocale = setlocale(category, nullptr);
+        setlocale(m_category, newLocale.c_str());
+    }
+    ~ScopedLocale() {
+        setlocale(m_category, m_oldLocale.c_str());
+    }
+
+private:
+    int m_category;
+    std::string m_oldLocale;
+};
 
 /**
  * @brief This class represents private interface for Cache Manager
@@ -57,9 +78,10 @@ public:
      * Otherwise, model will not be read from cache and will be loaded as usual
      *
      * @param id Id of cache (hash of the model)
+     * @param enable_mmap use mmap or ifstream to read model file
      * @param reader Lambda function to be called when input stream is created
      */
-    virtual void read_cache_entry(const std::string& id, StreamReader reader) = 0;
+    virtual void read_cache_entry(const std::string& id, bool enable_mmap, StreamReader reader) = 0;
 
     /**
      * @brief Callback when OpenVINO intends to remove cache entry
@@ -79,10 +101,15 @@ public:
  */
 class FileStorageCacheManager final : public ICacheManager {
     std::string m_cachePath;
-
+#if defined(_WIN32) && defined(OPENVINO_ENABLE_UNICODE_PATH_SUPPORT)
+    std::wstring getBlobFile(const std::string& blobHash) const {
+        return ov::util::string_to_wstring(ov::util::make_path(m_cachePath, blobHash + ".blob"));
+    }
+#else
     std::string getBlobFile(const std::string& blobHash) const {
         return ov::util::make_path(m_cachePath, blobHash + ".blob");
     }
+#endif
 
 public:
     /**
@@ -99,22 +126,41 @@ public:
 
 private:
     void write_cache_entry(const std::string& id, StreamWriter writer) override {
+        // Fix the bug caused by pugixml, which may return unexpected results if the locale is different from "C".
+        ScopedLocale plocal_C(LC_ALL, "C");
         std::ofstream stream(getBlobFile(id), std::ios_base::binary | std::ofstream::out);
         writer(stream);
     }
 
-    void read_cache_entry(const std::string& id, StreamReader reader) override {
-        auto blobFileName = getBlobFile(id);
-        if (ov::util::file_exists(blobFileName)) {
-            std::ifstream stream(blobFileName, std::ios_base::binary);
-            reader(stream);
+    void read_cache_entry(const std::string& id, bool enable_mmap, StreamReader reader) override {
+        // Fix the bug caused by pugixml, which may return unexpected results if the locale is different from "C".
+        ScopedLocale plocal_C(LC_ALL, "C");
+        auto blob_file_name = getBlobFile(id);
+        if (ov::util::file_exists(blob_file_name)) {
+            if (enable_mmap) {
+                auto mmap = ov::load_mmap_object(blob_file_name);
+                auto shared_buffer =
+                    std::make_shared<ov::SharedBuffer<std::shared_ptr<MappedMemory>>>(mmap->data(), mmap->size(), mmap);
+                OwningSharedStreamBuffer buf(shared_buffer);
+                std::istream stream(&buf);
+                reader(stream);
+            } else {
+                std::ifstream stream(blob_file_name, std::ios_base::binary);
+                reader(stream);
+            }
         }
     }
 
     void remove_cache_entry(const std::string& id) override {
         auto blobFileName = getBlobFile(id);
-        if (ov::util::file_exists(blobFileName))
+
+        if (ov::util::file_exists(blobFileName)) {
+#if defined(_WIN32) && defined(OPENVINO_ENABLE_UNICODE_PATH_SUPPORT)
+            _wremove(blobFileName.c_str());
+#else
             std::remove(blobFileName.c_str());
+#endif
+        }
     }
 };
 

@@ -103,7 +103,7 @@ void DebugLogEnabled::break_at(const std::string & log) {
         std::cout << "[ DEBUG ] " << " Debug log breakpoint hit" << std::endl;
 #if defined(_MSC_VER)
         __debugbreak();
-#elif defined(__APPLE__) || defined(OPENVINO_ARCH_ARM) || defined(OPENVINO_ARCH_ARM64)
+#elif defined(__APPLE__) || defined(OPENVINO_ARCH_ARM) || defined(OPENVINO_ARCH_ARM64) || defined(OPENVINO_ARCH_RISCV64)
        __builtin_trap();
 #else
         asm("int3");
@@ -358,6 +358,7 @@ std::ostream & operator<<(std::ostream & os, const Node &c_node) {
 
     // last line(s): fused layers
     os << " " << node.getOriginalLayers();
+    os << " " << node.getParallelDomain();
 
     if (node.PerfCounter().count()) {
         os << " latency:" << node.PerfCounter().avg() << "(us) x" << node.PerfCounter().count();
@@ -653,14 +654,14 @@ std::string to_string(const T* values, size_t N, size_t maxsize) {
 std::ostream& operator<<(std::ostream& os, const IMemory& mem) {
     const auto& desc = mem.getDesc();
     os << desc;
-    if (mem.isAllocated()) {
+    if (mem.isDefined()) {
         os << " [";
         if (desc.getPrecision() == ov::element::i32) {
-            os << to_string(reinterpret_cast<int32_t*>(mem.getData()), mem.getSize() / sizeof(int32_t), 256);
+            os << to_string(mem.getDataAs<int32_t>(), mem.getSize() / sizeof(int32_t), 256);
         } else if (desc.getPrecision() == ov::element::f32) {
-            os << to_string(reinterpret_cast<float*>(mem.getData()), mem.getSize() / sizeof(float), 256);
+            os << to_string(mem.getDataAs<float>(), mem.getSize() / sizeof(float), 256);
         } else if (desc.getPrecision() == ov::element::i64) {
-            os << to_string(reinterpret_cast<int64_t*>(mem.getData()), mem.getSize() / sizeof(int64_t), 256);
+            os << to_string(mem.getDataAs<int64_t>(), mem.getSize() / sizeof(int64_t), 256);
         } else {
             os << " ? ";
         }
@@ -682,5 +683,10 @@ void print_dnnl_memory(const dnnl::memory& memory, const size_t size, const int 
 
 }   // namespace intel_cpu
 }   // namespace ov
+
+bool getEnvBool(const char* name) {
+    static const bool env = ov::util::getenv_bool(name);
+    return env;
+}
 
 #endif

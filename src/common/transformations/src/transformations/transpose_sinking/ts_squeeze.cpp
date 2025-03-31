@@ -104,7 +104,7 @@ bool squeeze_axes_to_shape(const Output<Node>& input_node,
 TSSqueezeForward::TSSqueezeForward() {
     MATCHER_SCOPE(TSSqueezeForward);
 
-    create_pattern<ov::op::v0::Squeeze, ov::op::v1::Reshape>(true, {0});
+    create_pattern<ov::op::v0::Squeeze, ov::op::v1::Reshape>({0});
 
     auto sinking_transformation = [OV_CAPTURE_CPY_AND_THIS](const std::shared_ptr<Node>& main_node,
                                                             const TransposeInputsInfo& transpose_info) -> bool {
@@ -122,9 +122,8 @@ TSSqueezeForward::TSSqueezeForward() {
                 }
             } else {
                 auto rank = main_node->get_input_partial_shape(0).rank();
-                non_negative_axes = ov::util::normalize_axes(main_node->get_friendly_name(),
-                                                             squeeze_axes->cast_vector<int64_t>(),
-                                                             rank);
+                non_negative_axes =
+                    util::try_get_normalized_axis_vector(squeeze_axes->get_tensor_view(), rank, *main_node);
             }
         }
 
@@ -230,9 +229,8 @@ TSSqueezeBackward::TSSqueezeBackward() {
                 }
             } else {
                 auto rank = main_node->get_input_partial_shape(0).rank();
-                non_negative_axes = ov::util::normalize_axes(main_node->get_friendly_name(),
-                                                             squeeze_axes->cast_vector<int64_t>(),
-                                                             rank);
+                non_negative_axes =
+                    util::try_get_normalized_axis_vector(squeeze_axes->get_tensor_view(), rank, *main_node);
             }
         }
 

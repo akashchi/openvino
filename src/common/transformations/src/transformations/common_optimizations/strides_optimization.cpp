@@ -15,6 +15,7 @@
 #include "openvino/op/reshape.hpp"
 #include "openvino/op/shape_of.hpp"
 #include "openvino/op/squeeze.hpp"
+#include "openvino/op/util/binary_elementwise_arithmetic.hpp"
 #include "openvino/pass/pattern/op/or.hpp"
 #include "openvino/pass/pattern/op/wrap_type.hpp"
 #include "transformations/rt_info/strides_property.hpp"
@@ -91,7 +92,7 @@ static void handle_not_equal_stride_props(std::vector<ov::Input<ov::Node>>& next
             return s == 1;
         });
         if (!are_strides_ones) {
-            auto conv = dynamic_cast<ov::op::v1::Convolution*>(op.get_node());
+            auto conv = ov::as_type<ov::op::v1::Convolution>(op.get_node());
             if (conv) {
                 conv->set_strides(strides);
             } else {
@@ -122,7 +123,7 @@ ov::pass::ConvStridesPropagation::ConvStridesPropagation() {
     auto conv_pattern = pattern::wrap_type<ov::op::v1::Convolution>({data, weights});
 
     ov::matcher_pass_callback callback = [=](pattern::Matcher& m) {
-        auto conv = std::dynamic_pointer_cast<ov::op::v1::Convolution>(m.get_match_root());
+        auto conv = ov::as_type_ptr<ov::op::v1::Convolution>(m.get_match_root());
         if (!conv)
             return false;
 

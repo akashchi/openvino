@@ -39,8 +39,8 @@ std::vector<TRShape> shape_infer(const Roll* op,
                           "Axes must be a scalar or 1D tensor.");
 
     if (data_pshape.rank().is_static()) {
-        if (const auto axes = get_input_const_data_as<TRShape, int64_t>(op, 2, ta)) {
-            ov::util::normalize_axes(op, data_pshape.size(), *axes);
+        if (auto axes = get_input_const_data_as<TRShape, int64_t>(op, 2, ta)) {
+            ov::util::validate_axes(*axes, data_pshape.rank(), *op);
         }
     }
 

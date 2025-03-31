@@ -8,6 +8,20 @@ endif()
 
 set (TARGET_NAME "openvino_intel_gpu_plugin")
 
+if(OV_COMPILER_IS_INTEL_LLVM)
+    # For windows we need to disable warning as error option to make FindSYCL.cmake work
+    if (WIN32)
+        ov_add_compiler_flags(/WX-)
+    endif()
+
+    find_package(IntelSYCL REQUIRED)
+
+    if (WIN32)
+        ov_add_compiler_flags(/WX)
+        ov_add_compiler_flags(/Wno-ignored-attributes)
+    endif()
+endif()
+
 if((CMAKE_COMPILER_IS_GNUCXX OR OV_COMPILER_IS_CLANG) AND CMAKE_CXX_STANDARD GREATER_EQUAL 20)
     set(CMAKE_CXX_FLAGS "-Wno-error=deprecated ${CMAKE_CXX_FLAGS}")
 endif()
@@ -17,7 +31,12 @@ if(CMAKE_COMPILER_IS_GNUCXX)
 endif()
 
 if(OV_COMPILER_IS_CLANG)
-    ov_add_compiler_flags(-Wno-delete-non-abstract-non-virtual-dtor)
+    # -Wno-delete-non-abstract-non-virtual-dtor is support > clang 9.0
+        if(CMAKE_CXX_COMPILER_VERSION VERSION_GREATER_EQUAL 9.0)
+        ov_add_compiler_flags(-Wno-delete-non-abstract-non-virtual-dtor)
+    else()
+        ov_add_compiler_flags(-Wno-delete-non-virtual-dtor)
+    endif()
 endif()
 
 if(CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
@@ -25,6 +44,9 @@ if(CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
     ov_add_compiler_flags(/wd4244)
     # '<': signed/unsigned mismatch
     ov_add_compiler_flags(/wd4018)
+
+    # see https://github.com/oneapi-src/oneDNN/issues/2028
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /Zc:__cplusplus")
 endif()
 
 if(ENABLE_GPU_DEBUG_CAPS)
@@ -71,8 +93,8 @@ set_target_properties(${TARGET_NAME} PROPERTIES INTERPROCEDURAL_OPTIMIZATION_REL
 
 # Workaround to avoid warnings during LTO build
 if(CMAKE_COMPILER_IS_GNUCXX)
-  set_target_properties(${TARGET_NAME} PROPERTIES LINK_FLAGS_RELEASE "-Wno-error=maybe-uninitialized -Wno-maybe-uninitialized"
-                                                  LINK_FLAGS_RELWITHDEBINFO "-Wno-error=maybe-uninitialized -Wno-maybe-uninitialized")
+  set_target_properties(${TARGET_NAME} PROPERTIES LINK_FLAGS_RELEASE "-Wno-error=maybe-uninitialized -Wno-maybe-uninitialized -Wno-stringop-overflow"
+                                                  LINK_FLAGS_RELWITHDEBINFO "-Wno-error=maybe-uninitialized -Wno-maybe-uninitialized -Wno-stringop-overflow")
 endif()
 
 if(ENABLE_TESTS)

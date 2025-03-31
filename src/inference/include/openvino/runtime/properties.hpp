@@ -10,7 +10,9 @@
  */
 #pragma once
 
+#include <algorithm>
 #include <array>
+#include <cctype>
 #include <iomanip>
 #include <istream>
 #include <map>
@@ -400,9 +402,11 @@ inline std::istream& operator>>(std::istream& is, SchedulingCoreType& core_type)
 static constexpr Property<SchedulingCoreType> scheduling_core_type{"SCHEDULING_CORE_TYPE"};
 
 enum class ModelDistributionPolicy {
-    TENSOR_PARALLEL = 0,  // Split tensor into several parts and distribute them between sockets/devices during model
-                          // compilation. At inference time sockets/devices process tensors in parallel and do
-                          // syncronization at the end ensuring mathematical correctness.
+    TENSOR_PARALLEL = 0,    // Distribute tensor to multiple sockets/devices during model compilation. At inference
+                            // time, sockets/devices process individual tensor in parallel.
+    PIPELINE_PARALLEL = 1,  // Distribute tensor to multiple sockets/devices during model compilation. At inference
+                            // time, sockets/devices process individual tensor one by one. And each socket/device
+                            // processes a portion of a different tensor in parallel.
 };
 
 /** @cond INTERNAL */
@@ -410,6 +414,8 @@ inline std::ostream& operator<<(std::ostream& os, const ModelDistributionPolicy&
     switch (stream_mode) {
     case ModelDistributionPolicy::TENSOR_PARALLEL:
         return os << "TENSOR_PARALLEL";
+    case ModelDistributionPolicy::PIPELINE_PARALLEL:
+        return os << "PIPELINE_PARALLEL";
     default:
         OPENVINO_THROW("Unsupported model distribution policy!");
     }
@@ -420,6 +426,8 @@ inline std::istream& operator>>(std::istream& is, ModelDistributionPolicy& strea
     is >> str;
     if (str == "TENSOR_PARALLEL") {
         stream_mode = ModelDistributionPolicy::TENSOR_PARALLEL;
+    } else if (str == "PIPELINE_PARALLEL") {
+        stream_mode = ModelDistributionPolicy::PIPELINE_PARALLEL;
     } else {
         OPENVINO_THROW("Unsupported model distribution policy: ", str);
     }
@@ -430,17 +438,19 @@ inline std::istream& operator>>(std::istream& is, ModelDistributionPolicy& strea
 /**
  * @brief This property defines model distribution policy for inference with multiple sockets/devices.
  * @ingroup ov_runtime_cpp_prop_api
- *
  * This property can be used to select model distribution policy between execution units (e.g. between CPU sockets/NUMA
  * nodes or between different GPUs).
- * -- TENSOR_PARALLEL : Split tensor into several parts and distribute them between sockets/devices during model
- *                      compilation. At inference time sockets/devices process tensors in parallel and do syncronization
- *                      at the end ensuring mathematical correctness.
+ * -- TENSOR_PARALLEL   : Distribute tensor to multiple sockets/devices during model compilation. At inference time,
+ *                        sockets/devices process individual tensor in parallel.
+ * -- PIPELINE_PARALLEL : Distribute tensor to multiple sockets/devices during model compilation. At inference time,
+ *                        sockets/devices process individual tensor one by one. And each socket/device processes a
+ *                        portion of a different tensor in parallel.
  *
- * The following code is an example how TENSOR_PARALLEL model disrtibution policy might be enabled.
+ * The following code is an example how TENSOR_PARALLEL or PIPELINE_PARALLEL model distribution policy might be enabled.
  *
  * @code
  * ie.set_property(ov::hint::model_distribution_policy({ov::hint::ModelDistributionPolicy::TENSOR_PARALLEL}));
+ * ie.set_property(ov::hint::model_distribution_policy({ov::hint::ModelDistributionPolicy::PIPELINE_PARALLEL}));
  * @endcode
  */
 static constexpr Property<std::set<ModelDistributionPolicy>> model_distribution_policy{"MODEL_DISTRIBUTION_POLICY"};
@@ -570,6 +580,12 @@ static constexpr Property<uint64_t, PropertyMutability::RW> dynamic_quantization
  */
 static constexpr Property<element::Type, PropertyMutability::RW> kv_cache_precision{"KV_CACHE_PRECISION"};
 
+/**
+ * @brief This property scales down activations to prevent overflows when inference precision is f16.
+ * @ingroup ov_runtime_cpp_prop_api
+ */
+static constexpr Property<float, PropertyMutability::RW> activations_scale_factor{"ACTIVATIONS_SCALE_FACTOR"};
+
 }  // namespace hint
 
 /**
@@ -683,6 +699,54 @@ static constexpr Property<std::string> cache_dir{"CACHE_DIR"};
 static constexpr Property<bool, PropertyMutability::RO> loaded_from_cache{"LOADED_FROM_CACHE"};
 
 /**
+ * @brief Enum to define possible workload types
+ *
+ * Workload type represents the execution priority for an inference.
+ *
+ * @ingroup ov_runtime_cpp_prop_api
+ */
+enum class WorkloadType {
+    DEFAULT = 0,    // Default execution priority
+    EFFICIENT = 1,  // Lower execution priority
+};
+
+/** @cond INTERNAL */
+inline std::ostream& operator<<(std::ostream& os, const WorkloadType& mode) {
+    switch (mode) {
+    case WorkloadType::DEFAULT:
+        return os << "DEFAULT";
+    case WorkloadType::EFFICIENT:
+        return os << "EFFICIENT";
+    default:
+        OPENVINO_THROW("Unsupported workload type");
+    }
+}
+
+inline std::istream& operator>>(std::istream& is, WorkloadType& mode) {
+    std::string str;
+    is >> str;
+    std::transform(str.begin(), str.end(), str.begin(), [](unsigned char c) {
+        return std::tolower(c);
+    });
+    if (str == "default") {
+        mode = WorkloadType::DEFAULT;
+    } else if (str == "efficient") {
+        mode = WorkloadType::EFFICIENT;
+    } else {
+        OPENVINO_THROW("Unsupported workload type: ", str);
+    }
+    return is;
+}
+/** @endcond */
+
+/**
+ * @brief Read-write property to select in which mode the workload will be executed
+ * This is only supported by NPU.
+ * @ingroup ov_runtime_cpp_prop_api
+ */
+static constexpr Property<WorkloadType, PropertyMutability::RW> workload_type{"WORKLOAD_TYPE"};
+
+/**
  * @brief Enum to define possible cache mode
  * @ingroup ov_runtime_cpp_prop_api
  */
@@ -719,11 +783,28 @@ inline std::istream& operator>>(std::istream& is, CacheMode& mode) {
 
 /**
  * @brief Read-write property to select the cache mode between optimize_size and optimize_speed.
+ * If optimize_speed is selected(default), loading time will decrease but the cache file size will increase.
  * If optimize_size is selected, smaller cache files will be created.
- * And if optimize_speed is selected, loading time will decrease but the cache file size will increase.
+ * This is only supported from GPU.
  * @ingroup ov_runtime_cpp_prop_api
  */
 static constexpr Property<CacheMode, PropertyMutability::RW> cache_mode{"CACHE_MODE"};
+
+struct EncryptionCallbacks {
+    std::function<std::string(const std::string&)> encrypt;
+    std::function<std::string(const std::string&)> decrypt;
+};
+
+/**
+ * @brief Write-only property to set encryption/decryption function for saving/loading model cache.
+ * If cache_encryption_callbacks is set, the model topology will be encrypted when saving to the cache and decrypted
+ * when loading from the cache. This property is set in core.compile_model only.
+ * - First value of the struct is encryption function.
+ * - Second value of the struct is decryption function.
+ * @ingroup ov_runtime_cpp_prop_api
+ */
+static constexpr Property<EncryptionCallbacks, PropertyMutability::WO> cache_encryption_callbacks{
+    "CACHE_ENCRYPTION_CALLBACKS"};
 
 /**
  * @brief Read-only property to provide information about a range for streams on platforms where streams are supported.
@@ -801,7 +882,6 @@ static constexpr Property<bool, PropertyMutability::RW> enable_mmap{"ENABLE_MMAP
  * @brief Namespace with device properties
  */
 namespace device {
-
 /**
  * @brief the property for setting of required device to execute on
  * values: device id starts from "0" - first device, "1" - second device, etc
@@ -884,7 +964,8 @@ struct Properties : public Property<std::map<std::string, std::map<std::string, 
     inline util::EnableIfAllStringAny<std::pair<std::string, Any>, Properties...> operator()(
         const std::string& device_name,
         Properties&&... configs) const {
-        return {name() + std::string("_") + device_name, AnyMap{std::pair<std::string, Any>{configs}...}};
+        return {name() + std::string("_") + device_name,
+                AnyMap{std::pair<std::string, Any>{std::forward<Properties>(configs)}...}};
     }
 };
 
@@ -1033,11 +1114,56 @@ inline std::istream& operator>>(std::istream& is, Type& device_type) {
 static constexpr Property<Type, PropertyMutability::RO> type{"DEVICE_TYPE"};
 
 /**
- * @brief Read-only property which defines Giga OPS per second count (GFLOPS or GIOPS) for a set of precisions supported
- * by specified device
+ * @brief Read-only property which defines Giga OPS per second count (GFLOPS or GIOPS) for a set of precisions
+ * supported by specified device
  * @ingroup ov_runtime_cpp_prop_api
  */
 static constexpr Property<std::map<element::Type, float>, PropertyMutability::RO> gops{"DEVICE_GOPS"};
+
+/**
+ * @brief Structure to store PCI bus information of device (Domain/Bus/Device/Function)
+ * @ingroup ov_runtime_cpp_prop_api
+ */
+struct PCIInfo {
+    /**
+     * @brief PCI domain ID
+     */
+    uint32_t domain;
+    /**
+     * @brief PCI bus ID
+     */
+    uint32_t bus;
+    /**
+     * @brief PCI device ID
+     */
+    uint32_t device;
+    /**
+     * @brief PCI function ID
+     */
+    uint32_t function;
+};
+
+/** @cond INTERNAL */
+inline std::ostream& operator<<(std::ostream& os, const PCIInfo& pci_info) {
+    return os << "{domain: " << pci_info.domain << " bus: " << pci_info.bus << " device: 0x" << std::hex
+              << pci_info.device << " function: " << std::dec << pci_info.function << "}";
+}
+
+inline std::istream& operator>>(std::istream& is, PCIInfo& pci_info) {
+    std::string delim;
+    if (!(is >> delim >> pci_info.domain >> delim >> pci_info.bus >> delim >> std::hex >> pci_info.device >> delim >>
+          std::dec >> pci_info.function)) {
+        OPENVINO_THROW("Could not deserialize PCIInfo. Invalid format!");
+    }
+    return is;
+}
+/** @endcond */
+
+/**
+ * @brief Read-only property to get PCI bus information of device. See PCIInfo struct definition for details
+ * @ingroup ov_runtime_cpp_prop_api
+ */
+static constexpr Property<PCIInfo, PropertyMutability::RO> pci_info{"DEVICE_PCI_INFO"};
 
 /**
  * @brief Read-only property to get a float of device thermal
@@ -1225,4 +1351,10 @@ static constexpr Property<Affinity> affinity{"AFFINITY"};
  */
 static constexpr Property<std::vector<std::string>, PropertyMutability::RO> execution_devices{"EXECUTION_DEVICES"};
 
+/**
+ * @brief Path to the file with model's weights.
+ *
+ * @note This property is used for weightless caching. Only used when ov::CacheMode Property is set to "OPTIMIZE_SIZE".
+ */
+static constexpr Property<std::string, PropertyMutability::RW> weights_path{"WEIGHTS_PATH"};
 }  // namespace ov

@@ -7,6 +7,7 @@
 
 #include <memory>
 
+#include "common_test_utils/test_assertions.hpp"
 #include "openvino/runtime/core.hpp"
 #include "openvino/runtime/iplugin.hpp"
 
@@ -26,6 +27,7 @@ public:
     std::shared_ptr<ov::Model> create_model_with_reshape(bool dynamic = false);
     std::shared_ptr<ov::Model> create_model_with_subtract_shapeof_reshape(bool dynamic = false);
     std::shared_ptr<ov::Model> create_model_with_independent_parameter(bool dynamic = false);
+    std::shared_ptr<ov::Model> create_model_with_multi_add();
     ov::Tensor create_and_fill_tensor(const ov::element::Type& type, const ov::Shape& shape);
 
 private:

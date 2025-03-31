@@ -1,5 +1,3 @@
-.. {#ote_documentation}
-
 OpenVINO™ Training Extensions
 ===============================
 
@@ -18,7 +16,7 @@ inference. It allows you to export and convert the models to the needed format. 
 Detailed Workflow
 #################
 
-.. image:: ./../../_static/images/training_extensions_framework.png
+.. image:: ../../assets/images/training_extensions_framework.png
 
 1. To start working with OpenVINO Training Extensions, prepare and annotate your dataset. For example, on CVAT.
 

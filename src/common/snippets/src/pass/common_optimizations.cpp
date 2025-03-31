@@ -45,7 +45,7 @@ CommonOptimizations::CommonOptimizations(const SnippetsTokenization::Config& con
 
         // Firstly, we should transform all original Converts inside body to ConvertTruncation to save original behavior.
         // Then if Subgraph contains FakeQuantize we enable specific transformation for quantized subgraphs.
-        ov::pass::Manager manager(get_pass_config());
+        ov::pass::Manager manager(get_pass_config(), "Snippets:CommonOptimizations");
         REGISTER_SNIPPETS_PASS(manager, ov::snippets::pass::TransformConvertToConvertTruncation, true);
         REGISTER_SNIPPETS_PASS(manager, ov::snippets::pass::ExplicitTransposeMatMulInputs, is_domain_sensitive);
         REGISTER_SNIPPETS_PASS(manager, ov::snippets::pass::CommonFakeQuantizeDecomposition, is_quantized);
@@ -57,7 +57,8 @@ CommonOptimizations::CommonOptimizations(const SnippetsTokenization::Config& con
         // so we can enable ExtractConstants pass for quantized models
         REGISTER_SNIPPETS_PASS(subgraph_manager, ov::snippets::pass::ExtractConstants, is_quantized);
         REGISTER_SNIPPETS_PASS(subgraph_manager, ov::snippets::pass::ExtractUnsupportedTransposes, is_domain_sensitive);
-        REGISTER_SNIPPETS_PASS(subgraph_manager, ov::snippets::pass::SplitDimensionM, is_domain_sensitive && config.split_m_dimension, config.concurrency);
+        REGISTER_SNIPPETS_PASS(subgraph_manager, ov::snippets::pass::SplitDimensionM, is_domain_sensitive && config.get_split_m_dimension(),
+                               config.get_concurrency());
         subgraph_manager.run_passes(subgraph);
 
         // Validate the body after all common optimizations

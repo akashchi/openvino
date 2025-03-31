@@ -21,7 +21,6 @@ public:
 private:
     void FuseConvMatmulFCDeconvAndDQScales(Graph &graph);
     void FuseFCAndWeightsDecompression(Graph &graph);
-    void FuseGatherAndWeightsDecompression(Graph &graph);
     void FuseConvolutionMatMulDeconvAndBias(Graph &graph);
     void FuseDeconvolutionAndSimpleOperation(Graph &graph);
     void FuseMultiplyAndAdd(Graph &graph);
@@ -53,7 +52,9 @@ private:
     void RemoveMemoryInputConvert(Graph &graph);
     void RemoveConvertMemoryOutput(Graph &graph);
     void MatchSdpaKvCache(Graph &graph);
+    void DropRedundantMemoryOutput(Graph &graph);
 
+    bool canBeInplaced(const NodePtr& parentNode, const NodePtr& childNode);
     // Method checks that after the sequential execution of Transpose and Reorder nodes,
     // the order of the elements in the memory (physical layout) will not change.
     bool checkAscendingFinalOrder(const VectorDims& transposeOrder,

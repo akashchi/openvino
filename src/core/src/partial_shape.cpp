@@ -8,7 +8,7 @@
 #include <iostream>
 #include <vector>
 
-#include "openvino/core/dimension_tracker.hpp"
+#include "openvino/core/dimension.hpp"
 #include "openvino/core/shape_util.hpp"
 #include "openvino/core/validation_util.hpp"
 #include "openvino/util/common_util.hpp"
@@ -37,14 +37,12 @@ ov::PartialShape::PartialShape(const std::string& value) {
         return;
     }
     m_rank_is_static = true;
-    Dimensions dims;
     std::stringstream ss(val);
     std::string field;
     while (getline(ss, field, ',')) {
         OPENVINO_ASSERT(!field.empty(), "Cannot get vector of dimensions! \"" + value + "\" is incorrect");
-        dims.insert(dims.end(), Dimension(field));
+        m_dimensions.emplace_back(field);
     }
-    m_dimensions = dims;
 }
 
 ov::PartialShape::PartialShape(bool rank_is_static, std::vector<Dimension> dimensions)
@@ -158,8 +156,6 @@ std::ostream& ov::operator<<(std::ostream& str, const PartialShape& shape) {
             if (!first) {
                 str << ",";
             }
-            if (const auto& l = ov::DimensionTracker::get_label(d))
-                str << "<" << l << ">";
             str << d;
             first = false;
         }
@@ -316,8 +312,8 @@ bool ov::PartialShape::broadcast_merge_into(PartialShape& dst,
             std::vector<Dimension> dims(new_rank);
             bool success = true;
             for (int64_t i = 0; i < new_rank; i++) {
-                auto dsti = i < (new_rank - dst_rank) ? Dimension(1) : dst[i - (new_rank - dst_rank)];
-                auto srci = i < (new_rank - src_rank) ? Dimension(1) : src[i - (new_rank - src_rank)];
+                const auto& dsti = i < (new_rank - dst_rank) ? Dimension(1) : dst[i - (new_rank - dst_rank)];
+                const auto& srci = i < (new_rank - src_rank) ? Dimension(1) : src[i - (new_rank - src_rank)];
                 success &= Dimension::broadcast_merge(dims[i], dsti, srci);
             }
             dst = PartialShape(std::move(dims));

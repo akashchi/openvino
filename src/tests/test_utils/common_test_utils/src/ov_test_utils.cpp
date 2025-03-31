@@ -59,6 +59,9 @@ void TransformationTestsF::SetUp() {
 }
 
 void TransformationTestsF::TearDown() {
+    if (test_skipped) {
+        return;
+    }
     OPENVINO_ASSERT(model != nullptr, "Test Model is not initialized.");
 
     std::shared_ptr<ov::Model> cloned_function;
@@ -73,7 +76,7 @@ void TransformationTestsF::TearDown() {
     manager.run_passes(model);
 
     if (!m_disable_rt_info_check) {
-        ASSERT_NO_THROW(check_rt_info(model));
+        OV_ASSERT_NO_THROW(check_rt_info(model));
     }
 
     if (acc_enabled) {
@@ -111,10 +114,6 @@ void check_unique_names(const std::shared_ptr<ov::Model>& f, const std::shared_p
     ov::pass::Manager manager;
     manager.register_pass<ov::pass::CheckUniqueNames>(unh, true);
     manager.run_passes(f);
-}
-
-std::shared_ptr<ov::op::v0::Constant> create_zero_constant(const ov::element::Type_t& et, const ov::Shape& shape) {
-    return ov::op::v0::Constant::create(et, shape, {0});
 }
 
 namespace ov {

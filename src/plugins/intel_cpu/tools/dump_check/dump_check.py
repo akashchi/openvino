@@ -75,14 +75,14 @@ def fill_tensors_from_image(input, input_file):
 
 class IEB:
     precision_table = {
-        10:(np.float32, 4),
-        12:(np.int16, 2),
-        40:(np.uint8, 1),
-        50:(np.int8, 1),
-        70:(np.int32, 4),
-        74:(np.uint32, 4),
-        72:(np.int64, 8),
-        73:(np.uint64, 8)
+        5:(np.float32, 4),
+        3:(np.int16, 2),
+        14:(np.uint8, 1),
+        8:(np.int8, 1),
+        10:(np.int32, 4),
+        15:(np.uint32, 4),
+        11:(np.int64, 8),
+        17:(np.uint64, 8)
     }
 
     @classmethod
@@ -174,7 +174,6 @@ def dump_tensors(core, model, dump_dir = "./cpu_dump", dump_ports="OUT", device_
                 "INFERENCE_NUM_THREADS":1}
     if infer_bf16 == True:
         device_config["INFERENCE_PRECISION_HINT"] = "bf16"
-        device_config["ENFORCE_BF16"] = "YES"
     print("compiling model with {}".format(device_config))
     exec_net = core.compile_model(model, device_target, device_config)
     req = exec_net.create_infer_request()

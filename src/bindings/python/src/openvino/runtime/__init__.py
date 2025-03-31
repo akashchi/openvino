@@ -10,6 +10,7 @@ from openvino._pyopenvino import get_version
 __version__ = get_version()
 
 # Openvino pybind bindings and python extended classes
+from openvino._pyopenvino import Symbol
 from openvino._pyopenvino import Dimension
 from openvino._pyopenvino import Input
 from openvino._pyopenvino import Output
@@ -65,6 +66,8 @@ from openvino.runtime import properties
 from openvino.runtime.ie_api import tensor_from_file
 from openvino.runtime.ie_api import compile_model
 
+from openvino.utils import deprecated
+
 # Extend Node class to support binary operators
 Node.__add__ = opset13.add
 Node.__sub__ = opset13.subtract
@@ -76,9 +79,9 @@ Node.__rsub__ = lambda left, right: opset13.subtract(right, left)
 Node.__rmul__ = lambda left, right: opset13.multiply(right, left)
 Node.__rdiv__ = lambda left, right: opset13.divide(right, left)
 Node.__rtruediv__ = lambda left, right: opset13.divide(right, left)
-Node.__eq__ = opset13.equal
-Node.__ne__ = opset13.not_equal
-Node.__lt__ = opset13.less
-Node.__le__ = opset13.less_equal
-Node.__gt__ = opset13.greater
-Node.__ge__ = opset13.greater_equal
+Node.__eq__ = deprecated(version="2025.3", message="Use ops.equal instead")(opset13.equal)
+Node.__ne__ = deprecated(version="2025.3", message="Use ops.not_equal instead")(opset13.not_equal)
+Node.__lt__ = deprecated(version="2025.3", message="Use ops.less instead")(opset13.less)
+Node.__le__ = deprecated(version="2025.3", message="Use ops.less_equal instead")(opset13.less_equal)
+Node.__gt__ = deprecated(version="2025.3", message="Use ops.greater instead")(opset13.greater)
+Node.__ge__ = deprecated(version="2025.3", message="Use ops.greater_equal instead")(opset13.greater_equal)

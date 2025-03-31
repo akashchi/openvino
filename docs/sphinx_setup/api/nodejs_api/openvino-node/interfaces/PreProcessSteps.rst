@@ -8,25 +8,28 @@ Interface PreProcessSteps
        resize(algorithm): PreProcessSteps;
    }
 
-- Defined in
-  `addon.ts:108 <https://github.com/openvinotoolkit/openvino/blob/master/src/bindings/js/node/lib/addon.ts#L108>`__
+* **Defined in:**
+  `addon.ts:585 <https://github.com/openvinotoolkit/openvino/blob/master/src/bindings/js/node/lib/addon.ts#L585>`__
+
 
 Methods
 #####################
 
+
 .. rubric:: resize
 
+*
 
-.. code-block:: ts
+   .. code-block:: ts
 
-   resize(algorithm): PreProcessSteps
+      resize(algorithm): PreProcessSteps
 
-**Parameters**
+   * **Parameters:**
 
+     - algorithm: string| :doc:`resizeAlgorithm <../enums/resizeAlgorithm>`
 
-- algorithm: string| :doc:`resizeAlgorithm <../enums/resizeAlgorithm>`
+   * **Returns:** :doc:`PreProcessSteps <PreProcessSteps>`
 
-**Returns** :doc:`PreProcessSteps <PreProcessSteps>`
+   * **Defined in:**
+     `addon.ts:586 <https://github.com/openvinotoolkit/openvino/blob/master/src/bindings/js/node/lib/addon.ts#L586>`__
 
-- Defined in
-  `addon.ts:109 <https://github.com/openvinotoolkit/openvino/blob/master/src/bindings/js/node/lib/addon.ts#L109>`__

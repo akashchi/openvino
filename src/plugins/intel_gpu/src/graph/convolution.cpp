@@ -31,7 +31,7 @@ std::vector<layout> calc_output_layout_impl(convolution_node const& node, kernel
     auto input_type = input_layout.data_type;
     auto output_type = (input_type == data_types::u8 || input_type == data_types::i8) ? data_types::f32 : input_type;
     if (impl_param.has_fused_primitives()) {
-        output_type = impl_param.get_fused_output_layout().data_type;
+        output_type = impl_param.get_output_element_type();
     }
 
     auto weights_layout = *impl_param.weights_layout;
@@ -241,12 +241,6 @@ convolution_inst::typed_primitive_inst(network& network, convolution_node const&
                                 "Biases isn't 1D vector.");
     }
 
-    CLDNN_ERROR_NOT_EQUAL(node.id(),
-                            "Convolution padding mode",
-                            node.get_output_layout().data_padding.filling_value(),
-                            "padding value",
-                            0.0f,
-                            "Unknown padding mode.");
     CLDNN_ERROR_NOT_EQUAL(node.id(),
                             "Output feature size",
                             output_size.feature.size(),

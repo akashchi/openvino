@@ -10,31 +10,25 @@
 #include "bound_evaluate.hpp"
 #include "compare.hpp"
 #include "openvino/core/constant_fold_utils.hpp"
-#include "openvino/core/dimension_tracker.hpp"
+#include "openvino/core/dimension.hpp"
 #include "openvino/op/concat.hpp"
 #include "openvino/op/gather.hpp"
 #include "openvino/op/negative.hpp"
 #include "openvino/op/ops.hpp"
 #include "openvino/pass/constant_folding.hpp"
 #include "openvino/util/common_util.hpp"
-#include "sequnce_generator.hpp"
+#include "sequence_generator.hpp"
+#include "utils.hpp"
 
 namespace {
-const auto normalize_axis_to = [](const int64_t& tensor_rank) {
-    return [&tensor_rank](int64_t& axis) {
-        if (axis < 0) {
-            axis += tensor_rank;
-        }
-    };
-};
 
-std::string normalize_axis_error_msg(const int64_t& axis, const int64_t& lower, const int64_t& upper) {
-    return std::string(" Parameter axis ")
+std::string normalize_axis_error_msg(const int64_t axis, const int64_t rank) {
+    return std::string("Axis ")
         .append(std::to_string(axis))
         .append(" out of the tensor rank range [")
-        .append(std::to_string(lower))
+        .append(std::to_string(-rank))
         .append(", ")
-        .append(std::to_string(upper))
+        .append(std::to_string(rank == 0 ? 0 : rank - 1))
         .append("].");
 }
 
@@ -59,7 +53,7 @@ ov::OutputVector get_inputs_from_map(const std::shared_ptr<ov::Node>& node,
 
 }  // namespace
 
-int64_t ov::util::normalize(const int64_t& value, const int64_t& max) {
+int64_t ov::util::normalize(const int64_t value, const int64_t max) {
     return (value < 0) ? value + max : value;
 };
 
@@ -157,7 +151,9 @@ namespace util {
 using ov::op::v0::Constant;
 
 std::shared_ptr<Constant> get_constant_from_source(const ov::Output<ov::Node>& source) {
-    if (const auto& c = ov::as_type_ptr<Constant>(source.get_node_shared_ptr())) {
+    if (!source.get_node()) {
+        return {};
+    } else if (const auto& c = ov::as_type_ptr<Constant>(source.get_node_shared_ptr())) {
         return c;
     } else if (has_and_set_equal_bounds(source)) {
         return std::make_shared<Constant>(source.get_tensor().get_upper_value());
@@ -284,10 +280,10 @@ bool evaluate_as_partial_shape(const ov::Output<ov::Node>& output, ov::PartialSh
         auto upper_bound = std::make_shared<op::v0::Constant>(ub.get_element_type(), ub.get_shape(), ub.data())
                                ->cast_vector<int64_t>();
         OPENVINO_ASSERT(lower_bound.size() == upper_bound.size());
-        const TensorLabel& labels = output.get_tensor().get_value_label();
-        OPENVINO_ASSERT(labels.empty() || lower_bound.size() == labels.size());
+        const TensorSymbol& symbols = output.get_tensor().get_value_symbol();
+        OPENVINO_ASSERT(symbols.empty() || lower_bound.size() == symbols.size());
 
-        std::vector<Dimension> resulting_pshape(lower_bound.size());
+        pshape.resize(lower_bound.size());
         for (size_t i = 0; i < lower_bound.size(); ++i) {
             auto low = lower_bound[i], up = upper_bound[i];
             OPENVINO_ASSERT(low >= 0 && up >= 0, "Value for partial shape evaluation can't be lower than zero.");
@@ -297,18 +293,17 @@ bool evaluate_as_partial_shape(const ov::Output<ov::Node>& output, ov::PartialSh
                 if (low == std::numeric_limits<std::int32_t>::max())
                     low = std::numeric_limits<std::int64_t>::max();
             }
-            resulting_pshape[i] = {low, up};
-            if (!labels.empty() && labels[i])
-                DimensionTracker::set_label(resulting_pshape[i], labels[i]);
+            pshape[i] = {low, up};
+            if (!symbols.empty())
+                pshape[i].set_symbol(symbols[i]);
         }
-        pshape = ov::PartialShape(resulting_pshape);
         shape_defined = true;
     }
     return shape_defined;
 }
 
-bool default_label_evaluator(const ov::Node* node, TensorLabelVector& output_labels) {
-    return default_label_evaluator(node, {0}, output_labels);
+bool default_symbol_evaluator(const ov::Node* node, TensorSymbolVector& output_symbols) {
+    return default_symbol_evaluator(node, {0}, output_symbols);
 }
 
 void generate_transpose_default_order(std::vector<int64_t>& axes_order, const size_t length) {
@@ -321,72 +316,59 @@ bool is_valid_axes_order(const std::vector<int64_t>& axes_order, const size_t si
            std::all_of(axes_order.cbegin(), axes_order.cend(), ov::cmp::Between<int64_t, ov::cmp::LOWER>(0, size));
 }
 
-bool has_no_labels(const ov::TensorLabel& labels) {
-    return std::all_of(labels.cbegin(), labels.cend(), cmp::Equal<size_t>(no_label));
+bool has_no_symbols(const ov::TensorSymbol& symbols) {
+    return std::all_of(symbols.cbegin(), symbols.cend(), cmp::Equal<std::shared_ptr<ov::Symbol>>(nullptr));
 }
 
-std::vector<size_t> normalize_axes(const std::string& node_description,
-                                   const std::vector<int64_t>& axes,
-                                   const Rank& tensor_rank) {
-    std::vector<size_t> new_axes;
-    new_axes.reserve(axes.size());
+bool is_axis_valid(int64_t axis, int64_t rank) {
+    return (axis == 0) || (-rank <= axis && axis < rank);
+}
+
+void validate_axis(const int64_t axis, const Rank& rank, const Node& node) {
+    const auto r = rank.get_length();
+    NODE_VALIDATION_CHECK(&node, is_axis_valid(axis, r), normalize_axis_error_msg(axis, r));
+}
+
+size_t normalize_axis(const int64_t axis, const int64_t rank) {
+    return static_cast<size_t>(normalize(axis, rank));
+}
+
+size_t try_normalize_axis(const int64_t axis, const Rank& rank) {
+    const auto r = rank.get_length();
+    OPENVINO_ASSERT(is_axis_valid(axis, r), normalize_axis_error_msg(axis, r));
+    return normalize_axis(axis, r);
+}
+
+size_t try_normalize_axis(const int64_t axis, const Rank& rank, const Node& node) {
+    validate_axis(axis, rank, node);
+    return normalize_axis(axis, rank.get_length());
+}
+
+void validate_axes(const std::vector<int64_t>& axes, const Rank& rank, const Node& node) {
     for (const auto& axis : axes) {
-        new_axes.push_back(ov::util::normalize_axis(node_description, axis, tensor_rank));
+        validate_axis(axis, rank, node);
     }
-    return new_axes;
 }
 
-void normalize_axes(const ov::Node* node, const int64_t& tensor_rank, std::vector<int64_t>& axes) {
-    const auto axis_checker = cmp::Between<int64_t, cmp::BOTH>(-tensor_rank, tensor_rank ? (tensor_rank - 1) : 0);
-    const auto invalid_axis = std::find_if_not(axes.cbegin(), axes.cend(), axis_checker);
-    NODE_VALIDATION_CHECK(node,
-                          invalid_axis == axes.cend(),
-                          normalize_axis_error_msg(*invalid_axis, axis_checker.lower(), axis_checker.upper()));
-    std::for_each(axes.begin(), axes.end(), normalize_axis_to(tensor_rank));
-}
-
-int64_t normalize_axis(const ov::Node* node, std::int64_t axis, const Rank& tensor_rank) {
-    return ov::util::normalize_axis(node->description(), axis, tensor_rank);
-}
-
-int64_t normalize_axis(const std::string& node_description, std::int64_t axis, const Rank& tensor_rank) {
-    if (axis < 0) {
-        // Handling negative axis requires static tensor rank
-        OPENVINO_ASSERT(tensor_rank.is_static(),
-                        node_description,
-                        " Rank must be static in order to normalize negative axis=",
-                        axis);
+void normalize_axes(std::vector<int64_t>& axes, const int64_t rank) {
+    for (auto&& axis : axes) {
+        axis = normalize(axis, rank);
     }
-    if (tensor_rank.is_dynamic()) {
-        return axis;
-    }
-
-    const auto tensor_rank_value = tensor_rank.get_length();
-    return normalize_axis(node_description,
-                          axis,
-                          tensor_rank_value,
-                          -tensor_rank_value,
-                          tensor_rank_value ? (tensor_rank_value - 1) : 0);
 }
 
-int64_t normalize_axis(const ov::Node* node,
-                       std::int64_t axis,
-                       std::uint64_t tensor_rank,
-                       std::int64_t axis_range_min,
-                       std::int64_t axis_range_max) {
-    return normalize_axis(node->description(), axis, tensor_rank, axis_range_min, axis_range_max);
+void try_normalize_axes(std::vector<int64_t>& axes, const Rank& rank, const Node& node) {
+    validate_axes(axes, rank, node);
+    normalize_axes(axes, rank.get_length());
 }
 
-int64_t normalize_axis(const std::string& node_description,
-                       std::int64_t axis,
-                       std::uint64_t tensor_rank,
-                       std::int64_t axis_range_min,
-                       std::int64_t axis_range_max) {
-    // Accepted range of value for axis is [axis_range_min, axis_range_max].
-    OPENVINO_ASSERT((axis_range_min <= axis) && (axis <= axis_range_max),
-                    node_description,
-                    normalize_axis_error_msg(axis, axis_range_min, axis_range_max));
-    return normalize(axis, tensor_rank);
+AxisVector try_get_normalized_axis_vector(const Tensor& tensor, const Rank& rank, const Node& node) {
+    auto axes_values = ov::get_tensor_data_as<int64_t>(tensor);
+    try_normalize_axes(axes_values, rank, node);
+    return {axes_values.begin(), axes_values.end()};
+}
+
+AxisSet try_get_normalized_axis_set(const Tensor& tensor, const Rank& rank, const Node& node) {
+    return {try_get_normalized_axis_vector(tensor, rank, node)};
 }
 }  // namespace util
 }  // namespace ov

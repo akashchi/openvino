@@ -5,6 +5,7 @@
 #pragma once
 
 #include "openvino/core/type/element_type_traits.hpp"
+#include "openvino/core/type/nf4.hpp"
 
 namespace ov {
 namespace util {
@@ -41,7 +42,7 @@ constexpr bool is_bit_type(Type_t et) {
  * @return True if element type is nibble type otherwise false.
  */
 constexpr bool is_nibble_type(Type_t et) {
-    return et == u4 || et == i4 || et == nf4;
+    return et == u4 || et == i4 || et == nf4 || et == f4e2m1;
 }
 
 /**
@@ -97,6 +98,11 @@ constexpr size_t bit_width<Type_t::u4>() {
 }
 
 template <>
+constexpr size_t bit_width<Type_t::nf4>() {
+    return 4;
+}
+
+template <>
 constexpr size_t bit_width<Type_t::i4>() {
     return 4;
 }
@@ -104,6 +110,11 @@ constexpr size_t bit_width<Type_t::i4>() {
 template <>
 constexpr size_t bit_width<Type_t::u6>() {
     return 6;
+}
+
+template <>
+constexpr size_t bit_width<Type_t::f4e2m1>() {
+    return 4;
 }
 
 /**
@@ -133,18 +144,26 @@ private:
     template <Type_t, class>
     friend class Iterator;  //!< Iterator class is friend to access private members to manipulate pointer.
 
+    using Bits = typename std::conditional<std::is_const<T>::value, const uint8_t, uint8_t>::type;
+
     static constexpr size_t m_bits = bit_width<ET>();                            //!< Number of bit for single value.
     static constexpr size_t m_num_values = 8 / m_bits;                           //!< Number values in byte.
     static constexpr size_t m_shift_init = is_nibble_type(ET) ? 0 : 8 - m_bits;  //!< Initial value for bit shift.
 
-    T* m_ptr;            //!< Pointer to T used to get value.
+    Bits* m_ptr;         //!< Pointer to T as Bits used to get value from bits.
     size_t m_bit_shift;  //!< Current bit shift to get value.
 
-    constexpr BitProxy(T* ptr) noexcept : m_ptr{ptr}, m_bit_shift{m_shift_init} {}
+    constexpr BitProxy(T* ptr) noexcept : m_ptr{reinterpret_cast<Bits*>(ptr)}, m_bit_shift{m_shift_init} {}
 
     uint8_t get_bit_value() const {
         constexpr auto value_mask = util::make_n_bit_mask(m_bits);
         return (*m_ptr >> m_bit_shift) & value_mask;
+    }
+
+    void set_bit_value(uint8_t value) {
+        constexpr auto value_mask = util::make_n_bit_mask(m_bits);
+        *m_ptr &= ~(value_mask << m_bit_shift);
+        *m_ptr |= value << m_bit_shift;
     }
 
 public:
@@ -177,9 +196,37 @@ public:
      *
      * @return Value of BitProxy.
      */
-    template <Type_t ETT = ET, typename std::enable_if<ETT != i4>::type* = nullptr>
+    template <Type_t ETT = ET, typename std::enable_if<ETT != i4 && ETT != f4e2m1>::type* = nullptr>
     operator value_type() const {
         return static_cast<value_type>(get_bit_value());
+    }
+
+    /**
+     * @brief Converts to fundamental type.
+     *
+     * @return Value of BitProxy.
+     */
+    template <Type_t ETT = ET, typename std::enable_if<ETT == f4e2m1>::type* = nullptr>
+    operator value_type() const {
+        return value_type::from_bits(get_bit_value());
+    }
+
+    /**
+     * @brief Converts to float for NF4.
+     *
+     * @note Implementation aligned to ConvertNF4::unpack, de-quantization applied only when converting to
+     * floating point.  For integral types get bit value.
+     *
+     * @return Converted NF4 value to float.
+     */
+    template <Type_t ETT = ET, typename std::enable_if<ETT == nf4>::type* = nullptr>
+    operator float() const {
+        return ConvertNF4::dequantize(get_bit_value());
+    }
+
+    template <Type_t ETT = ET, typename std::enable_if<ETT == f4e2m1>::type* = nullptr>
+    operator float() const {
+        return static_cast<float>(float4_e2m1::from_bits(get_bit_value()));
     }
 
     /**
@@ -205,10 +252,30 @@ public:
      * @brief Sets current ProxyBit to value.
      * @param v  Value to be set.
      */
+    template <Type_t ETT = ET, typename std::enable_if<ETT != f4e2m1>::type* = nullptr>
     BitProxy<T, ET>& operator=(const value_type v) {
         constexpr auto value_mask = util::make_n_bit_mask(m_bits);
-        *m_ptr &= ~(value_mask << m_bit_shift);
-        *m_ptr |= (static_cast<uint8_t>(v) & value_mask) << m_bit_shift;
+        set_bit_value(static_cast<uint8_t>(v) & value_mask);
+        return *this;
+    }
+
+    /**
+     * @brief Sets current ProxyBit to value (f4e2m1 specialization).
+     * @param v  Value to be set.
+     */
+    template <Type_t ETT = ET, typename std::enable_if<ETT == f4e2m1>::type* = nullptr>
+    BitProxy<T, ET>& operator=(const value_type v) {
+        set_bit_value(v.to_bits());
+        return *this;
+    }
+
+    /**
+     * @brief Sets current NF4 value from float using quantization.
+     * @param v  Value to be set.
+     */
+    template <Type_t ETT = ET, typename std::enable_if<ETT == nf4>::type* = nullptr>
+    BitProxy<T, ET>& operator=(const float v) {
+        set_bit_value(ConvertNF4::quantize(v));
         return *this;
     }
 };
@@ -352,6 +419,12 @@ public:
 
     constexpr Iterator(T* ptr) noexcept : m_et_ptr{ptr} {}
 
+    template <class U>
+    constexpr Iterator(U* ptr) noexcept : m_et_ptr{reinterpret_cast<T*>(ptr)} {
+        static_assert(std::is_same<typename std::decay<U>::type, int8_t>::value,
+                      "User type must be int8_t as base type for LP ET");
+    }
+
     // Iteration operators
     template <Type_t ETT = ET>
     typename std::enable_if<is_bit_type(ETT), Iterator<ET, T>>::type& operator++() {
@@ -404,7 +477,7 @@ public:
         return *this;
     }
 
-    Iterator<ET, T> operator+(const difference_type& n) {
+    Iterator<ET, T> operator+(const difference_type& n) const {
         auto tmp(*this);
         tmp += n;
         return tmp;
@@ -461,7 +534,7 @@ public:
         return *this;
     }
 
-    Iterator<ET, T> operator-(const difference_type& n) {
+    Iterator<ET, T> operator-(const difference_type& n) const {
         auto tmp(*this);
         tmp -= n;
         return tmp;
@@ -490,13 +563,81 @@ private:
  *
  * @tparam ET  Type of ov::element::Type_t.
  * @tparam T   Type of pointer data. Must be fundamental type of ET.
-
+ *
  * @param ptr  Pointer to data.
  * @return Element iterator for type ET.
  */
 template <Type_t ET, class T, typename std::enable_if<!is_byte_type(ET) && ET != string>::type* = nullptr>
-constexpr Iterator<ET, T> iterator(T* ptr) {
+constexpr Iterator<ET, ov::fundamental_type_for<ET>> iterator(T* ptr) {
     return {ptr};
 }
+
+/**
+ * @brief Make element iterator from pointer.
+ *
+ * @tparam ET  Type of ov::element::Type_t.
+ * @tparam T   Type of pointer data. Must be fundamental type of ET.
+ *
+ * @param ptr  Pointer to data.
+ * @return Element iterator for type ET.
+ */
+template <Type_t ET, class T, typename std::enable_if<!is_byte_type(ET) && ET != string>::type* = nullptr>
+constexpr Iterator<ET, const ov::fundamental_type_for<ET>> iterator(const T* ptr) {
+    return {ptr};
+}
+
+/**
+ * @brief Make iterator from pointer for standard types.
+ *
+ * To have common interface for all ov::element::Type. Just return input pointer.
+ *
+ * @tparam ET  Type of ov::element::Type_t.
+ * @tparam T   Type of pointer data. Must be fundamental type of ET.
+ *
+ * @param ptr  Pointer to data.
+ * @return Element iterator same as input pointer.
+ */
+template <Type_t ET, class T, typename std::enable_if<is_byte_type(ET) || ET == string>::type* = nullptr>
+constexpr T* iterator(T* ptr) {
+    return ptr;
+}
+
+/**
+ * @brief Make iterator from void pointer.
+ *
+ * Data will be reinterpreted using fundamental type for ov::element::Type.
+ *
+ * @tparam ET  OpenVINO element type.
+ * @param ptr  Pointer to data.
+ * @return Iterator for given ET.
+ */
+template <Type_t ET, class T = ov::fundamental_type_for<ET>>
+constexpr auto iterator(void* ptr) -> decltype(iterator<ET, T>(reinterpret_cast<T*>(ptr))) {
+    return iterator<ET, T>(reinterpret_cast<T*>(ptr));
+}
+
+/**
+ * @brief Make iterator from constant void pointer.
+ *
+ * Data will be reinterpreted using fundamental type for ov::element::Type.
+ *
+ * @tparam ET  OpenVINO element type.
+ * @param ptr  Pointer to data.
+ * @return Iterator for given ET.
+ */
+template <Type_t ET, class T = typename std::add_const<ov::fundamental_type_for<ET>>::type>
+constexpr auto iterator(const void* ptr) -> decltype(iterator<ET, T>(reinterpret_cast<T*>(ptr))) {
+    return iterator<ET, T>(reinterpret_cast<T*>(ptr));
+}
+
+/**
+ * @brief Gets size of memory in bytes for N elements of given precision.
+ *
+ * @param type  Element precision.
+ * @param n     Number of elements.
+ *
+ * @return Elements size in bytes.
+ */
+OPENVINO_API size_t get_memory_size(const element::Type& type, const size_t n);
 }  // namespace element
 }  // namespace ov

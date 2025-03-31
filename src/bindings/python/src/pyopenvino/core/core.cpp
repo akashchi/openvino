@@ -6,9 +6,11 @@
 
 #include <pybind11/stl.h>
 
+#include <fstream>
 #include <openvino/core/any.hpp>
 #include <openvino/runtime/core.hpp>
 #include <pyopenvino/core/tensor.hpp>
+#include <random>
 
 #include "common.hpp"
 #include "pyopenvino/core/remote_context.hpp"
@@ -199,6 +201,57 @@ void regclass_Core(py::module m) {
 
             :param model_path: A path to a model in IR / ONNX / PDPD / TF and TFLite format.
             :type model_path: Union[str, pathlib.Path]
+            :param device_name: Name of the device to load the model to.
+            :type device_name: str
+            :param properties: Optional dict of pairs: (property name, property value) relevant only for this load operation.
+            :type properties: dict
+            :return: A compiled model.
+            :rtype: openvino.runtime.CompiledModel
+        )");
+
+    cls.def(
+        "compile_model",
+        [](ov::Core& self,
+           const py::object& model_buffer,
+           const py::object& weight_buffer,
+           const std::string& device_name,
+           const std::map<std::string, py::object>& properties) {
+            std::stringstream _stream;
+            _stream << model_buffer.cast<std::string>();
+
+            py::buffer_info info;
+            if (!py::isinstance<py::none>(weight_buffer)) {
+                auto p = weight_buffer.cast<py::bytes>();
+                info = py::buffer(p).request();
+            }
+            size_t bin_size = static_cast<size_t>(info.size);
+            ov::Tensor tensor;
+            if (bin_size) {
+                // If weights are not empty:
+                tensor = ov::Tensor(ov::element::Type_t::u8, {bin_size}, info.ptr);
+            } else {
+                // If weights are empty:
+                tensor = ov::Tensor(ov::element::Type_t::u8, {bin_size});
+            }
+            auto _properties = Common::utils::properties_to_any_map(properties);
+            py::gil_scoped_release release;
+            return self.compile_model(_stream.str(), tensor, device_name, _properties);
+        },
+        py::arg("model_buffer"),
+        py::arg("weight_buffer"),
+        py::arg("device_name"),
+        py::arg("properties"),
+        R"(
+            Create a compiled model from IR model buffer and weight buffer in memory.
+            This can be more efficient than using read_model + compile_model(model_in_memory_object) flow,
+            especially for cases when caching is enabled and cached model is available.
+
+            GIL is released while runing this function.
+
+            :param model_buffer: A string buffer of IR xml in memory
+            :type model_buffer: str
+            :param weight_buffer: A byte buffer of IR weights in memory
+            :type weight_buffer: bytes
             :param device_name: Name of the device to load the model to.
             :type device_name: str
             :param properties: Optional dict of pairs: (property name, property value) relevant only for this load operation.
@@ -493,19 +546,47 @@ void regclass_Core(py::module m) {
            const py::object& model_stream,
            const std::string& device_name,
            const std::map<std::string, py::object>& properties) {
-            auto _properties = Common::utils::properties_to_any_map(properties);
+            const auto _properties = Common::utils::properties_to_any_map(properties);
             if (!(py::isinstance(model_stream, pybind11::module::import("io").attr("BytesIO")))) {
                 throw py::type_error("CompiledModel.import_model(model_stream) incompatible function argument: "
                                      "`model_stream` must be an io.BytesIO object but " +
                                      (std::string)(py::repr(model_stream)) + "` provided");
             }
+            std::random_device rd;
+            std::mt19937 gen(rd());
+            std::uniform_int_distribution<> distr(1000, 9999);
+            std::string filename = "model_stream_" + std::to_string(distr(gen)) + ".txt";
+            std::fstream _stream(filename, std::ios::out | std::ios::binary);
             model_stream.attr("seek")(0);  // Always rewind stream!
-            std::stringstream _stream;
-            _stream << model_stream
-                           .attr("read")()  // alternative: model_stream.attr("get_value")()
-                           .cast<std::string>();
-            py::gil_scoped_release release;
-            return self.import_model(_stream, device_name, _properties);
+            if (_stream.is_open()) {
+                const py::bytes data = model_stream.attr("read")();
+                // convert the Python bytes object to C++ string
+                char* buffer;
+                Py_ssize_t length;
+                PYBIND11_BYTES_AS_STRING_AND_SIZE(data.ptr(), &buffer, &length);
+                _stream.write(buffer, length);
+                _stream.close();
+            } else {
+                OPENVINO_THROW("Failed to open temporary file for model stream");
+            }
+
+            ov::CompiledModel result;
+            std::fstream _fstream(filename, std::ios::in | std::ios::binary);
+            if (_fstream.is_open()) {
+                py::gil_scoped_release release;
+                result = self.import_model(_fstream, device_name, _properties);
+                _fstream.close();
+                if (std::remove(filename.c_str()) != 0) {
+                    const std::string abs_path =
+                        py::module_::import("os").attr("getcwd")().cast<std::string>() + "/" + filename;
+                    const std::string warning_message = "Temporary file " + abs_path + " failed to delete!";
+                    PyErr_WarnEx(PyExc_RuntimeWarning, warning_message.c_str(), 1);
+                }
+            } else {
+                OPENVINO_THROW("Failed to open temporary file for model stream");
+            }
+
+            return result;
         },
         py::arg("model_stream"),
         py::arg("device_name"),

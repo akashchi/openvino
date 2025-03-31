@@ -6,6 +6,7 @@
 
 #include <ostream>
 #include <tuple>
+#include "intel_gpu/runtime/engine.hpp"
 #include "intel_gpu/runtime/layout.hpp"
 #include "intel_gpu/runtime/memory.hpp"
 #include "intel_gpu/runtime/optionals.hpp"
@@ -73,17 +74,15 @@ inline ov::element::Type convert_to_supported_device_type(ov::element::Type et) 
     }
 }
 
+bool is_supported(ov::element::Type_t et);
+bool data_types_are_supported(const ov::Node* node);
+
 using PrecisionMap = std::map<ov::element::Type_t, ov::element::Type>;
 
 std::vector<cldnn::optional_data_type> get_output_data_types(const ov::Node* op, PrecisionMap precision_map = {});
-std::vector<cldnn::padding> get_output_paddings(const ov::Node* op);
 
 inline std::vector<cldnn::optional_data_type> get_output_data_types(const std::shared_ptr<ov::Node>& op, PrecisionMap precision_map = {}) {
     return get_output_data_types(op.get(), precision_map);
-}
-
-inline std::vector<cldnn::padding> get_output_paddings(const std::shared_ptr<ov::Node>& op) {
-    return get_output_paddings(op.get());
 }
 
 inline ov::Shape get_tensor_shape(const ov::PartialShape& pshape) {
@@ -95,16 +94,37 @@ inline ov::Shape get_tensor_shape(const ov::PartialShape& pshape) {
     return res;
 }
 
-inline ov::Shape predict_shape(const std::string& name, const ov::Shape current_shape, ov::element::Type element_type, cldnn::ShapePredictor& shape_predictor) {
-    auto prealloc_info = shape_predictor.predict_preallocation_shape(name, current_shape, element_type.bitwidth(), false);
+inline ov::Shape predict_shape(const std::string& name, const cldnn::layout layout, cldnn::ShapePredictor& shape_predictor) {
+    auto prealloc_info = shape_predictor.predict_preallocation_shape(name, layout, false);
     const auto& preallocation_shape = prealloc_info.second;
     auto can_preallocate_buffer = prealloc_info.first &&
-                                    shape_predictor.can_preallocate(cldnn::ceil_div(ov::shape_size(preallocation_shape) * element_type.bitwidth(), 8));
+                                    shape_predictor.can_preallocate(cldnn::ceil_div(ov::shape_size(preallocation_shape) *
+                                    ov::element::Type(layout.data_type).bitwidth(), 8));
     if (can_preallocate_buffer) {
         return preallocation_shape;
     }
 
-    return current_shape;
+    return layout.get_shape();
+}
+
+inline cldnn::memory::ptr allocate_memory_evenif_zero_bytes(cldnn::engine& _engine,
+                                                            const cldnn::layout& layout,
+                                                            cldnn::allocation_type type,
+                                                            bool reset = true) {
+    if (layout.bytes_count() == 0) {
+        auto non_zero_layout = cldnn::layout({1}, layout.data_type, layout.format);
+        auto res = _engine.allocate_memory(non_zero_layout, type, false);
+        return _engine.reinterpret_buffer(*res, layout);
+    } else {
+        return _engine.allocate_memory(layout, type, reset);
+    }
+}
+
+inline cldnn::memory::ptr allocate_memory_evenif_zero_bytes(cldnn::engine& _engine,
+                                                            const cldnn::layout& layout,
+                                                            bool reset = true) {
+    cldnn::allocation_type type = _engine.get_lockable_preferred_memory_allocation_type(layout.format.is_image_2d());
+    return allocate_memory_evenif_zero_bytes(_engine, layout, type, reset);
 }
 
 /// WA: Force exit. Any opencl api call can be hang after CL_OUT_OF_RESOURCES.
@@ -118,9 +138,12 @@ inline void ForceExit() {
     std::_Exit(-1);
 }
 
-void convert_and_copy(const ov::ITensor* src, cldnn::memory::ptr dst, cldnn::stream& stream);
+void convert_and_copy(const ov::ITensor* src,
+                      cldnn::memory::ptr dst,
+                      cldnn::stream& stream,
+                      const cldnn::layout& src_layout = cldnn::layout({}, ov::element::undefined, cldnn::format::bfyx, cldnn::padding()));
 void convert_and_copy(const cldnn::memory::ptr src, ov::ITensor const* dst, const cldnn::stream& stream);
-void convert_and_copy(const ov::ITensor* src, ov::ITensor const* dst, const cldnn::stream& stream);
+void convert_and_copy(const ov::ITensor* src, ov::ITensor* dst, const cldnn::stream& stream);
 void convert_and_copy(const cldnn::memory::ptr src, cldnn::memory::ptr dst, cldnn::stream& stream);
 
 }  // namespace intel_gpu

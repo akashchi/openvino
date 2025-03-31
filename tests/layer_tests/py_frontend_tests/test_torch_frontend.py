@@ -432,7 +432,7 @@ def test_multiple_module_extension():
     converted_model = fe.convert(input_model)
     assert converted_model
     assert [n.get_type_name() for n in converted_model.get_ordered_ops()] == [
-        "Parameter", "Convert", "Convert", "Cos", "Constant", "Relu", "Multiply", "Add", "Result"]
+        "Parameter", "Convert", "Convert", "Cos", "Constant", "Convert", "Relu", "Multiply", "Add", "Result"]
 
     converted_model = convert_model(model, example_input=(
         torch.randn(100),), extension=[ModuleExtension(CosModel, "aten::sin"), ModuleExtension(model.relu_module, "aten::tan")])
@@ -548,39 +548,39 @@ def test_pytorch_types_promotion(l_type, r_type, l_scalar, r_scalar):
 
     class aten_add_t_t(torch.nn.Module):
         def forward(self, x: torch.Tensor, y: torch.Tensor):
-            return torch.add(x, y)
+            return x + y
 
     class aten_add_int_int(torch.nn.Module):
         def forward(self, x: int, y: int):
-            return torch.add(x, y)
+            return x + y
 
     class aten_add_float_float(torch.nn.Module):
         def forward(self, x: float, y: float):
-            return torch.add(x, y)
+            return x + y
 
     class aten_add_int_float(torch.nn.Module):
         def forward(self, x: int, y: float):
-            return torch.add(x, y)
+            return x + y
 
     class aten_add_float_int(torch.nn.Module):
         def forward(self, x: float, y: int):
-            return torch.add(x, y)
+            return x + y
 
     class aten_add_t_int(torch.nn.Module):
         def forward(self, x: torch.Tensor, y: int):
-            return torch.add(x, y)
+            return x + y
 
     class aten_add_int_t(torch.nn.Module):
         def forward(self, x: int, y: torch.Tensor):
-            return torch.add(x, y)
+            return x + y
 
     class aten_add_t_float(torch.nn.Module):
         def forward(self, x: torch.Tensor, y: float):
-            return torch.add(x, y)
+            return x + y
 
     class aten_add_float_t(torch.nn.Module):
         def forward(self, x: float, y: torch.Tensor):
-            return torch.add(x, y)
+            return x + y
 
     l_t = "t"
     r_t = "t"
@@ -633,10 +633,8 @@ def test_pytorch_types_promotion(l_type, r_type, l_scalar, r_scalar):
         pt_out_shape = pt_out.size()
     pt_out_type = pt_to_ov_type_map.get(str(pt_out_type))
     ov_out_type = om.get_output_element_type(0)
-    if pt_out_type == Type.i64 and ov_out_type == Type.i32 and "int" in [l_t, r_t]:
-        pytest.xfail(
-            "Pytorch int-like scalar in OV is converted to i32 instead of i64, mismatch is expected.")
     assert pt_out_type == ov_out_type
+    print(f"{pt_out_type} == {ov_out_type}")
     assert PartialShape(pt_out_shape) == om.get_output_partial_shape(0)
 
 
@@ -683,3 +681,72 @@ def test_output_tuple_names():
     om = fe.convert(im)
     assert len(om.outputs[0].names) == 0 and len(
         om.outputs[1].names) == 0, "Output tuple names must be empty"
+
+
+def test_patched_16bit_model_converts():
+    from openvino.frontend.pytorch import patch_model
+    from openvino import convert_model, compile_model
+    import copy
+    from transformers.pytorch_utils import Conv1D
+
+    class ModelWithLinear(torch.nn.Module):
+        def __init__(self):
+            super().__init__()
+
+            self.branch1 = torch.nn.Sequential(
+                torch.nn.Embedding(10, 64),
+                torch.nn.Linear(64, 32),
+                torch.nn.ReLU()
+            )
+            self.branch2 = torch.nn.Sequential(
+                Conv1D(256, 128),
+                torch.nn.Linear(256, 64), torch.nn.ReLU()
+            )
+            self.buffer = torch.ones(32)
+
+        def forward(self, x1, x2):
+            out1 = self.branch1(x1)
+            out2 = self.branch2(x2)
+            return (out1 + self.buffer, out2)
+
+    example = (torch.randint(0, 10, [32, 64]), torch.randn(32, 128))
+    model_ref = ModelWithLinear()
+    with torch.no_grad():
+        res_ref = model_ref(*example)
+    model_fp16 = copy.deepcopy(model_ref).half()
+
+    patch_model.__make_16bit_traceable(model_fp16)
+    # the approach with patching only works for node with no grad
+    with torch.no_grad():
+        converted_model = convert_model(model_fp16, example_input=example)
+    assert converted_model
+    cm_fp16 = compile_model(converted_model, "CPU")
+    res_fp16 = cm_fp16([x.numpy() for x in example])
+    np.testing.assert_allclose(res_fp16[0], res_ref[0].numpy(), atol=1e-2)
+    np.testing.assert_allclose(res_fp16[1], res_ref[1].numpy(), atol=1e-2)
+
+    model_bf16 = copy.deepcopy(model_ref).bfloat16()
+    patch_model.__make_16bit_traceable(model_bf16)
+    # the approach with patching only works for node with no grad
+    with torch.no_grad():
+        converted_model = convert_model(model_bf16, example_input=example)
+    assert converted_model
+    cm_bf16 = compile_model(converted_model, "CPU")
+    res_bf16 = cm_bf16([x.numpy() for x in example])
+    np.testing.assert_allclose(res_bf16[0], res_ref[0].numpy(), atol=1e-2)
+    np.testing.assert_allclose(res_bf16[1], res_ref[1].numpy(), atol=1e-2)
+
+
+class InlinedInputsModel(torch.nn.Module):
+    def __init__(self):
+        super().__init__()
+
+    def forward(self):
+        return torch.arange(2048)
+
+
+def test_inlined_inputs():
+    model = InlinedInputsModel()
+    model.eval()
+    model = torch.compile(model, backend="openvino", options={"testing": 1})
+    model()

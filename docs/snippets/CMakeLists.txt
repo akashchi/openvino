@@ -4,11 +4,8 @@
 
 set(TARGET_NAME openvino_docs_snippets)
 
-if(CMAKE_COMPILER_IS_GNUCXX)
+if(CMAKE_COMPILER_IS_GNUCXX OR OV_COMPILER_IS_CLANG OR OV_COMPILER_IS_INTEL_LLVM)
     ov_add_compiler_flags(-Wall)
-endif()
-
-if(CMAKE_COMPILER_IS_GNUCXX OR OV_COMPILER_IS_CLANG)
     ov_add_compiler_flags(-Wno-unused-variable)
 endif()
 if(UNUSED_BUT_SET_VARIABLE_SUPPORTED)
@@ -21,12 +18,14 @@ endif()
 
 file(GLOB SOURCES "${CMAKE_CURRENT_SOURCE_DIR}/*.cpp"
                   "${CMAKE_CURRENT_SOURCE_DIR}/src/*.cpp"
-                  "${CMAKE_CURRENT_SOURCE_DIR}/src/*.c")
-file(GLOB GPU_SOURCES "${CMAKE_CURRENT_SOURCE_DIR}/gpu/*.cpp")
+                  "${CMAKE_CURRENT_SOURCE_DIR}/src/*.c"
+                  "${CMAKE_CURRENT_SOURCE_DIR}/../articles_en/assets/snippets/*.cpp"
+                  "${CMAKE_CURRENT_SOURCE_DIR}/../articles_en/assets/snippets/*.c")
 
+file(GLOB GPU_SOURCES "${CMAKE_CURRENT_SOURCE_DIR}/../articles_en/assets/snippets/gpu/*.cpp")
 # add GPU snippets if OpenCL has been found
 if(TARGET OpenCL::OpenCL)
-    list(APPEND SOURCES ${GPU_SOURCES})
+    list(APPEND  SOURCES ${GPU_SOURCES})
 endif()
 
 # try to find VA libraries
@@ -41,7 +40,7 @@ endif()
 # remove OpenCV related sources
 find_package(OpenCV QUIET COMPONENTS core imgcodecs)
 if(NOT OpenCV_FOUND OR NOT OpenCV_VERSION VERSION_GREATER_EQUAL 3)
-    list(REMOVE_ITEM SOURCES "${CMAKE_CURRENT_SOURCE_DIR}/ShapeInference.cpp")
+    list(REMOVE_ITEM SOURCES "${CMAKE_CURRENT_SOURCE_DIR}/../articles_en/assets/snippets/ShapeInference.cpp")
 endif()
 
 # requires mfxFrameSurface1 and MSS API
@@ -117,6 +116,26 @@ add_executable(${TARGET_NAME} src/main.cpp)
 target_link_libraries(${TARGET_NAME} PRIVATE openvino::runtime)
 
 # [cmake:integration_example_cpp]
+
+set(TARGET_NAME_PY "ov_integration_snippet_py")
+# [cmake:integration_example_cpp_py]
+cmake_minimum_required(VERSION 3.10)
+set(CMAKE_CXX_STANDARD 11)
+
+find_package(Python3 REQUIRED)
+    execute_process(
+        COMMAND ${Python3_EXECUTABLE} -c "from openvino.utils import get_cmake_path; print(get_cmake_path(), end='')"
+        OUTPUT_VARIABLE OpenVINO_DIR_PY
+        ERROR_QUIET
+    )
+
+find_package(OpenVINO REQUIRED PATHS "${OpenVINO_DIR_PY}")
+
+add_executable(${TARGET_NAME_PY} src/main.cpp)
+
+target_link_libraries(${TARGET_NAME_PY} PRIVATE openvino::runtime)
+
+# [cmake:integration_example_cpp_py]
 
 set(TARGET_NAME_C "ov_integration_snippet_c")
 # [cmake:integration_example_c]

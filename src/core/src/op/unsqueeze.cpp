@@ -71,14 +71,18 @@ bool ov::op::v0::Unsqueeze::evaluate_upper(ov::TensorVector& output_values) cons
     return get_input_tensor(1).has_and_set_bound() && default_upper_bound_evaluator(this, output_values);
 }
 
-bool ov::op::v0::Unsqueeze::evaluate_label(TensorLabelVector& output_labels) const {
+bool ov::op::v0::Unsqueeze::evaluate_symbol(TensorSymbolVector& output_symbols) const {
     if (!get_input_tensor(1).has_and_set_bound())
         return false;
-    return ov::util::default_label_evaluator(this, output_labels);
+    return ov::util::default_symbol_evaluator(this, output_symbols);
+}
+
+bool ov::op::v0::Unsqueeze::can_constant_fold(const OutputVector& input_values) const {
+    return get_output_partial_shape(0).is_static() && !is_const_fold_disabled();
 }
 
 bool ov::op::v0::Unsqueeze::constant_fold(OutputVector& output_values, const OutputVector& inputs_values) {
-    if (get_output_partial_shape(0).is_dynamic() || is_const_fold_disabled()) {
+    if (!can_constant_fold(inputs_values)) {
         return false;
     }
 

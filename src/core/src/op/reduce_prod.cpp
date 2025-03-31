@@ -8,8 +8,8 @@
 #include "element_visitor.hpp"
 #include "itt.hpp"
 #include "openvino/core/shape_util.hpp"
+#include "openvino/core/tensor_util.hpp"
 #include "openvino/core/validation_util.hpp"
-#include "openvino/op/util/axes_util.hpp"
 #include "openvino/reference/reduce_prod.hpp"
 
 namespace ov {
@@ -20,7 +20,8 @@ bool has_non_negative_bounds_on_data(const Node* const op) {
     const auto& lb = op->get_input_tensor(0).get_lower_value();
     const auto& ub = op->get_input_tensor(0).get_upper_value();
 
-    return lb && ub && tensor_is_non_negative(lb) && tensor_is_non_negative(ub);
+    return lb && ub && ov::util::reduce_and(ov::util::greater_equal(lb, 0)) &&
+           ov::util::reduce_and(ov::util::greater_equal(ub, 0));
 }
 }  // namespace
 
@@ -53,7 +54,7 @@ bool ReduceProd::evaluate(TensorVector& outputs, const TensorVector& inputs) con
     OPENVINO_ASSERT(outputs.size() == 1);
     OPENVINO_ASSERT(inputs.size() == 2);
 
-    const auto reduction_axes = get_normalized_axes_from_tensor(this, inputs[1], inputs[0].get_shape().size());
+    const auto reduction_axes = ov::util::try_get_normalized_axis_set(inputs[1], inputs[0].get_shape().size(), *this);
     outputs[0].set_shape(ov::util::reduce(inputs[0].get_shape(), reduction_axes, get_keep_dims()));
 
     using namespace ov::element;

@@ -42,6 +42,7 @@ struct format_traits {
     std::string internal_order;
     /// @brief Block sizes as a vector of pairs of dimension number and block size ordered from rare to often.
     std::vector<std::pair<size_t, int>> block_sizes;
+    std::vector<std::pair<size_t, int>> logic_block_sizes;
     /// @brief Characters representing batch dimensions in an order.
     static const char* batch_chars() { return "bno"; }
     /// @brief Characters representing feature map/channel dimensions in an order.
@@ -75,6 +76,7 @@ struct format {
     enum type : int32_t {
         // Data formats
         bfyx,                                   ///< the most common format for activations in clDNN.
+        bfxy,
         bfzyx,                                  ///< format for 5d data tensors
         bfwzyx,                                 ///< batch, feature, 4D spatial
         bfuwzyx,                                ///< 7d tensor
@@ -83,6 +85,9 @@ struct format {
         byxf,                                   ///< used in bitmaps, input from user i.e b images of RGB format
         fbyx,
         fyxb,                                   ///< format not used inside clDNN, but supported in reorder as extension
+        fybx,                                   ///< To be used when onednn gemm allows permute fusing in transformer network. Not for normal use from cldnn.
+        xbfy,                                   ///< To be used when onednn gemm allows permute fusing in transformer network. Not for normal use from cldnn.
+        ybfx,                                   ///< To be used when onednn gemm allows permute fusing in transformer network. Not for normal use from cldnn.
         bzyxf,
         byfx,                                   ///< To be used when onednn gemm allows permute fusing in transformer network. Not for normal use from cldnn.
         bxfy,                                   ///< To be used when onednn gemm allows permute fusing in transformer network. Not for normal use from cldnn.
@@ -143,7 +148,9 @@ struct format {
         o_is_yx_isv16,                                ///< format used only for convolution weights
         os_is_yx_osv16_isv16,                         ///< format used for convolution i8 weights
         os_is_zyx_osv32_isv16,
+        os_is_yx_osv32_isv2,                          ///< format used only for fully connected weights compressed for i4
         os_is_zyx_osv64_isv16,
+        os_is_yx_osv64_isv2,                          ///< format used only for fully connected weights compressed for i4
         os_zyxi_osv16,                                ///< format used for weights for 3D convolution
         os_is_yx_isv16_osv16,                         ///< format used for blocked convolution
         os_is_zyx_isv16_osv16,                        ///< format used for weights for blocked 3D convolution
@@ -252,6 +259,7 @@ struct format {
     static const std::string& internal_order(const format& fmt) { return fmt.traits().internal_order; }
     /// @brief Returns block sizes for @p format.
     static const std::vector<std::pair<size_t, int>>& block_sizes(const format& fmt) { return fmt.traits().block_sizes; }
+    static const std::vector<std::pair<size_t, int>>& logic_block_sizes(const format& fmt) { return fmt.traits().logic_block_sizes; }
     /// @brief Returns number of dimensions contained within a @p format
     static size_t dimension(const format& fmt) { return order(fmt).size(); }
     /// @brief Checks if @p format is a winograd format
@@ -286,11 +294,8 @@ struct format {
     }
     /// @brief Checks if @p format is simple data format
     static bool is_simple_data_format(const format& fmt) {
-        return (fmt == yxfb || fmt == byxf ||
-                fmt == byfx || fmt == bxfy ||
-                fmt == bfyx || fmt == fyxb ||
-                fmt == fbyx || fmt == bfzyx ||
-                fmt == bfwzyx || fmt == bfuwzyx ||
+        return (fmt == yxfb || fmt == byxf || fmt == byfx || fmt == bxfy || fmt == bfyx || fmt == fyxb || fmt == fybx ||
+                fmt == bfxy ||fmt == xbfy || fmt == ybfx || fmt == fbyx || fmt == bfzyx || fmt == bfwzyx || fmt == bfuwzyx ||
                 fmt == bfvuwzyx);
     }
 
@@ -338,6 +343,7 @@ struct format {
     const std::string& internal_order() const { return traits().internal_order; }
     /// @brief Returns block sizes as vector of pairs of dimension and block size for that dimension.
     const std::vector<std::pair<size_t, int>>& block_sizes() const { return traits().block_sizes; }
+    const std::vector<std::pair<size_t, int>>& logic_block_sizes() const { return traits().logic_block_sizes; }
     /// @brief Returns number of dimensions contained within this format
     size_t dimension() const { return traits()._order.size(); }
     /// @brief Checks if @p format is a winograd format

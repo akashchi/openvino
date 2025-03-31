@@ -55,6 +55,10 @@ public:
             buffer << block_size.first;
             buffer << block_size.second;
         }
+        for (auto& block_size : traits.logic_block_sizes) {
+            buffer << block_size.first;
+            buffer << block_size.second;
+        }
     }
 };
 
@@ -80,6 +84,11 @@ public:
             buffer >> axis_idx;
             traits.block_sizes.push_back(std::make_pair(blk_size, axis_idx));
         }
+        for (size_t i = 0; i < num_block_size; i++) {
+            buffer >> blk_size;
+            buffer >> axis_idx;
+            traits.logic_block_sizes.push_back(std::make_pair(blk_size, axis_idx));
+        }
     }
 };
 
@@ -98,7 +107,7 @@ template <typename BufferType>
 class Serializer<BufferType, cldnn::format, typename std::enable_if<std::is_base_of<InputBuffer<BufferType>, BufferType>::value>::type> {
 public:
     static void load(BufferType& buffer, cldnn::format& format) {
-        cldnn::format::type fmt_type;
+        cldnn::format::type fmt_type = cldnn::format::type::any;
         buffer >> make_data(&fmt_type, sizeof(cldnn::format::type));
         if (fmt_type == cldnn::format::custom) {
             cldnn::format_traits traits;

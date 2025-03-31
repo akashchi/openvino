@@ -7,6 +7,7 @@
 #include <string>
 #include <vector>
 
+#include "transformations/cpu_opset/common/op/submodel.hpp"
 #include "utils/caseless.hpp"
 
 namespace ov {
@@ -14,6 +15,9 @@ namespace intel_cpu {
 
 using Dim = std::size_t;
 using VectorDims = std::vector<Dim>;
+
+std::string dim2str(Dim dim);
+std::string dims2str(const VectorDims& dims);
 
 enum class Type {
     Unknown,
@@ -38,6 +42,7 @@ enum class Type {
     NonZero,
     Tile,
     ROIAlign,
+    ROIAlignRotated,
     ROIPooling,
     PSROIPooling,
     BatchToSpace,
@@ -57,14 +62,19 @@ enum class Type {
     TensorIterator,
     Convert,
     ColorConvert,
+    Col2Im,
     MVN,
     NormalizeL2,
     ScatterUpdate,
     ScatterElementsUpdate,
     ScatterNDUpdate,
+    StringTensorPack,
+    StringTensorUnpack,
     Interpolate,
     Reduce,
     Broadcast,
+    EmbeddingBagPacked,
+    EmbeddingBagOffsets,
     EmbeddingSegmentsSum,
     EmbeddingBagPackedSum,
     EmbeddingBagOffsetsSum,
@@ -79,6 +89,7 @@ enum class Type {
     ShuffleChannels,
     DFT,
     RDFT,
+    STFT,
     Math,
     CTCLoss,
     Bucketize,
@@ -107,6 +118,7 @@ enum class Type {
     MulticlassNms,
     Multinomial,
     Subgraph,
+    SubModel,
     PriorBox,
     PriorBoxClustered,
     Interaction,
@@ -115,7 +127,14 @@ enum class Type {
     Unique,
     Ngram,
     ScaledDotProductAttention,
+    PagedAttention,
     RoPE,
+    CausalMaskPreprocess,
+    LLMMLP,
+    QKVProjection,
+    RMS,
+    SearchSorted,
+    LoRA
 };
 
 enum class Algorithm {
@@ -145,6 +164,7 @@ enum class Algorithm {
     EltwiseMultiply,
     EltwiseSubtract,
     EltwiseDivide,
+    EltwiseFloor,
     EltwiseFloorMod,
     EltwiseMod,
     EltwiseMaximum,
@@ -189,6 +209,8 @@ enum class Algorithm {
     EltwiseBitwiseNot,
     EltwiseBitwiseOr,
     EltwiseBitwiseXor,
+    EltwiseBitwiseLeftShift,
+    EltwiseBitwiseRightShift,
 
     // FakeQuantize algorithms
     FQCommon,

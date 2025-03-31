@@ -5,21 +5,31 @@ import itertools
 import warnings
 from copy import deepcopy
 import os
-
+import torch
+import pytest
+import logging
 import numpy as np
+
 from common.constants import test_device, test_precision
 from openvino.frontend.pytorch.ts_decoder import TorchScriptPythonDecoder
-from openvino.frontend.pytorch.fx_decoder import TorchFXPythonDecoder
-
 from openvino.frontend import FrontEndManager
 from openvino.runtime import Core, Type, PartialShape
-import torch
-from packaging import version
-import openvino.torch
-import pytest
+import openvino.properties.hint as hints
+
+logging.basicConfig(level=logging.DEBUG)
+
+
+def skip_check(param):
+    return skip_if_export(param) if PytorchLayerTest.use_torch_export() else skip_if_fx(param)
+
 
 def skip_if_export(param, reason="Unsupported on torch.export"):
     return pytest.param(param, marks=pytest.mark.skipif(PytorchLayerTest.use_torch_export(), reason=reason))
+
+
+def skip_if_fx(param, reason="Unsupported on torch.fx"):
+    return pytest.param(param, marks=pytest.mark.skipif(PytorchLayerTest.use_torch_compile_backend(), reason=reason))
+
 
 class PytorchLayerTest:
     _type_map = {
@@ -48,8 +58,7 @@ class PytorchLayerTest:
     def use_torch_compile_backend():
         torch_compile_env = os.getenv("PYTORCH_TRACING_MODE")
         if torch_compile_env is not None:
-            if (torch_compile_env == "TORCHFX" or torch_compile_env == "TORCHSCRIPT"):
-                return True
+            return torch_compile_env == "TORCHFX"
         return False
 
     @staticmethod
@@ -59,8 +68,26 @@ class PytorchLayerTest:
             return torch_compile_env == "EXPORT"
         return False
 
+
     def _test(self, model, ref_net, kind, ie_device, precision, ir_version, infer_timeout=60, dynamic_shapes=True,
               **kwargs):
+        retries = 0
+        max_retries = 3
+        last_e = None
+        while retries < max_retries:
+            try:
+                return self._test_impl(model, ref_net, kind, ie_device, precision, ir_version, infer_timeout, dynamic_shapes, **kwargs)
+            except RuntimeError as e:
+                # This is a potentially sporadic issue
+                print(f"An error occurred: {e}. Retrying...")
+                last_e = e
+                retries += 1
+        else:
+            raise RuntimeError("Max retries reached. Function execution failed.") from last_e
+
+
+    def _test_impl(self, model, ref_net, kind, ie_device, precision, ir_version, infer_timeout=60, dynamic_shapes=True,
+                   **kwargs):
         """
         :param enabled_transforms/disabled_transforms: string with idxs of transforms that should be enabled/disabled.
                                                        Example: "transform_1,transform_2"
@@ -90,33 +117,16 @@ class PytorchLayerTest:
         ov_inputs = flattenize_inputs(inputs)
 
         if self.use_torch_compile_backend():
-            self.torch_compile_backend_test(model, torch_inputs, custom_eps)
+            self.torch_compile_backend_test(model, torch_inputs, **kwargs)
         else:
             if self.use_torch_export():
                 from openvino import convert_model
                 from torch.export import export
-                from torch.fx.experimental.proxy_tensor import make_fx
 
                 em = export(model, tuple(torch_inputs))
-                if version.parse(torch.__version__) >= version.parse("2.3"):
-                    em = em.run_decompositions()
-                print(em.graph_module.code)
 
-                try:
-                    gm = make_fx(em)(*torch_inputs)
-                except:
-                    gm = make_fx(em, tracing_mode='symbolic')(*torch_inputs)
-
-                input_shapes = []
-                input_types = []
-                for input_data in torch_inputs:
-                    input_types.append(input_data.type())
-                    input_shapes.append(input_data.size())
-
-                decoder = TorchFXPythonDecoder(
-                    gm, gm, input_shapes=input_shapes, input_types=input_types)
                 converted_model = convert_model(
-                    decoder, example_input=torch_inputs)
+                    em, example_input=torch_inputs, verbose=True)
                 self._resolve_input_shape_dtype(
                     converted_model, ov_inputs, dynamic_shapes)
                 smodel = model
@@ -138,7 +148,12 @@ class PytorchLayerTest:
                             smodel.inlined_graph, op), f"Operation {op} type doesn't exist in provided graph"
             # OV infer:
             core = Core()
-            compiled = core.compile_model(converted_model, ie_device)
+            config = {}
+            if ie_device == "GPU" and precision == "FP32":
+                config[hints.inference_precision] = Type.f32
+            if "dynamic_quantization_group_size" in kwargs:
+                config["DYNAMIC_QUANTIZATION_GROUP_SIZE"] = str(kwargs["dynamic_quantization_group_size"])
+            compiled = core.compile_model(converted_model, ie_device, config)
             infer_res = compiled(deepcopy(ov_inputs))
 
             if hasattr(self, 'skip_framework') and self.skip_framework:
@@ -164,9 +179,6 @@ class PytorchLayerTest:
                 if not isinstance(fw_tensor, torch.Tensor):
                     fw_type = torch.tensor(fw_tensor).numpy().dtype
                     ov_type = ov_tensor.dtype
-                    if fw_type in [np.int32, np.int64] and ov_type in [np.int32, np.int64]:
-                        # do not differentiate between int32 and int64
-                        continue
                     assert ov_type == fw_type, f"dtype validation failed: ov={ov_type} vs fw={fw_type}"
                     continue
                 ov_tensor_format = torch.tensor(np.array(ov_tensor))
@@ -228,7 +240,7 @@ class PytorchLayerTest:
         if not dynamic_shapes:
             input_shapes = [inp.shape for inp in ov_inputs]
             kwargs["input"] = input_shapes
-        om = convert_model(decoder, **kwargs)
+        om = convert_model(decoder, verbose=True, **kwargs)
         self._resolve_input_shape_dtype(om, ov_inputs, dynamic_shapes)
         return smodel, om
 
@@ -267,7 +279,7 @@ class PytorchLayerTest:
         om.validate_nodes_and_infer_types()
         return om
 
-    def torch_compile_backend_test(self, model, inputs, custom_eps):
+    def torch_compile_backend_test(self, model, inputs, **kwargs):
         torch._dynamo.reset()
         with torch.no_grad():
             model.eval()
@@ -276,8 +288,17 @@ class PytorchLayerTest:
         torch._dynamo.reset()
         with torch.no_grad():
             model.eval()
+            options={"testing": 1,}
+            if ("aot_autograd" in kwargs):
+                options.update({"aot_autograd": True,})
+            if "dynamic_quantization_group_size" in kwargs:
+                options["config"] = {"DYNAMIC_QUANTIZATION_GROUP_SIZE": str(kwargs["dynamic_quantization_group_size"])}
+            dynamic = False
+            if ("dynamic" in kwargs):
+                dynamic = kwargs["dynamic"]
+
             ov_model = torch.compile(
-                model, backend="openvino", options={"testing": 1})
+                model, backend="openvino", dynamic=dynamic, options=options)
             ov_res = ov_model(*inputs)
 
         if not isinstance(fw_res, (tuple)):
@@ -302,7 +323,10 @@ class PytorchLayerTest:
                 continue
             assert fw_tensor.dtype == ov_tensor.dtype, f"dtype validation failed: {fw_tensor.dtype} != {ov_tensor.dtype}"
 
-        fw_eps = custom_eps
+        if 'custom_eps' in kwargs and kwargs['custom_eps'] is not None:
+            fw_eps = kwargs['custom_eps']
+        else:
+            fw_eps = 1e-4
         is_ok = True
         for i in range(len(flatten_ov_res)):
             cur_ov_res = flatten_ov_res[i]

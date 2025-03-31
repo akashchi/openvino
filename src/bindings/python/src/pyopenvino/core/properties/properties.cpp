@@ -21,6 +21,10 @@ void regmodule_properties(py::module m) {
         .value("NUMA", ov::Affinity::NUMA)
         .value("HYBRID_AWARE", ov::Affinity::HYBRID_AWARE);
 
+    py::enum_<ov::WorkloadType>(m_properties, "WorkloadType", py::arithmetic())
+        .value("DEFAULT", ov::WorkloadType::DEFAULT)
+        .value("EFFICIENT", ov::WorkloadType::EFFICIENT);
+
     py::enum_<ov::CacheMode>(m_properties, "CacheMode", py::arithmetic())
         .value("OPTIMIZE_SIZE", ov::CacheMode::OPTIMIZE_SIZE)
         .value("OPTIMIZE_SPEED", ov::CacheMode::OPTIMIZE_SPEED);
@@ -28,6 +32,7 @@ void regmodule_properties(py::module m) {
     // Submodule properties - properties
     wrap_property_RW(m_properties, ov::enable_profiling, "enable_profiling");
     wrap_property_RW(m_properties, ov::cache_dir, "cache_dir");
+    wrap_property_RW(m_properties, ov::workload_type, "workload_type");
     wrap_property_RW(m_properties, ov::cache_mode, "cache_mode");
     wrap_property_RW(m_properties, ov::auto_batch_timeout, "auto_batch_timeout");
     wrap_property_RW(m_properties, ov::num_streams, "num_streams");
@@ -38,6 +43,7 @@ void regmodule_properties(py::module m) {
     OPENVINO_SUPPRESS_DEPRECATED_END
     wrap_property_RW(m_properties, ov::force_tbb_terminate, "force_tbb_terminate");
     wrap_property_RW(m_properties, ov::enable_mmap, "enable_mmap");
+    wrap_property_RW(m_properties, ov::weights_path, "weights_path");
 
     wrap_property_RO(m_properties, ov::supported_properties, "supported_properties");
     wrap_property_RO(m_properties, ov::available_devices, "available_devices");
@@ -49,6 +55,8 @@ void regmodule_properties(py::module m) {
     wrap_property_RO(m_properties, ov::range_for_async_infer_requests, "range_for_async_infer_requests");
     wrap_property_RO(m_properties, ov::execution_devices, "execution_devices");
     wrap_property_RO(m_properties, ov::loaded_from_cache, "loaded_from_cache");
+
+    wrap_property_WO(m_properties, ov::cache_encryption_callbacks, "cache_encryption_callbacks");
 
     // Submodule hint
     py::module m_hint =
@@ -72,7 +80,8 @@ void regmodule_properties(py::module m) {
         .value("ECORE_ONLY", ov::hint::SchedulingCoreType::ECORE_ONLY);
 
     py::enum_<ov::hint::ModelDistributionPolicy>(m_hint, "ModelDistributionPolicy", py::arithmetic())
-        .value("TENSOR_PARALLEL", ov::hint::ModelDistributionPolicy::TENSOR_PARALLEL);
+        .value("TENSOR_PARALLEL", ov::hint::ModelDistributionPolicy::TENSOR_PARALLEL)
+        .value("PIPELINE_PARALLEL", ov::hint::ModelDistributionPolicy::PIPELINE_PARALLEL);
 
     py::enum_<ov::hint::ExecutionMode>(m_hint, "ExecutionMode", py::arithmetic())
         .value("PERFORMANCE", ov::hint::ExecutionMode::PERFORMANCE)
@@ -92,6 +101,7 @@ void regmodule_properties(py::module m) {
     wrap_property_RW(m_hint, ov::hint::allow_auto_batching, "allow_auto_batching");
     wrap_property_RW(m_hint, ov::hint::dynamic_quantization_group_size, "dynamic_quantization_group_size");
     wrap_property_RW(m_hint, ov::hint::kv_cache_precision, "kv_cache_precision");
+    wrap_property_RW(m_hint, ov::hint::activations_scale_factor, "activations_scale_factor");
 
     // Submodule intel_cpu
     py::module m_intel_cpu =
@@ -168,6 +178,19 @@ void regmodule_properties(py::module m) {
         return ov::device::priorities(value);
     });
 
+    // Special case: ov::device::PCIInfo
+    py::class_<ov::device::PCIInfo, std::shared_ptr<ov::device::PCIInfo>> cls_pciinfo(m_device, "PCIInfo");
+    cls_pciinfo.def(py::init<const uint32_t&, const uint32_t&, const uint32_t&, const uint32_t&>());
+    cls_pciinfo.def_readonly("domain", &ov::device::PCIInfo::domain);
+    cls_pciinfo.def_readonly("bus", &ov::device::PCIInfo::bus);
+    cls_pciinfo.def_readonly("device", &ov::device::PCIInfo::device);
+    cls_pciinfo.def_readonly("function", &ov::device::PCIInfo::function);
+    cls_pciinfo.def("__repr__", [](const ov::device::PCIInfo& info) {
+        std::stringstream pciinfo_stream;
+        pciinfo_stream << info;
+        return py::cast(pciinfo_stream.str());
+    });
+
     // Submodule device - properties
     wrap_property_RW(m_device, ov::device::id, "id");
 
@@ -175,6 +198,7 @@ void regmodule_properties(py::module m) {
     wrap_property_RO(m_device, ov::device::architecture, "architecture");
     wrap_property_RO(m_device, ov::device::type, "type");
     wrap_property_RO(m_device, ov::device::gops, "gops");
+    wrap_property_RO(m_device, ov::device::pci_info, "pci_info");
     wrap_property_RO(m_device, ov::device::thermal, "thermal");
     wrap_property_RO(m_device, ov::device::capabilities, "capabilities");
     wrap_property_RO(m_device, ov::device::uuid, "uuid");

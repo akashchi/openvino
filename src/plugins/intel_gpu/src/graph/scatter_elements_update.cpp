@@ -27,7 +27,7 @@ layout scatter_elements_update_inst::calc_output_layout(scatter_elements_update_
     auto output_type = input_layout.data_type;
 
     if (impl_param.has_fused_primitives()) {
-        output_type = impl_param.get_fused_output_layout().data_type;
+        output_type = impl_param.get_output_element_type();
     }
 
     if (static_cast<size_t>(axis) < 0 || static_cast<size_t>(axis) >= input_number_of_dims)
@@ -70,6 +70,12 @@ void scatter_elements_update_inst::update_output_memory() {
     if (_node != nullptr)
         build_deps();
 
+    // Can_be_optimized nodes are allocating from memory_pool too. In this case,
+    // we need release the legacy output memory from memory pool explicitly.
+    if (static_cast<bool>(_outputs[0]) &&
+        _node->get_program().get_config().get_property(ov::intel_gpu::enable_memory_pool)) {
+        _network.get_memory_pool().release_memory(_outputs[0].get(), _node->get_unique_id(), _node->id(), _network.get_id());
+    }
     _outputs = {_network.get_engine().reinterpret_buffer(input_memory(), _impl_params->get_output_layout())};
     _mem_allocated = false;
 }

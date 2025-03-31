@@ -12,6 +12,7 @@
 #include "openvino/pass/graph_rewrite.hpp"
 #include "openvino/pass/pattern/op/pattern.hpp"
 #include "openvino/pass/pattern/op/wrap_type.hpp"
+#include "transformations/utils/utils.hpp"
 
 #include <memory>
 
@@ -67,9 +68,51 @@ std::shared_ptr<ov::Node> pad_quantization_parameter(std::shared_ptr<ov::op::v0:
     return std::make_shared<ov::op::v0::Constant>(new_qp);
 }
 
+template <typename T>
+bool all_same_value(const T* qp_ptr, size_t size) {
+    return std::all_of(qp_ptr, qp_ptr + size, [qp_ptr](const T& val) {
+        return val == qp_ptr[0];
+    });
+}
+
+template <typename T>
+std::shared_ptr<ov::op::v0::Constant>
+create_scalar_constant(const std::shared_ptr<ov::op::v0::Constant>& qp) {
+    auto type = qp->get_element_type();
+    auto shape = qp->get_shape();
+    if (all_same_value(static_cast<const T*>(qp->get_data_ptr()), ov::shape_size(shape))) {
+        ov::Shape new_shape(shape.size(), 1);
+        ov::Tensor new_tensor(type, new_shape);
+        auto new_qp = std::make_shared<ov::op::v0::Constant>(new_tensor);
+        auto val = qp->get_vector<T>()[0];
+        new_qp->fill_data(type, val);
+        return new_qp;
+    }
+    return nullptr;
+}
+
+std::shared_ptr<ov::Node> scalar_parameter(std::shared_ptr<ov::op::v0::Constant> qp) {
+    auto type = qp->get_element_type();
+    std::shared_ptr<ov::op::v0::Constant> new_qp = nullptr;
+
+    if (type == ov::element::u8) {
+        new_qp = create_scalar_constant<uint8_t>(qp);
+    } else if (type == ov::element::i8) {
+        new_qp = create_scalar_constant<int8_t>(qp);
+    } else if (type == ov::element::f16) {
+        new_qp = create_scalar_constant<ov::float16>(qp);
+    } else if (type == ov::element::f32) {
+        new_qp = create_scalar_constant<float>(qp);
+    } else {
+        OPENVINO_THROW("[GPU] Can't pad quantization parameter for ", type, " element type");
+    }
+
+    return new_qp;
+}
+
 }  // namespace
 
-BroadcastAndPadZeroPointBuffers::BroadcastAndPadZeroPointBuffers(size_t pad_size) {
+BroadcastAndPadZeroPointBuffers::BroadcastAndPadZeroPointBuffers(size_t pad_size, bool supports_immad) {
     auto input_m = any_input(type_matches_any({ov::element::u8, ov::element::i8}));
     auto weights_m = any_input(type_matches_any({ov::element::u8, ov::element::i8}));
     auto bias_m = any_input();
@@ -79,7 +122,7 @@ BroadcastAndPadZeroPointBuffers::BroadcastAndPadZeroPointBuffers(size_t pad_size
 
     auto convolution_m = wrap_type<op::Convolution>({ input_m, weights_m, bias_m, azp_m, wzp_m, cmp_m });
 
-    ov::matcher_pass_callback callback = [=](Matcher& m) {
+    ov::matcher_pass_callback callback = [OV_CAPTURE_CPY_AND_THIS](Matcher& m) {
         const auto& pattern_map = m.get_pattern_value_map();
         if (transformation_callback(m.get_match_root())) {
             return false;
@@ -89,6 +132,10 @@ BroadcastAndPadZeroPointBuffers::BroadcastAndPadZeroPointBuffers(size_t pad_size
         auto in_shape = conv->get_input_partial_shape(0);
         auto out_shape = conv->get_output_partial_shape(0);
         const size_t channel_idx = 1;
+
+        if (in_shape[channel_idx].is_dynamic() || out_shape[channel_idx].is_dynamic()) {
+            return false;
+        }
 
         if (auto azp = std::dynamic_pointer_cast<ov::op::v0::Constant>(pattern_map.at(azp_m).get_node_shared_ptr())) {
             auto target_shape = azp->get_shape();
@@ -101,8 +148,18 @@ BroadcastAndPadZeroPointBuffers::BroadcastAndPadZeroPointBuffers(size_t pad_size
 
         if (auto wzp = std::dynamic_pointer_cast<ov::op::v0::Constant>(pattern_map.at(wzp_m).get_node_shared_ptr())) {
             auto target_shape = wzp->get_shape();
-            const size_t wzp_c_idx = 0;
-            auto aligned_wzp = pad_quantization_parameter(wzp, out_shape[channel_idx].get_length(), wzp_c_idx, pad_size);
+
+            std::shared_ptr<ov::Node> aligned_wzp;
+            if (supports_immad && !(conv->get_groups() > 1)) {
+                // OneDNN supports scalar wzp. If wzp data are identical, replace it with scalar value for OneDNN
+                aligned_wzp = scalar_parameter(wzp);
+            }
+
+            if (aligned_wzp == nullptr) {
+                const size_t wzp_c_idx = 0;
+                aligned_wzp = pad_quantization_parameter(wzp, out_shape[channel_idx].get_length(), wzp_c_idx, pad_size);
+            }
+
             aligned_wzp->set_friendly_name(conv->get_friendly_name() + "_wzp");
             ov::copy_runtime_info(wzp, aligned_wzp);
             conv->input(op::Convolution::Args::WZP).replace_source_output(aligned_wzp);

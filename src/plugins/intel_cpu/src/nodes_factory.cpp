@@ -7,7 +7,9 @@
 #include "nodes/bin_conv.h"
 #include "nodes/broadcast.h"
 #include "nodes/bucketize.h"
+#include "nodes/col2im.h"
 #include "nodes/color_convert.h"
+#include "nodes/composite.h"
 #include "nodes/concat.h"
 #include "nodes/conv.h"
 #include "nodes/convert.h"
@@ -21,8 +23,8 @@
 #include "nodes/detection_output.h"
 #include "nodes/dft.h"
 #include "nodes/eltwise.h"
-#include "nodes/embedding_bag_offset_sum.h"
-#include "nodes/embedding_bag_packed_sum.h"
+#include "nodes/embedding_bag_offsets.h"
+#include "nodes/embedding_bag_packed.h"
 #include "nodes/embedding_segments_sum.h"
 #include "nodes/experimental_detectron_detection_output.h"
 #include "nodes/experimental_detectron_generate_proposals_single_image.h"
@@ -43,6 +45,8 @@
 #include "nodes/if.h"
 #include "nodes/input.h"
 #include "nodes/interaction.h"
+#include "nodes/llm_mlp.h"
+#include "nodes/qkv_proj.h"
 #include "nodes/interpolate.h"
 #include "nodes/inverse.hpp"
 #include "nodes/log_softmax.h"
@@ -61,6 +65,7 @@
 #include "nodes/normalize.h"
 #include "nodes/one_hot.h"
 #include "nodes/pad.h"
+#include "nodes/paged_attn.h"
 #include "nodes/pooling.h"
 #include "nodes/priorbox.h"
 #include "nodes/priorbox_clustered.h"
@@ -76,19 +81,25 @@
 #include "nodes/reorg_yolo.h"
 #include "nodes/reshape.h"
 #include "nodes/reverse_sequence.h"
+#include "nodes/rms_norm.h"
 #include "nodes/rnn.h"
 #include "nodes/roi_align.h"
+#include "nodes/roi_align_rotated.h"
 #include "nodes/roi_pooling.h"
 #include "nodes/roll.h"
 #include "nodes/rope.h"
 #include "nodes/scaled_attn.h"
 #include "nodes/scatter_update.h"
+#include "nodes/search_sorted.h"
+#include "nodes/string_tensor_pack.h"
+#include "nodes/string_tensor_unpack.h"
 #include "nodes/shapeof.h"
 #include "nodes/shuffle_channels.h"
 #include "nodes/softmax.h"
 #include "nodes/space_to_batch.h"
 #include "nodes/space_to_depth.h"
 #include "nodes/split.h"
+#include "nodes/stft.h"
 #include "nodes/strided_slice.h"
 #include "nodes/subgraph.h"
 #include "nodes/tensoriterator.h"
@@ -96,6 +107,8 @@
 #include "nodes/topk.h"
 #include "nodes/transpose.h"
 #include "nodes/unique.hpp"
+#include "nodes/causal_mask_preprocess.h"
+#include "nodes/lora.h"
 
 namespace ov {
 namespace intel_cpu {
@@ -121,7 +134,8 @@ Node::NodesFactory::NodesFactory() : Factory("NodesFactory") {
     INTEL_CPU_NODE(Pooling, Type::Pooling);
     INTEL_CPU_NODE(Eltwise, Type::Eltwise);
     INTEL_CPU_NODE(SoftMax, Type::Softmax);
-    INTEL_CPU_NODE(EmbeddingBagPackedSum, Type::EmbeddingBagPackedSum);
+    INTEL_CPU_NODE(EmbeddingBagPacked, Type::EmbeddingBagPackedSum);
+    INTEL_CPU_NODE(EmbeddingBagPacked, Type::EmbeddingBagPacked);
     INTEL_CPU_NODE(Input, Type::Input);
     INTEL_CPU_NODE(Input, Type::Output);
     INTEL_CPU_NODE(MemoryInput, Type::MemoryInput);
@@ -154,8 +168,10 @@ Node::NodesFactory::NodesFactory() : Factory("NodesFactory") {
     INTEL_CPU_NODE(Math, Type::Math);
     INTEL_CPU_NODE(MultiClassNms, Type::MulticlassNms);
     INTEL_CPU_NODE(Convert, Type::Convert);
+    INTEL_CPU_NODE(Col2Im, Type::Col2Im);
     INTEL_CPU_NODE(ColorConvert, Type::ColorConvert);
-    INTEL_CPU_NODE(EmbeddingBagOffsetSum, Type::EmbeddingBagOffsetsSum);
+    INTEL_CPU_NODE(EmbeddingBagOffset, Type::EmbeddingBagOffsetsSum);
+    INTEL_CPU_NODE(EmbeddingBagOffset, Type::EmbeddingBagOffsets);
     INTEL_CPU_NODE(Roll, Type::Roll);
     INTEL_CPU_NODE(Pad, Type::Pad);
     INTEL_CPU_NODE(Reshape, Type::Reshape);
@@ -165,6 +181,8 @@ Node::NodesFactory::NodesFactory() : Factory("NodesFactory") {
     INTEL_CPU_NODE(ScatterUpdate, Type::ScatterUpdate);
     INTEL_CPU_NODE(ScatterUpdate, Type::ScatterElementsUpdate);
     INTEL_CPU_NODE(ScatterUpdate, Type::ScatterNDUpdate);
+    INTEL_CPU_NODE(StringTensorPack, Type::StringTensorPack);
+    INTEL_CPU_NODE(StringTensorUnpack, Type::StringTensorUnpack);
     INTEL_CPU_NODE(ShuffleChannels, Type::ShuffleChannels);
     INTEL_CPU_NODE(TensorIterator, Type::TensorIterator);
     INTEL_CPU_NODE(Concat, Type::Concatenation);
@@ -183,6 +201,7 @@ Node::NodesFactory::NodesFactory() : Factory("NodesFactory") {
     INTEL_CPU_NODE(Unique, Type::Unique);
     INTEL_CPU_NODE(Ngram, Type::Ngram);
     INTEL_CPU_NODE(RoPE, Type::RoPE);
+    INTEL_CPU_NODE(CausalMaskPreprocess, Type::CausalMaskPreprocess);
     INTEL_CPU_NODE(Interpolate, Type::Interpolate);
     INTEL_CPU_NODE(Inverse, Type::Inverse);
     INTEL_CPU_NODE(RandomUniform, Type::RandomUniform);
@@ -191,19 +210,28 @@ Node::NodesFactory::NodesFactory() : Factory("NodesFactory") {
     INTEL_CPU_NODE(NonMaxSuppression, Type::NonMaxSuppression);
     INTEL_CPU_NODE(ROIPooling, Type::ROIPooling);
     INTEL_CPU_NODE(ROIAlign, Type::ROIAlign);
+    INTEL_CPU_NODE(ROIAlignRotated, Type::ROIAlignRotated);
     INTEL_CPU_NODE(TopK, Type::TopK);
     INTEL_CPU_NODE(Proposal, Type::Proposal);
     INTEL_CPU_NODE(RegionYolo, Type::RegionYolo);
     INTEL_CPU_NODE(DFT, Type::DFT);
     INTEL_CPU_NODE(RDFT, Type::RDFT);
+    INTEL_CPU_NODE(STFT, Type::STFT);
     INTEL_CPU_NODE(ExtractImagePatches, Type::ExtractImagePatches);
+    INTEL_CPU_NODE(Subgraph, Type::Subgraph);
+    INTEL_CPU_NODE(Composite, Type::SubModel);
+    INTEL_CPU_NODE(ScaledDotProductAttention, Type::ScaledDotProductAttention);
+    INTEL_CPU_NODE(SearchSorted, Type::SearchSorted);
+    INTEL_CPU_NODE(LoRA, Type::LoRA);
 #if defined(OPENVINO_ARCH_X86_64)
     INTEL_CPU_NODE(FakeQuantize, Type::FakeQuantize);
     INTEL_CPU_NODE(GridSample, Type::GridSample);
     INTEL_CPU_NODE(Interaction, Type::Interaction);
+    INTEL_CPU_NODE(LLMMLP, Type::LLMMLP);
+    INTEL_CPU_NODE(QKVProjection, Type::QKVProjection);
     INTEL_CPU_NODE(MHA, Type::MHA);
-    INTEL_CPU_NODE(ScaledDotProductAttention, Type::ScaledDotProductAttention);
-    INTEL_CPU_NODE(Snippet, Type::Subgraph);
+    INTEL_CPU_NODE(PagedAttention, Type::PagedAttention);
+    INTEL_CPU_NODE(RMSNorm, Type::RMS);
 #endif
 }
 

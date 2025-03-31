@@ -1,7 +1,6 @@
 // Copyright (C) 2023 Intel Corporation
 // SPDX-License-Identifier: Apache-2.0
 //
-#include "intel_gpu/runtime/error_handler.hpp"
 #include "intel_gpu/runtime/memory.hpp"
 #include "json_object.h"
 #include "primitive_type_base.h"
@@ -11,6 +10,18 @@
 
 namespace cldnn {
 GPU_DEFINE_PRIMITIVE_TYPE_ID(multinomial)
+
+template<typename ShapeType>
+std::vector<layout> multinomial_inst::calc_output_layouts(multinomial_node const& /*node*/, const kernel_impl_params& impl_param) {
+    const auto& input_layout = impl_param.get_input_layout();
+    auto primitive = impl_param.typed_desc<multinomial>();
+
+    layout out_layout{ov::PartialShape{input_layout.get_partial_shape()[0], primitive->num_samples}, primitive->output_data_type, input_layout.format};
+
+    return { out_layout };
+}
+
+template std::vector<layout> multinomial_inst::calc_output_layouts<ov::PartialShape>(multinomial_node const& node, const kernel_impl_params& impl_param);
 
 layout multinomial_inst::calc_output_layout(multinomial_node const& node, kernel_impl_params const& impl_param) {
     auto primitive = impl_param.typed_desc<multinomial>();

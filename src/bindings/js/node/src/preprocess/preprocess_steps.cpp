@@ -3,7 +3,9 @@
 
 #include "node/include/preprocess/preprocess_steps.hpp"
 
-PreProcessSteps::PreProcessSteps(const Napi::CallbackInfo& info) : Napi::ObjectWrap<PreProcessSteps>(info){};
+PreProcessSteps::PreProcessSteps(const Napi::CallbackInfo& info)
+    : Napi::ObjectWrap<PreProcessSteps>(info),
+      _preprocess_info(nullptr){};
 
 Napi::Function PreProcessSteps::get_class_constructor(Napi::Env env) {
     return DefineClass(env, "PreProcessSteps", {InstanceMethod("resize", &PreProcessSteps::resize)});
@@ -15,7 +17,7 @@ Napi::Value PreProcessSteps::resize(const Napi::CallbackInfo& info) {
         return Napi::Value();
     }
     try {
-        const auto& algorithm = js_to_cpp<ov::preprocess::ResizeAlgorithm>(info, 0, {napi_string});
+        const auto& algorithm = js_to_cpp<ov::preprocess::ResizeAlgorithm>(info, 0);
         _preprocess_info->resize(algorithm);
     } catch (std::exception& e) {
         reportError(info.Env(), e.what());

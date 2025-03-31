@@ -1,5 +1,3 @@
-.. {#openvino_docs_install_guides_installing_openvino_conda}
-
 Install OpenVINO™ Runtime from Conda Forge
 ============================================
 
@@ -24,7 +22,7 @@ Install OpenVINO™ Runtime from Conda Forge
       :sync: system-requirements
 
       | Full requirement listing is available in:
-      | :doc:`System Requirements Page <../../../about-openvino/system-requirements>`
+      | :doc:`System Requirements Page <../../../about-openvino/release-notes-openvino/system-requirements>`
 
 
    .. tab-item:: Processor Notes
@@ -64,22 +62,35 @@ Installing OpenVINO Runtime with Anaconda Package Manager
 
    .. code-block:: sh
 
-      conda install -c conda-forge openvino=2024.0.0
+      conda install -c conda-forge openvino=2024.4.0
 
 Congratulations! You've just Installed OpenVINO! For some use cases you may still
 need to install additional components. Check the description below, as well as the
 :doc:`list of additional configurations <../configurations>`
 to see if your case needs any of them.
 
+Enabling GPU device for inference
++++++++++++++++++++++++++++++++++
+
+To use a GPU device for OpenVINO inference on Linux, you must install OpenCL ICD:
+
+.. code-block:: sh
+
+   conda install ocl-icd-system
+
+This step is not required on Windows, as Intel® Graphics Compute Runtime for
+OpenCL™ Driver is included with the Intel® Graphics Driver package.
+
 Compiling with OpenVINO Runtime from Conda-Forge on Linux
 +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-When linking OpenVINO libraries from Conda on Linux, ensure that you have the necessary Conda compilers installed.
+When linking OpenVINO libraries from Conda on Linux, ensure that you have the necessary Conda compilers installed and Conda standard libraries are used.
 To do so, run the following command in your Conda environment:
 
 .. code-block:: sh
 
     conda install cmake c-compiler cxx-compiler make
+    conda env config vars set LD_LIBRARY_PATH=$CONDA_PREFIX/lib:$LD_LIBRARY_PATH
 
 It is crucial to reactivate your Conda environment after installing the compilers.
 This step ensures that all the environment variables are set correctly for successful linkage.
@@ -93,18 +104,62 @@ To reactivate your Conda environment, execute the following command:
 Once you have reactivated your Conda environment, make sure that all the necessary environment
 variables are properly set and proceed with linking the OpenVINO libraries.
 
+Installing specific components of OpenVINO from Conda Forge
++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+You do not have to install the entire OpenVINO package. You can install selected
+components by using:
+
+.. code-block:: sh
+
+   conda install conda-forge::<component_name>
+
+``<component_name>`` may be one of the components of OpenVINO listed below:
+
+- ``libopenvino-auto-batch-plugin``
+- ``libopenvino-auto-plugin``
+- ``libopenvino-hetero-plugin``
+- ``libopenvino-intel-cpu-plugin``
+- ``libopenvino-intel-gpu-plugin``
+- ``libopenvino-intel-npu-plugin``
+- ``libopenvino-ir-frontend``
+- ``libopenvino-onnx-frontend``
+- ``libopenvino-paddle-frontend``
+- ``libopenvino-pytorch-frontend``
+- ``libopenvino-tensorflow-frontend``
+- ``libopenvino-tensorflow-lite-frontend``
+- ``libopenvino-dev``
+- ``libopenvino-python``
+- ``libopenvino-arm-cpu-plugin``
+
+
+For example, to install a single component, use:
+
+.. code-block:: sh
+
+   conda install conda-forge::libopenvino-intel-cpu-plugin
+
+For multiple components, use:
+
+.. code-block:: sh
+
+   conda install conda-forge::libopenvino-intel-cpu-plugin conda-forge::libopenvino-arm-cpu-plugin conda-forge::libopenvino-intel-npu-plugin conda-forge::libopenvino-intel-gpu-plugin
 
 Uninstalling OpenVINO™ Runtime
 ###########################################################
 
-Once OpenVINO Runtime is installed via Conda, you can remove it using the following command,
+Once OpenVINO Runtime is installed via Conda, you can remove it, using the following command,
 with the proper OpenVINO version number:
 
 .. code-block:: sh
 
-   conda remove openvino=2024.0.0
+   conda remove openvino=2024.4.0
 
+If you have installed specific components of OpenVINO, you can remove them, using:
 
+.. code-block:: sh
+
+   conda remove conda-forge::<component_name>
 
 What's Next?
 ############################################################
@@ -122,7 +177,4 @@ Visit the :doc:`Samples <../../../learn-openvino/openvino-samples>` page for oth
 
 * :doc:`Basic object detection with the Hello Reshape SSD C++ sample <../../../learn-openvino/openvino-samples/hello-reshape-ssd>`
 * :doc:`Object classification sample <../../../learn-openvino/openvino-samples/hello-classification>`
-
-
-
 

@@ -48,8 +48,8 @@ StridedSlice::StridedSlice(const Output<Node>& data,
 
 namespace {
 std::shared_ptr<Node> calculate_default_strides(const Output<Node>& begin, const Output<Node>& end) {
-    const auto begin_pshape = begin.get_partial_shape();
-    const auto end_pshape = end.get_partial_shape();
+    const auto& begin_pshape = begin.get_partial_shape();
+    const auto& end_pshape = end.get_partial_shape();
 
     size_t strides_length = 0;
     if (begin_pshape.rank().is_static() && begin_pshape.rank().get_length() == 1 && begin_pshape[0].is_static()) {
@@ -277,15 +277,19 @@ bool StridedSlice::evaluate_upper(TensorVector& output_values) const {
            default_upper_bound_evaluator(this, output_values);
 }
 
-bool StridedSlice::evaluate_label(TensorLabelVector& output_labels) const {
+bool StridedSlice::evaluate_symbol(TensorSymbolVector& output_symbols) const {
     return indices_input_has_and_set_bounds(1, get_begin_mask()) &&
            indices_input_has_and_set_bounds(2, get_end_mask()) && get_input_tensor(3).has_and_set_bound() &&
-           default_label_evaluator(this, {0}, output_labels);
+           default_symbol_evaluator(this, {0}, output_symbols);
+}
+
+bool StridedSlice::can_constant_fold(const OutputVector& input_values) const {
+    return !is_const_fold_disabled();
 }
 
 bool StridedSlice::constant_fold(OutputVector& output_values, const OutputVector& inputs_values) {
     auto is_folded = Node::constant_fold(output_values, inputs_values);
-    if (!is_const_fold_disabled() && !is_folded) {
+    if (can_constant_fold(inputs_values) && !is_folded) {
         // If all ignored mask are set for all begin or end then replace this input by dummy constant
         // to avoid return false from `could_propagate` during bound evaluation (value of const will be ignored).
         auto get_indices_input = [&inputs_values](size_t port, const std::vector<int64_t>& mask) -> Output<Node> {

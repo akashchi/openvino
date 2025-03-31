@@ -10,12 +10,7 @@
 #include "common_test_utils/ov_test_utils.hpp"
 #include "common_test_utils/test_tools.hpp"
 #include "openvino/core/constant_fold_utils.hpp"
-#include "openvino/op/acosh.hpp"
-#include "openvino/op/add.hpp"
-#include "openvino/op/constant.hpp"
-#include "openvino/op/convert_like.hpp"
-#include "openvino/op/loop.hpp"
-#include "openvino/op/multiply.hpp"
+#include "openvino/op/ops.hpp"
 #include "ov_ops/type_relaxed.hpp"
 #include "transformations/common_optimizations/disable_shapeof_constant_folding.hpp"
 #include "transformations/utils/utils.hpp"
@@ -581,7 +576,7 @@ TEST(constant_folding, constant_unary_binary) {
                 "equal_unsigned_shorts");
 
     pass::Manager pass_manager;
-    ASSERT_NO_THROW(pass_manager.run_passes(func_error));
+    OV_ASSERT_NO_THROW(pass_manager.run_passes(func_error));
 }
 
 template <element::Type_t from, element::Type_t to, typename T, typename U>

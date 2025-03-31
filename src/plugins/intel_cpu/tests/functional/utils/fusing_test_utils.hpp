@@ -93,6 +93,7 @@ protected:
     std::shared_ptr<postOpMgr> postOpMgrPtr;
     std::vector<std::string> fusedOps;
     bool checkFusingPosition = true;
+    bool expectPostOpsToBeFused = true;
 };
 
 static int getChannelAxis(const ov::AxisSet &axes, bool keep_dims) {
@@ -225,7 +226,7 @@ const auto fusingReluAdd = fusingSpecificParams{std::make_shared<postNodesMgr>(s
             }, "Relu"},
             {[](postNodeConfig& cfg){
                 ov::Shape newShape = generatePerChannelShape(cfg.target);
-                auto constNode = ov::test::utils::deprecated::make_constant(cfg.type, newShape, std::vector<float>{}, true);
+                auto constNode = ov::test::utils::make_constant(cfg.type, newShape);
                 return std::make_shared<ov::op::v1::Add>(cfg.input, constNode);
             }, "Add(PerChannel)"}}), {"Relu", "Add"}};
 
@@ -235,24 +236,24 @@ const auto fusingReluScaleShift = fusingSpecificParams{std::make_shared<postNode
             }, "Relu"},
             {[](postNodeConfig& cfg){
                 ov::Shape newShape = generatePerChannelShape(cfg.target);
-                auto constNode = ov::test::utils::deprecated::make_constant(cfg.type, newShape, std::vector<float>{}, true);
+                auto constNode = ov::test::utils::make_constant(cfg.type, newShape);
                 return std::make_shared<ov::op::v1::Multiply>(cfg.input, constNode);
             }, "Multiply(PerChannel)"},
             {[](postNodeConfig& cfg){
                 ov::Shape newShape = generatePerChannelShape(cfg.target);
-                auto constNode = ov::test::utils::deprecated::make_constant(cfg.type, newShape, std::vector<float>{}, true);
+                auto constNode = ov::test::utils::make_constant(cfg.type, newShape);
                 return std::make_shared<ov::op::v1::Add>(cfg.input, constNode);
             }, "Add(PerChannel)"}}), {"Relu", "Add"}};
 
 const auto fusingScaleShift = fusingSpecificParams{ std::make_shared<postNodesMgr>(std::vector<postNodeBuilder>{
             {[](postNodeConfig& cfg) {
                 ov::Shape newShape = generatePerChannelShape(cfg.target);
-                auto constNode = ov::test::utils::deprecated::make_constant(cfg.type, newShape, std::vector<float>{}, true);
+                auto constNode = ov::test::utils::make_constant(cfg.type, newShape);
                 return std::make_shared<ov::op::v1::Multiply>(cfg.input, constNode);
             }, "Multiply(PerChannel)"},
             {[](postNodeConfig& cfg) {
                 ov::Shape newShape = generatePerChannelShape(cfg.target);
-                auto constNode = ov::test::utils::deprecated::make_constant(cfg.type, newShape, std::vector<float>{}, true);
+                auto constNode = ov::test::utils::make_constant(cfg.type, newShape);
                 return std::make_shared<ov::op::v1::Add>(cfg.input, constNode);
             }, "Add(PerChannel)"}}), {"Add"} };
 
@@ -265,7 +266,7 @@ const auto fusingClampRoundAddRelu = fusingSpecificParams{ std::make_shared<post
             }, "RoundHalfToEven"},
             {[](postNodeConfig& cfg){
                 ov::Shape secondMultInShape(1, 1);
-                auto secondMultInput = ov::test::utils::deprecated::make_constant(cfg.type, secondMultInShape, std::vector<float>{}, true);
+                auto secondMultInput = ov::test::utils::make_constant(cfg.type, secondMultInShape);
                 return std::make_shared<ov::op::v1::Add>(cfg.input, secondMultInput);
             }, "AddPerTensor"},
             {[](postNodeConfig& cfg){
@@ -275,12 +276,12 @@ const auto fusingClampRoundAddRelu = fusingSpecificParams{ std::make_shared<post
 const auto fusingScaleShiftAndFakeQuantizePerChannel = fusingSpecificParams{ std::make_shared<postNodesMgr>(std::vector<postNodeBuilder>{
             {[](postNodeConfig& cfg) {
                 ov::Shape newShape = generatePerChannelShape(cfg.target);
-                auto constNode = ov::test::utils::deprecated::make_constant(cfg.type, newShape, std::vector<float>{}, true);
+                auto constNode = ov::test::utils::make_constant(cfg.type, newShape);
                 return std::make_shared<ov::op::v1::Multiply>(cfg.input, constNode);
             }, "Multiply(PerChannel)"},
             {[](postNodeConfig& cfg) {
                 ov::Shape newShape = generatePerChannelShape(cfg.target);
-                auto constNode = ov::test::utils::deprecated::make_constant(cfg.type, newShape, std::vector<float>{}, true);
+                auto constNode = ov::test::utils::make_constant(cfg.type, newShape);
                 return std::make_shared<ov::op::v1::Add>(cfg.input, constNode);
             }, "Add(PerChannel)"},
             {[](postNodeConfig& cfg){
@@ -303,6 +304,26 @@ const auto fusingFakeQuantizePerChannel = fusingSpecificParams{std::make_shared<
                 ov::Shape newShape = generatePerChannelShape(cfg.target);
                 return ov::test::utils::make_fake_quantize(cfg.input, localPrc, 256, newShape);
             }, "FakeQuantize(PerChannel)"}}), {"FakeQuantize"}};
+
+const auto fusingFakeQuantizePerBatch = fusingSpecificParams{std::make_shared<postNodesMgr>(std::vector<postNodeBuilder>{
+            {[](postNodeConfig& cfg){
+                auto localPrc = cfg.input->get_element_type();
+                const auto shape = cfg.input->get_output_partial_shape(0);
+                ov::Shape perBatchSize(shape.size(), 1);
+                perBatchSize[0] = shape[0].get_length();
+                return ov::test::utils::make_fake_quantize(cfg.input, localPrc, 256, perBatchSize);
+            }, "FakeQuantize(PerBatch)"}}), {"FakeQuantize"}};
+
+const auto fusingFakeQuantizeFullTensor = fusingSpecificParams{std::make_shared<postNodesMgr>(std::vector<postNodeBuilder>{
+            {[](postNodeConfig& cfg){
+                auto localPrc = cfg.input->get_element_type();
+                const auto shape = cfg.input->get_output_partial_shape(0);
+                ov::Shape fullTensorShape(shape.size(), 1);
+                for (size_t axis = 0; axis < shape.size(); axis++) {
+                    fullTensorShape[axis] = shape[axis].get_length();
+                }
+                return ov::test::utils::make_fake_quantize(cfg.input, localPrc, 256, fullTensorShape);
+            }, "FakeQuantize(FullTensor)"}}), {"FakeQuantize"}};
 
 const auto fusingFakeQuantizePerChannelRelu = fusingSpecificParams{std::make_shared<postNodesMgr>(std::vector<postNodeBuilder>{
             {[](postNodeConfig& cfg){
@@ -396,68 +417,68 @@ const auto fusingSumEluFQ = fusingSpecificParams{std::make_shared<postNodesMgr>(
 const auto fusingMultiplyPerTensor = fusingSpecificParams{std::make_shared<postNodesMgr>(std::vector<postNodeBuilder>{
         {[](postNodeConfig& cfg){
             ov::Shape secondMultInShape(1, 1);
-            auto secondMultInput = ov::test::utils::deprecated::make_constant(cfg.type, secondMultInShape, std::vector<float>{}, true);
+            auto secondMultInput = ov::test::utils::make_constant(cfg.type, secondMultInShape);
             return std::make_shared<ov::op::v1::Multiply>(cfg.input, secondMultInput);
         }, "Multiply(PerTensor)"}}), {"Multiply"}};
 
 const auto fusingMultiplyPerChannel = fusingSpecificParams{std::make_shared<postNodesMgr>(std::vector<postNodeBuilder>{
         {[](postNodeConfig& cfg){
             ov::Shape secondMultInShape = generatePerChannelShape(cfg.target);
-            auto secondMultInput = ov::test::utils::deprecated::make_constant(cfg.type, secondMultInShape, std::vector<float>{}, true);
+            auto secondMultInput = ov::test::utils::make_constant(cfg.type, secondMultInShape);
             return std::make_shared<ov::op::v1::Multiply>(cfg.input, secondMultInput);
         }, "Multiply(PerChannel)"}}), {"Multiply"}};
 
 const auto fusingMultiplyAddPerChannel = fusingSpecificParams{std::make_shared<postNodesMgr>(std::vector<postNodeBuilder>{
         {[](postNodeConfig& cfg) {
                 ov::Shape newShape = generatePerChannelShape(cfg.input);
-                auto constNode = ov::test::utils::deprecated::make_constant(cfg.type, newShape, std::vector<float>{}, true);
+                auto constNode = ov::test::utils::make_constant(cfg.type, newShape);
                 return std::make_shared<ov::op::v1::Multiply>(cfg.input, constNode);
         }, "Multiply(PerChannel)"},
         {[](postNodeConfig& cfg) {
                 ov::Shape newShape = generatePerChannelShape(cfg.input);
-                auto constNode = ov::test::utils::deprecated::make_constant(cfg.type, newShape, std::vector<float>{}, true);
+                auto constNode = ov::test::utils::make_constant(cfg.type, newShape);
                 return std::make_shared<ov::op::v1::Add>(cfg.input, constNode);
         }, "Add(PerChannel)"}}), {"Add"} };
 
 const auto fusingAddPerTensor = fusingSpecificParams{std::make_shared<postNodesMgr>(std::vector<postNodeBuilder>{
         {[](postNodeConfig& cfg){
             ov::Shape secondMultInShape(1, 1);
-            auto secondMultInput = ov::test::utils::deprecated::make_constant(cfg.type, secondMultInShape, std::vector<float>{}, true);
+            auto secondMultInput = ov::test::utils::make_constant(cfg.type, secondMultInShape);
             return std::make_shared<ov::op::v1::Add>(cfg.input, secondMultInput);
         }, "Add(PerTensor)"}}), {"Add"}};
 
 const auto fusingAddPerChannel = fusingSpecificParams{std::make_shared<postNodesMgr>(std::vector<postNodeBuilder>{
         {[](postNodeConfig& cfg){
             ov::Shape secondMultInShape = generatePerChannelShape(cfg.target);
-            auto secondMultInput = ov::test::utils::deprecated::make_constant(cfg.type, secondMultInShape, std::vector<float>{}, true);
+            auto secondMultInput = ov::test::utils::make_constant(cfg.type, secondMultInShape);
             return std::make_shared<ov::op::v1::Add>(cfg.input, secondMultInput);
         }, "Add(PerChannel)"}}), {"Add"}};
 
 const auto fusingSubtractPerTensor = fusingSpecificParams{std::make_shared<postNodesMgr>(std::vector<postNodeBuilder>{
         {[](postNodeConfig& cfg){
             ov::Shape secondMultInShape(1, 1);
-            auto secondMultInput = ov::test::utils::deprecated::make_constant(cfg.type, secondMultInShape, std::vector<float>{}, true);
+            auto secondMultInput = ov::test::utils::make_constant(cfg.type, secondMultInShape);
             return std::make_shared<ov::op::v1::Subtract>(cfg.input, secondMultInput);
         }, "Subtract(PerTensor)"}}), {"Subtract"}};
 
 const auto fusingSubtractPerChannel = fusingSpecificParams{std::make_shared<postNodesMgr>(std::vector<postNodeBuilder>{
         {[](postNodeConfig& cfg){
             ov::Shape secondMultInShape = generatePerChannelShape(cfg.target);
-            auto secondMultInput = ov::test::utils::deprecated::make_constant(cfg.type, secondMultInShape, std::vector<float>{}, true);
+            auto secondMultInput = ov::test::utils::make_constant(cfg.type, secondMultInShape);
             return std::make_shared<ov::op::v1::Subtract>(cfg.input, secondMultInput);
         }, "Subtract(PerChannel)"}}), {"Subtract"}};
 
 const auto fusingDividePerTensor = fusingSpecificParams{std::make_shared<postNodesMgr>(std::vector<postNodeBuilder>{
         {[](postNodeConfig& cfg){
             ov::Shape secondMultInShape(1, 1);
-            auto secondMultInput = ov::test::utils::deprecated::make_constant(cfg.type, secondMultInShape, std::vector<float>{}, true);
+            auto secondMultInput = ov::test::utils::make_constant(cfg.type, secondMultInShape);
             return std::make_shared<ov::op::v1::Divide>(cfg.input, secondMultInput);
         }, "Divide(PerTensor)"}}), {"Divide"}};
 
 const auto fusingDividePerChannel = fusingSpecificParams{std::make_shared<postNodesMgr>(std::vector<postNodeBuilder>{
         {[](postNodeConfig& cfg){
             ov::Shape secondMultInShape = generatePerChannelShape(cfg.target);
-            auto secondMultInput = ov::test::utils::deprecated::make_constant(cfg.type, secondMultInShape, std::vector<float>{}, true);
+            auto secondMultInput = ov::test::utils::make_constant(cfg.type, secondMultInShape);
             return std::make_shared<ov::op::v1::Divide>(cfg.input, secondMultInput);
         }, "Divide(PerChannel)"}}), {"Divide"}};
 
@@ -478,19 +499,19 @@ const auto fusingPRelu1DScaleShift = fusingSpecificParams{std::make_shared<postN
         }, "PRelu1D"},
         {[](postNodeConfig& cfg) {
                 ov::Shape newShape = generatePerChannelShape(cfg.input);
-                auto constNode = ov::test::utils::deprecated::make_constant(cfg.type, newShape, std::vector<float>{}, true);
+                auto constNode = ov::test::utils::make_constant(cfg.type, newShape);
                 return std::make_shared<ov::op::v1::Multiply>(cfg.input, constNode);
         }, "Multiply(PerChannel)"},
         {[](postNodeConfig& cfg) {
                 ov::Shape newShape = generatePerChannelShape(cfg.input);
-                auto constNode = ov::test::utils::deprecated::make_constant(cfg.type, newShape, std::vector<float>{}, true);
+                auto constNode = ov::test::utils::make_constant(cfg.type, newShape);
                 return std::make_shared<ov::op::v1::Add>(cfg.input, constNode);
         }, "Add(PerChannel)"}}), {"Add"} };
 
 const auto fusingBias = fusingSpecificParams{std::make_shared<postNodesMgr>(std::vector<postNodeBuilder>{
         {[](postNodeConfig& cfg) {
             size_t last_dim = cfg.input->get_output_partial_shape(0).rbegin()->get_length();
-            auto bias = ov::test::utils::deprecated::make_constant(cfg.type, ov::Shape{last_dim}, std::vector<float>{}, true);
+            auto bias = ov::test::utils::make_constant(cfg.type, ov::Shape{last_dim});
             return std::make_shared<ov::op::v1::Add>(cfg.input, bias);
         }, "fusingBias"}}), {"Add"}};
 

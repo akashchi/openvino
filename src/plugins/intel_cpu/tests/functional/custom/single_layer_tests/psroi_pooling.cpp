@@ -4,6 +4,7 @@
 #include "common_test_utils/node_builders/constant.hpp"
 #include "shared_test_classes/base/ov_subgraph.hpp"
 #include "utils/cpu_test_utils.hpp"
+#include "utils/filter_cpu_info.hpp"
 
 using namespace CPUTestUtils;
 
@@ -89,7 +90,7 @@ protected:
 
         ov::Shape proposalShape = {proposal.size() / 5, 5};
 
-        auto coords = ov::test::utils::deprecated::make_constant<float>(ov::element::f32, proposalShape, proposal);
+        auto coords = std::make_shared<ov::op::v0::Constant>(ov::element::f32, proposalShape, proposal);
         ov::ParameterVector params{
             std::make_shared<ov::op::v0::Parameter>(ov::element::f32, ov::Shape(featureMapShape))};
 

@@ -21,7 +21,7 @@ layout scatter_nd_update_inst::calc_output_layout(scatter_nd_update_node const& 
     auto output_type = input_layout.data_type;
 
     if (impl_param.has_fused_primitives()) {
-        output_type = impl_param.get_fused_output_layout().data_type;
+        output_type = impl_param.get_output_element_type();
     }
 
     return layout{output_type, input_format, output_shape};
@@ -29,9 +29,9 @@ layout scatter_nd_update_inst::calc_output_layout(scatter_nd_update_node const& 
 
 template<typename ShapeType>
 std::vector<layout> scatter_nd_update_inst::calc_output_layouts(scatter_nd_update_node const& /*node*/, const kernel_impl_params& impl_param) {
-    auto input0_layout = impl_param.get_input_layout(0);
-    auto input1_layout = impl_param.get_input_layout(1);
-    auto input2_layout = impl_param.get_input_layout(2);
+    const auto& input0_layout = impl_param.get_input_layout(0);
+    const auto& input1_layout = impl_param.get_input_layout(1);
+    const auto& input2_layout = impl_param.get_input_layout(2);
 
     std::vector<ShapeType> input_shapes = {
         input0_layout.get<ShapeType>(),     // inputs_shape
@@ -83,6 +83,12 @@ void scatter_nd_update_inst::update_output_memory() {
     if (_node != nullptr)
         build_deps();
 
+    // Can_be_optimized nodes are allocating from memory_pool too. In this case,
+    // we need release the legacy output memory from memory pool explicitly.
+    if (static_cast<bool>(_outputs[0]) &&
+        _node->get_program().get_config().get_property(ov::intel_gpu::enable_memory_pool)) {
+        _network.get_memory_pool().release_memory(_outputs[0].get(), _node->get_unique_id(), _node->id(), _network.get_id());
+    }
     _outputs = {_network.get_engine().reinterpret_buffer(input_memory(), _impl_params->get_output_layout())};
     _mem_allocated = false;
 }

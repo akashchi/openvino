@@ -1,5 +1,3 @@
-.. {#openvino_docs_OV_UG_Automatic_Batching}
-
 Automatic Batching
 ==================
 
@@ -35,14 +33,14 @@ How Automatic Batching Works
          .. tab-item:: Python
             :sync: py
 
-            .. doxygensnippet:: docs/snippets/ov_auto_batching.py
+            .. doxygensnippet:: docs/articles_en/assets/snippets/ov_auto_batching.py
                :language: Python
                :fragment: [compile_model]
 
          .. tab-item:: C++
             :sync: cpp
 
-            .. doxygensnippet:: docs/snippets/ov_auto_batching.cpp
+            .. doxygensnippet:: docs/articles_en/assets/snippets/ov_auto_batching.cpp
                :language: cpp
                :fragment: [compile_model]
 
@@ -58,14 +56,14 @@ How Automatic Batching Works
          .. tab-item:: Python
             :sync: py
 
-            .. doxygensnippet:: docs/snippets/ov_auto_batching.py
+            .. doxygensnippet:: docs/articles_en/assets/snippets/ov_auto_batching.py
                :language: Python
                :fragment: [compile_model_no_auto_batching]
 
          .. tab-item:: C++
             :sync: cpp
 
-            .. doxygensnippet:: docs/snippets/ov_auto_batching.cpp
+            .. doxygensnippet:: docs/articles_en/assets/snippets/ov_auto_batching.cpp
                :language: cpp
                :fragment: [compile_model_no_auto_batching]
 
@@ -96,14 +94,14 @@ This "automatic batch size selection" works on the presumption that the applicat
    .. tab-item:: Python
       :sync: py
 
-      .. doxygensnippet:: docs/snippets/ov_auto_batching.py
+      .. doxygensnippet:: docs/articles_en/assets/snippets/ov_auto_batching.py
          :language: Python
          :fragment: [query_optimal_num_requests]
 
    .. tab-item:: C++
       :sync: cpp
 
-      .. doxygensnippet:: docs/snippets/ov_auto_batching.cpp
+      .. doxygensnippet:: docs/articles_en/assets/snippets/ov_auto_batching.cpp
          :language: cpp
          :fragment: [query_optimal_num_requests]
 
@@ -124,14 +122,14 @@ For example, when the application processes only 4 video streams, there is no ne
    .. tab-item:: Python
       :sync: py
 
-      .. doxygensnippet:: docs/snippets/ov_auto_batching.py
+      .. doxygensnippet:: docs/articles_en/assets/snippets/ov_auto_batching.py
          :language: Python
          :fragment: [hint_num_requests]
 
    .. tab-item:: C++
       :sync: cpp
 
-      .. doxygensnippet:: docs/snippets/ov_auto_batching.cpp
+      .. doxygensnippet:: docs/articles_en/assets/snippets/ov_auto_batching.cpp
          :language: cpp
          :fragment: [hint_num_requests]
 

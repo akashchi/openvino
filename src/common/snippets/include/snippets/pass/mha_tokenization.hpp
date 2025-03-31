@@ -4,8 +4,7 @@
 
 #pragma once
 
-#include "openvino/pass/graph_rewrite.hpp"
-#include "openvino/pass/pattern/matcher.hpp"
+#include "openvino/pass/matcher_pass.hpp"
 #include "snippets/pass/tokenization.hpp"
 
 namespace ov {
@@ -42,7 +41,7 @@ namespace pass {
 class TokenizeMHASnippets: public ov::pass::MatcherPass {
 public:
     OPENVINO_RTTI("TokenizeMHASnippets", "0");
-    TokenizeMHASnippets(const SnippetsTokenization::Config& config = {});
+    TokenizeMHASnippets(const SnippetsTokenization::Config& config);
 
     static std::vector<int32_t> get_fusion_transpose_order(size_t rank);
     static std::vector<int32_t> get_decomposed_transpose_order(size_t rank);

@@ -73,7 +73,7 @@ Configuration::Configuration(const ov::AnyMap& config, const Configuration& defa
                                value.as<std::string>());
             }
         } else if (ov::hint::num_requests == key) {
-            auto tmp_val = value.as<std::string>();
+            const auto& tmp_val = value.as<std::string>();
             int tmp_i = std::stoi(tmp_val);
             if (tmp_i >= 0)
                 num_requests = tmp_i;
@@ -83,6 +83,8 @@ Configuration::Configuration(const ov::AnyMap& config, const Configuration& defa
             log_level = value.as<ov::log::Level>();
         } else if (ov::hint::model_priority == key) {
             model_priority = value.as<ov::hint::Priority>();
+        } else if (ov::cache_encryption_callbacks == key) {
+            encryption_callbacks = value.as<EncryptionCallbacks>();
         } else if (throwOnUnsupported) {
             OPENVINO_THROW("Property was not found: ", key);
         }

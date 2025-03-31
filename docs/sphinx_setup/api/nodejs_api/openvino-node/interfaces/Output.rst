@@ -13,95 +13,93 @@ Interface Output
        toString(): string;
    }
 
-- Defined in
-  `addon.ts:89 <https://github.com/openvinotoolkit/openvino/blob/master/src/bindings/js/node/lib/addon.ts#L89>`__
+* **Defined in:**
+  `addon.ts:566 <https://github.com/openvinotoolkit/openvino/blob/master/src/bindings/js/node/lib/addon.ts#L566>`__
+
 
 Properties
 #####################
 
+
 .. rubric:: anyName
 
 
+*
 
-.. code-block:: ts
+   .. code-block:: ts
 
-   anyName: string
+      anyName: string
 
--  Defined in
-   `addon.ts:90 <https://github.com/openvinotoolkit/openvino/blob/master/src/bindings/js/node/lib/addon.ts#L90>`__
+   -  **Defined in:**
+      `addon.ts:567 <https://github.com/openvinotoolkit/openvino/blob/master/src/bindings/js/node/lib/addon.ts#L567>`__
 
 
 
 .. rubric:: shape
 
+*
 
+   .. code-block:: ts
 
-.. code-block:: ts
+      shape: number[]
 
-   shape: number[]
-
--  Defined in
-   `addon.ts:91 <https://github.com/openvinotoolkit/openvino/blob/master/src/bindings/js/node/lib/addon.ts#L91>`__
-
+   -  **Defined in:**
+      `addon.ts:568 <https://github.com/openvinotoolkit/openvino/blob/master/src/bindings/js/node/lib/addon.ts#L568>`__
 
 
 Methods
 #####################
 
+
 .. rubric:: getAnyName
 
+*
 
-.. code-block:: ts
+   .. code-block:: ts
 
-  getAnyName(): string
+     getAnyName(): string
 
+   * **Returns:** string
 
-**Returns** string
-
-- Defined in
-  `addon.ts:93 <https://github.com/openvinotoolkit/openvino/blob/master/src/bindings/js/node/lib/addon.ts#L93>`__
+   * **Defined in:**
+     `addon.ts:570 <https://github.com/openvinotoolkit/openvino/blob/master/src/bindings/js/node/lib/addon.ts#L570>`__
 
 .. rubric:: getPartialShape
 
+*
 
-.. code-block:: ts
+   .. code-block:: ts
 
-    getPartialShape(): PartialShape
+       getPartialShape(): PartialShape
 
+   * **Returns:** :doc:`PartialShape <PartialShape>`
 
-**Returns** :doc:`PartialShape <PartialShape>`
-
-- Defined in
-  `addon.ts:95 <https://github.com/openvinotoolkit/openvino/blob/master/src/bindings/js/node/lib/addon.ts#L95>`__
+   * **Defined in:**
+     `addon.ts:572 <https://github.com/openvinotoolkit/openvino/blob/master/src/bindings/js/node/lib/addon.ts#L572>`__
 
 .. rubric:: getShape
 
+*
 
-.. code-block:: ts
+   .. code-block:: ts
 
-   getShape(): number[]
+      getShape(): number[]
 
-**Returns**
+   * **Returns:** number[]
 
-.. code-block:: ts
-
-   number[]
-
-- Defined in
-  `addon.ts:94 <https://github.com/openvinotoolkit/openvino/blob/master/src/bindings/js/node/lib/addon.ts#L94>`__
+   * **Defined in:**
+     `addon.ts:571 <https://github.com/openvinotoolkit/openvino/blob/master/src/bindings/js/node/lib/addon.ts#L571>`__
 
 .. rubric:: toString
 
+*
 
-.. code-block:: ts
+   .. code-block:: ts
 
-   toString(): string
+      toString(): string
 
-**Returns**
+   * **Returns:** string
 
-.. code-block:: ts
+   * **Defined in:**
+     `addon.ts:569 <https://github.com/openvinotoolkit/openvino/blob/master/src/bindings/js/node/lib/addon.ts#L569>`__
 
-   string
-
-- Defined in
-  `addon.ts:92 <https://github.com/openvinotoolkit/openvino/blob/master/src/bindings/js/node/lib/addon.ts#L92>`__

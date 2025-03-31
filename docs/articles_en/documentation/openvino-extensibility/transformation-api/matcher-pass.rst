@@ -1,5 +1,3 @@
-.. {#openvino_docs_Extensibility_UG_matcher_pass}
-
 OpenVINO Matcher Pass
 =====================
 
@@ -13,14 +11,25 @@ OpenVINO Matcher Pass
 
 Template for MatcherPass transformation class
 
-.. doxygensnippet:: docs/snippets/template_pattern_transformation.hpp
+.. doxygensnippet:: docs/articles_en/assets/snippets/template_pattern_transformation.hpp
    :language: cpp
    :fragment: [graph_rewrite:template_transformation_hpp]
 
-.. doxygensnippet:: docs/snippets/template_pattern_transformation.cpp
-   :language: cpp
-   :fragment: [graph_rewrite:template_transformation_cpp]
+.. tab-set::
 
+   .. tab-item:: C++
+      :sync: cpp
+
+      .. doxygensnippet:: docs/articles_en/assets/snippets/template_pattern_transformation.cpp
+         :language: cpp
+         :fragment: [graph_rewrite:template_transformation_cpp]
+
+   .. tab-item:: Python
+      :sync: py
+
+      .. doxygensnippet:: docs/articles_en/assets/snippets/ov_matcher_pass.py
+         :language: py
+         :fragment: [matcher_pass:ov_matcher_pass_py]
 
 To use ``ov::pass::MatcherPass``, you need to complete these steps:
 
@@ -40,7 +49,7 @@ Then you need to take the last created operation and put it as a root of the pat
 .. note::
    Any nodes in a pattern that have no consumers and are not registered as root will not be used in pattern matching.
 
-.. doxygensnippet:: docs/snippets/ov_model_snippets.cpp
+.. doxygensnippet:: docs/articles_en/assets/snippets/ov_model_snippets.cpp
    :language: cpp
    :fragment: [pattern:simple_example]
 
@@ -53,7 +62,7 @@ Implement callback
 
 Callback is an action applied to every pattern entrance. In general, callback is the lambda function that takes Matcher object with detected subgraph.
 
-.. doxygensnippet:: docs/snippets/ov_model_snippets.cpp
+.. doxygensnippet:: docs/articles_en/assets/snippets/ov_model_snippets.cpp
    :language: cpp
    :fragment: [pattern:callback_example]
 
@@ -70,7 +79,7 @@ That means that matcher passes registered in ``ov::pass::GraphRewrite`` will be 
 
 The example below shows how single MatcherPass can fuse sequence of operations using the ``register_new_node`` method.
 
-.. doxygensnippet:: docs/snippets/template_pattern_transformation.cpp
+.. doxygensnippet:: docs/articles_en/assets/snippets/template_pattern_transformation.cpp
    :language: cpp
    :fragment: [matcher_pass:relu_fusion]
 
@@ -99,19 +108,19 @@ MatcherPass has multiple ways to be executed:
 
 * Run on a single node - it can be useful if you want to run MatcherPass inside another transformation.
 
-.. doxygensnippet:: docs/snippets/template_pattern_transformation.cpp
+.. doxygensnippet:: docs/articles_en/assets/snippets/template_pattern_transformation.cpp
    :language: cpp
    :fragment: [matcher_pass:run_on_node]
 
 * Run on ``ov::Model`` using GraphRewrite - this approach gives ability to run MatcherPass on whole ``ov::Model``. Moreover, multiple MatcherPass transformation can be registered in a single GraphRewite to be executed in a single graph traversal.
 
-.. doxygensnippet:: docs/snippets/template_pattern_transformation.cpp
+.. doxygensnippet:: docs/articles_en/assets/snippets/template_pattern_transformation.cpp
    :language: cpp
    :fragment: [matcher_pass:graph_rewrite]
 
 * Run on ``ov::Model`` using ``ov::pass::Manager`` - this approach helps you to register MatcherPass for execution on ``ov::Model`` as another transformation types.
 
-.. doxygensnippet:: docs/snippets/template_pattern_transformation.cpp
+.. doxygensnippet:: docs/articles_en/assets/snippets/template_pattern_transformation.cpp
    :language: cpp
    :fragment: [matcher_pass:manager]
 
@@ -137,19 +146,19 @@ The example below shows basic usage of ``ov::passpattern::any_input``.
 Here we construct Multiply pattern with arbitrary first input and Constant as a second input.
 Also as Multiply is commutative operation, it does not matter in which order we set inputs (any_input/Constant or Constant/any_input) because both cases will be matched.
 
-.. doxygensnippet:: docs/snippets/ov_model_snippets.cpp
+.. doxygensnippet:: docs/articles_en/assets/snippets/ov_model_snippets.cpp
    :language: cpp
    :fragment: [pattern:label_example]
 
 This example shows how we can construct a pattern when operation has arbitrary number of inputs.
 
-.. doxygensnippet:: docs/snippets/ov_model_snippets.cpp
+.. doxygensnippet:: docs/articles_en/assets/snippets/ov_model_snippets.cpp
    :language: cpp
    :fragment: [pattern:concat_example]
 
 This example shows how to use predicate to construct a pattern. Also it shows how to match pattern manually on given node.
 
-.. doxygensnippet:: docs/snippets/ov_model_snippets.cpp
+.. doxygensnippet:: docs/articles_en/assets/snippets/ov_model_snippets.cpp
    :language: cpp
    :fragment: [pattern:predicate_example]
 

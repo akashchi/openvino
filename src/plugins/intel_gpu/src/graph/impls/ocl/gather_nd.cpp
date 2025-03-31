@@ -4,6 +4,7 @@
 
 #include "primitive_base.hpp"
 
+#include "gather_nd.hpp"
 #include "gather_nd_inst.h"
 #include "gather/gather_nd_kernel_selector.h"
 #include "gather/gather_nd_kernel_ref.h"
@@ -45,46 +46,21 @@ struct gather_nd_impl : typed_primitive_impl_ocl<gather_nd> {
     }
 
     void update_dispatch_data(const kernel_impl_params& impl_param) override {
-        auto kernel_params = get_kernel_params(impl_param);
-        (_kernel_data.update_dispatch_data_func)(kernel_params, _kernel_data);
+        // If model loaded from cache, params are not initialized, so we create a new object and reuse it in the future
+        if (_kernel_data.params == nullptr) {
+            _kernel_data.params = std::make_shared<kernel_params_t>(get_kernel_params(impl_param));
+        }
+
+        update_shapes(*_kernel_data.params, impl_param);
+        (_kernel_data.update_dispatch_data_func)(*_kernel_data.params, _kernel_data);
     }
 };
 
-namespace detail {
-
-attach_gather_nd_impl::attach_gather_nd_impl() {
-    auto types = {
-        data_types::f32,
-        data_types::f16,
-        data_types::i32
-    };
-
-    auto static_formats = {
-        format::bfyx,
-        format::bfzyx,
-        format::bfwzyx
-    };
-
-    implementation_map<gather_nd>::add(impl_types::ocl,
-                                       shape_types::static_shape,
-                                       typed_primitive_impl_ocl<gather_nd>::create<gather_nd_impl>,
-                                       types,
-                                       static_formats);
-
-    auto dyn_formats = {
-        format::bfyx,
-        format::bfzyx,
-        format::bfwzyx
-    };
-
-    implementation_map<gather_nd>::add(impl_types::ocl,
-                                       shape_types::dynamic_shape,
-                                       typed_primitive_impl_ocl<gather_nd>::create<gather_nd_impl>,
-                                       types,
-                                       dyn_formats);
+std::unique_ptr<primitive_impl> GatherNDImplementationManager::create_impl(const program_node& node, const kernel_impl_params& params) const {
+    assert(node.is_type<gather_nd>());
+    return typed_primitive_impl_ocl<gather_nd>::create<gather_nd_impl>(static_cast<const gather_nd_node&>(node), params);
 }
 
-}  // namespace detail
 }  // namespace ocl
 }  // namespace cldnn
 

@@ -4,6 +4,8 @@
 
 #include "jit_kernel_emitter.hpp"
 
+#include "snippets/utils/utils.hpp"
+#include "utils.hpp"
 
 using namespace Xbyak;
 using namespace dnnl::impl;
@@ -12,104 +14,39 @@ using namespace dnnl::impl::cpu::x64;
 namespace ov {
 namespace intel_cpu {
 
-inline static std::vector<Reg64> transform_idxs_to_regs(const std::vector<size_t>& idxs) {
-    std::vector<Reg64> regs(idxs.size());
-    std::transform(idxs.begin(), idxs.end(), regs.begin(), [](size_t idx){return Reg64(static_cast<int>(idx));});
-    return regs;
-}
-
-inline static std::vector<size_t> transform_snippets_regs_to_idxs(const std::vector<snippets::Reg>& regs) {
-    std::vector<size_t> idxs(regs.size());
-    std::transform(regs.cbegin(), regs.cend(), idxs.begin(), [](const snippets::Reg& reg) { return reg.idx; });
-    return idxs;
-}
-
-jit_snippets_call_args::~jit_snippets_call_args() {
-    delete[] loop_args;
-}
-
-void jit_snippets_call_args::register_loops(const std::vector<loop_args_t>& loops) {
-    num_loops = loops.size();
-    loop_args = new loop_args_t[num_loops];
-    std::copy(loops.begin(), loops.end(), loop_args);
-}
-
-jit_snippets_call_args::loop_args_t::loop_args_t(int64_t work_amount, const std::vector<int64_t>& ptr_increments,
-                                                 const std::vector<int64_t>& finalization_offsets)
-    : m_work_amount(work_amount) {
-    OV_CPU_JIT_EMITTER_ASSERT(ptr_increments.size() == finalization_offsets.size(), "Inconsistent sizes of ptr_increments and finalization_offsets");
-    m_num_data_ptrs = static_cast<int64_t>(ptr_increments.size());
-    init_pointers_and_copy_data(m_num_data_ptrs, ptr_increments.data(), finalization_offsets.data());
-}
-
-jit_snippets_call_args::loop_args_t::loop_args_t(const loop_args_t& other)
-    : m_work_amount(other.m_work_amount), m_num_data_ptrs(other.m_num_data_ptrs) {
-    init_pointers_and_copy_data(m_num_data_ptrs, other.m_ptr_increments, other.m_finalization_offsets);
-}
-
-jit_snippets_call_args::loop_args_t::~loop_args_t() {
-    delete[] m_ptr_increments;
-    delete[] m_finalization_offsets;
-}
-
-jit_snippets_call_args::loop_args_t& jit_snippets_call_args::loop_args_t::operator=(loop_args_t other) {
-    swap(*this, other);
-    return *this;
-}
-
-void jit_snippets_call_args::loop_args_t::init_pointers_and_copy_data(const int64_t num_elements, const int64_t* ptr_increments,
-                                                                      const int64_t* finalization_offsets) {
-    const size_t chunk_size = num_elements * sizeof(int64_t);
-    m_ptr_increments = new int64_t[num_elements];
-    m_finalization_offsets = new int64_t[num_elements];
-    std::memcpy(m_ptr_increments, ptr_increments, chunk_size);
-    std::memcpy(m_finalization_offsets, finalization_offsets, chunk_size);
-}
-
-void swap(jit_snippets_call_args::loop_args_t& first, jit_snippets_call_args::loop_args_t& second) {
-    std::swap(first.m_work_amount, second.m_work_amount);
-    std::swap(first.m_num_data_ptrs, second.m_num_data_ptrs);
-    std::swap(first.m_ptr_increments, second.m_ptr_increments);
-    std::swap(first.m_finalization_offsets, second.m_finalization_offsets);
-}
-
 jit_kernel_emitter::jit_kernel_emitter(jit_generator* h, cpu_isa_t isa, const ov::snippets::lowered::ExpressionPtr& expr)
-    : jit_container_emitter(h, isa), reg_runtime_params_idx(abi_param1.getIdx()) {
+    : jit_emitter(h, isa), reg_runtime_params_idx(abi_param1.getIdx()) {
     const auto kernel = ov::as_type_ptr<snippets::op::Kernel>(expr->get_node());
     OV_CPU_JIT_EMITTER_ASSERT(kernel != nullptr, "invoked with invalid op argument");
-    OV_CPU_JIT_EMITTER_ASSERT(!kernel->region.empty(), "invoked with empty body");
+    OV_CPU_JIT_EMITTER_ASSERT(!kernel->region->empty(), "invoked with empty body");
     body = kernel->region;
     jcp = *reinterpret_cast<const jit_snippets_compile_args*>(kernel->compile_params);
-    num_inputs = 0;
-    num_outputs = 0;
-    const auto& io_exprs = body.get_IO_ops();
-    for (const auto& expr : io_exprs) {
-        switch (expr->get_type()) {
-            case snippets::lowered::IOExpression::io_type::INPUT: {
-                num_inputs++;
-                break;
-            }
-            case snippets::lowered::IOExpression::io_type::OUTPUT: {
-                num_outputs++;
-                break;
-            } default : {
-                OV_CPU_JIT_EMITTER_THROW("detected unsupported io_type");
-            }
-        }
-        mem_access_exprs.push_back(expr);
-    }
+    const auto& parameters = body->get_parameters();
+    const auto& results = body->get_results();
+    const auto& buffers = body->get_buffers();
+    num_inputs = parameters.size();
+    num_outputs = results.size();
+    for (const auto& param : parameters)
+        mem_access_exprs.push_back(param);
+    for (const auto& result : results)
+        mem_access_exprs.push_back(result);
+
     std::set<size_t> unique_buffers;
-    for (const auto& expr : body) {
-        if (const auto buffer = ov::as_type_ptr<snippets::op::Buffer>(expr->get_node())) {
-            const auto buffer_id = buffer->get_id();
-            if (unique_buffers.count(buffer_id) == 0) {
-                mem_access_exprs.push_back(expr);
-                unique_buffers.insert(buffer_id);
-            }
-        } else {
-            if (std::find(io_exprs.cbegin(), io_exprs.cend(), expr) == io_exprs.cend())
-                general_exprs.emplace_back(expr);
+    for (const auto& buffer_expr : buffers) {
+        const auto buffer_reg_group = buffer_expr->get_reg_group();
+        if (unique_buffers.count(buffer_reg_group) == 0) {
+            mem_access_exprs.push_back(buffer_expr);
+            unique_buffers.insert(buffer_reg_group);
         }
+    }
+
+    using ExprSet = std::unordered_set<snippets::lowered::ExpressionPtr>;
+    const ExprSet params_set(parameters.cbegin(), parameters.cend());
+    const ExprSet results_set(results.cbegin(), results.cend());
+    const ExprSet buffers_set(buffers.cbegin(), buffers.cend());
+    for (const auto& expr : *body) {
+        if (params_set.count(expr) == 0 && results_set.count(expr) == 0 && buffers_set.count(expr) == 0)
+            general_exprs.emplace_back(expr);
     }
     num_unique_buffers = unique_buffers.size();
 }
@@ -171,13 +108,13 @@ void jit_kernel_emitter::init_body_regs(const std::set<size_t>& kernel_regs,
 void jit_kernel_emitter::emit_impl(const std::vector<size_t>& in, const std::vector<size_t>& out) const {
     h->preamble();
 
-    auto data_ptr_regs = transform_idxs_to_regs(data_ptr_regs_idx);
+    auto data_ptr_regs = utils::transform_idxs_to_regs(data_ptr_regs_idx);
 
     init_data_pointers(data_ptr_regs);
-    for (const auto& expression : body) {
+    for (const auto& expression : *body) {
         const auto reg_info = expression->get_reg_info();
-        auto in_regs = transform_snippets_regs_to_idxs(reg_info.first);
-        auto out_regs = transform_snippets_regs_to_idxs(reg_info.second);
+        auto in_regs = utils::transform_snippets_regs_to_idxs(reg_info.first);
+        auto out_regs = utils::transform_snippets_regs_to_idxs(reg_info.second);
         const auto& emitter = expression->get_emitter();
         emitter->emit_code(in_regs, out_regs, vec_regs_pool, gp_regs_pool);
     }
@@ -189,49 +126,12 @@ jit_kernel_static_emitter::jit_kernel_static_emitter(dnnl::impl::cpu::x64::jit_g
                                                      const ov::snippets::lowered::ExpressionPtr& expr)
     : jit_kernel_emitter(h, isa, expr), reg_indexes_idx(abi_param2.getIdx()) {
     const auto kernel = ov::as_type_ptr<snippets::op::KernelStatic>(expr->get_node());
-    OV_CPU_JIT_EMITTER_ASSERT(kernel != nullptr, "jit_kernel_static_emitter expectes KernelStatic expression");
-    master_shape = body.get_master_shape();
-    io_shapes.reserve(num_inputs + num_outputs);
-    io_data_layouts.reserve(num_inputs + num_outputs);
-    io_data_sizes.reserve(num_inputs + num_outputs);
-    const auto& io_exprs = body.get_IO_ops();
-    for (const auto& expr : io_exprs) {
-        snippets::lowered::PortDescriptorPtr desc = nullptr;
-        element::Type etype;
-        switch (expr->get_type()) {
-            case snippets::lowered::IOExpression::io_type::INPUT: {
-                // Note that here we consider only the first child (which is usually load),
-                // but often there is another child - LoopEnd
-                auto consumer_inputs = expr->get_output_port_connector(0)->get_consumers();
-                const auto& first_consumer = consumer_inputs.begin()->get_expr();
-                // If there is a RankNormalization op after a parameter - we should skip it
-                if (is_type<snippets::op::RankNormalization>(first_consumer->get_node()))
-                    consumer_inputs = first_consumer->get_output_port_connector(0)->get_consumers();
-                for (const auto& child_input : consumer_inputs) {
-                    const auto ma = ov::as_type_ptr<snippets::op::MemoryAccess>(child_input.get_expr()->get_node());
-                    if (ma && ma->is_memory_access_input_port(child_input.get_index())) {
-                        desc = child_input.get_descriptor_ptr();
-                        break;
-                    }
-                }
-                etype = expr->get_node()->get_output_element_type(0);
-                break;
-            }
-            case snippets::lowered::IOExpression::io_type::OUTPUT: {
-                desc = expr->get_input_port_connector(0)->get_source().get_descriptor_ptr();
-                etype = expr->get_node()->get_input_element_type(0);
-                break;
-            } default : {
-                OPENVINO_THROW("Kernel detected unsupported io_type");
-            }
-        }
-        io_shapes.push_back(desc->get_shape());
-        io_data_layouts.push_back(desc->get_layout());
-        io_data_sizes.push_back(etype.size());
-    }
-    // Note: plugin can prepend master shape with 1 to facilitate parallel execution (usually up to 6D tensor)
-    //       so we have to reproduce this behavior here
-    master_shape.insert(master_shape.begin(), jcp.parallel_executor_ndims - master_shape.size(), 1);
+    OV_CPU_JIT_EMITTER_ASSERT(kernel != nullptr, "expectes KernelStatic expression");
+    jcp = *reinterpret_cast<const jit_snippets_compile_args*>(kernel->compile_params);
+    master_shape = jcp.exec_domain;
+    data_offsets = jcp.data_offsets;
+    OV_CPU_JIT_EMITTER_ASSERT(data_offsets.size() == num_inputs + num_outputs, "Incompatible count of data offsets!");
+    OV_CPU_JIT_EMITTER_ASSERT(data_offsets.front().size() == master_shape.size(), "Incompatible rank of data offsets!");
 
     // - Reserve abi_param1 and abi_param2, since they'll be used to pass runtime call args to kernel
     // - However we can use reg_indexes_idx for non memory access operations
@@ -246,44 +146,7 @@ void jit_kernel_static_emitter::init_data_pointers(const std::vector<Xbyak::Reg6
     const auto num_params = num_inputs + num_outputs;
     // Note that we don't need offset for the last dim, since it's handled directly by Tile emitter
     const size_t offset_rank = master_shape.size() - 1;
-    std::vector<std::vector<size_t>> data_offsets(num_params, std::vector<size_t>{});
-    auto offset_calculation = [=](const std::vector<size_t>& shape, const std::vector<size_t>& layout, const size_t data_size, bool is_input) {
-        // Strides represent distance between consecutive elements of corresponding dimension.
-        // If a dim size == 1, then the next dim starts immediately and the stride is 0
-        // case 1:
-        //    shape:         s0,    s1, s2, s3
-        //    strides: s1*s2*s3, s2*s3, s3,  1
-        // case 2:
-        //    shape:      s0, s1, s2 == 1, s3
-        //    strides: s1*s3, s3,       0,  1
-        std::vector<size_t> strides(shape.size());
-        size_t dim_step = 1;
-        strides[shape.size() - 1] = 1;
-        for (int k = static_cast<int>(shape.size()) - 2; k >= 0; k--) {
-            dim_step *= shape[k+1];
-            strides[k] = shape[k] != 1 ? dim_step * data_size : 0;
-        }
-        // Note: this is an extra copy, but let's keep it for clarity
-        if (!layout.empty()) {
-            std::vector<size_t> reordered_strides(strides.size());
-            for (size_t i = 0; i < layout.size(); i++) {
-                const auto& src_idx = is_input ? layout[i] : i;
-                const auto& dst_idx = is_input ? i : layout[i];
-                reordered_strides[dst_idx] = strides[src_idx];
-            }
-            strides = std::move(reordered_strides);
-        }
-        // the last stride is ignored, since the entire last dim is processed by kernel
-        // and no parallel_for data_ptr offsets can be applied in this case
-        strides.pop_back();
-        // actual offset size might be larger that the shape size due to 6D scheduling
-        strides.insert(strides.begin(), offset_rank - strides.size(), 0);
 
-        return strides;
-    };
-    for (size_t i = 0; i < num_params; i++) {
-        data_offsets[i] = offset_calculation(io_shapes[i],  io_data_layouts[i], io_data_sizes[i], i < num_inputs);
-    }
     // master_shape size must be valid in both static and dynamic cases
     std::function<void(Reg64, const std::vector<size_t>&, Reg64)> init_ptr_with_offset;
     init_ptr_with_offset = [&](Reg64 pointer, const std::vector<size_t>& offsets, Reg64 reg_tmp) {
@@ -321,7 +184,7 @@ void jit_kernel_static_emitter::init_data_pointers(const std::vector<Xbyak::Reg6
     // * Static case: we can use reg_runtime_params as the last reg_tmp for the last iteration (and corrupt it), since
     //     it won't be used anymore
     // * Dynamic case: we will need reg_runtime_params to pass runtime args to LoopScheduler, so we have to
-    //     push a reg on the stack, and restore it value afterwards
+    //     push a reg on the stack, and restore it value afterward
     if (last_iter_explicitly) {
         h->mov(data_ptr_regs[i], h->ptr[reg_runtime_params + GET_OFF(dst_ptrs) + (i - num_inputs) * sizeof(void*)]);
         reg_tmp = reg_runtime_params;

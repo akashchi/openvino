@@ -9,7 +9,7 @@ import numpy as np
 
 from tests.utils.helpers import generate_add_compiled_model, generate_relu_compiled_model
 
-from openvino import Core, Model, Type, Shape, Tensor
+from openvino import Core, Model, Type, Shape, Tensor, PartialShape
 import openvino.runtime.opset13 as ops
 from openvino.runtime.utils.data_helpers import _data_dispatch
 
@@ -36,7 +36,8 @@ def _run_dispatcher_multi_input(device, input_data, is_shared, input_shape, inpu
     return result, infer_request
 
 
-@pytest.mark.parametrize("data_type", [np.float_, np.int_, int, float])
+# https://numpy.org/devdocs/numpy_2_0_migration_guide.html#main-namespace
+@pytest.mark.parametrize("data_type", [np.float64, np.int_, int, float])
 @pytest.mark.parametrize("input_shape", [[], [1]])
 @pytest.mark.parametrize("is_shared", [True, False])
 def test_scalars_dispatcher_old(device, data_type, input_shape, is_shared):
@@ -51,8 +52,25 @@ def test_scalars_dispatcher_old(device, data_type, input_shape, is_shared):
     assert result.data == expected.data
 
 
+def test_scalars_dispacher_dynamic_input(device):
+
+    input_shape = PartialShape([-1])
+    data_type = np.float32
+    test_data = np.array(-1.0, dtype=np.float32)
+    compiled_model = generate_relu_compiled_model(device, input_shape, data_type)
+    assert compiled_model.input(0).partial_shape.is_dynamic
+
+    infer_request = compiled_model.create_infer_request()
+    # the first infer request creates input with Shape([0])
+    assert infer_request.input_tensors[0].get_shape() == Shape([0])
+
+    result = _data_dispatch(infer_request, test_data, is_shared=True)
+    assert result.get_shape() == Shape([1])
+
+
+# https://numpy.org/devdocs/numpy_2_0_migration_guide.html#main-namespace
 @pytest.mark.parametrize(("input_data", "input_dtype"), [
-    (np.float_(2), np.float_),
+    (np.float64(2), np.float64),
     (np.int_(1), np.int_),
     (int(3), np.int64),
     (1, np.int64),
@@ -192,7 +210,10 @@ def test_array_interface_copied_dispatcher(device, input_shape):
     assert np.array_equal(infer_request.input_tensors[0].data, test_data)
     assert not np.shares_memory(infer_request.input_tensors[0].data, test_data)
 
-    np.array(test_data, copy=False)[0] = 2.0
+    if np.lib.NumpyVersion(np.__version__) >= "2.0.0":
+        np.asarray(test_data)[0] = 2.0
+    else:
+        np.array(test_data, copy=False)[0] = 2.0
 
     assert not np.array_equal(infer_request.input_tensors[0].data, test_data)
 
@@ -218,7 +239,10 @@ def test_array_interface_copied_multi_dispatcher(device, input_shape, input_cont
         assert np.array_equal(infer_request.input_tensors[i].data, test_inputs[i])
         assert not np.shares_memory(infer_request.input_tensors[i].data, test_inputs[i])
 
-        np.array(test_inputs[i], copy=False)[0] = 2.0
+        if np.lib.NumpyVersion(np.__version__) >= "2.0.0":
+            np.asarray(test_inputs[i])[0] = 2.0
+        else:
+            np.array(test_inputs[i], copy=False)[0] = 2.0
 
         assert not np.array_equal(infer_request.input_tensors[i].data, test_inputs[i])
 
@@ -234,7 +258,10 @@ def test_array_interface_shared_single_dispatcher(device, input_shape):
     assert np.array_equal(result.data, test_data)
     assert np.shares_memory(result.data, test_data)
 
-    np.array(test_data, copy=False)[0] = 2.0
+    if np.lib.NumpyVersion(np.__version__) >= "2.0.0":
+        np.asarray(test_data)[0] = 2.0
+    else:
+        np.array(test_data, copy=False)[0] = 2.0
 
     assert np.array_equal(result.data, test_data)
 
@@ -260,7 +287,10 @@ def test_array_interface_shared_multi_dispatcher(device, input_shape, input_cont
         assert np.array_equal(results[i].data, test_inputs[i])
         assert np.shares_memory(results[i].data, test_inputs[i])
 
-        np.array(test_inputs[i], copy=False)[0] = 2.0
+        if np.lib.NumpyVersion(np.__version__) >= "2.0.0":
+            np.asarray(test_inputs[i])[0] = 2.0
+        else:
+            np.array(test_inputs[i], copy=False)[0] = 2.0
 
         assert np.array_equal(results[i].data, test_inputs[i])
 

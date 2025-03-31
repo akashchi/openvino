@@ -16,7 +16,7 @@ public:
     MOCK_METHOD(ov::Any, get_property, (const std::string&, const std::string&, const ov::AnyMap&), (const));
     MOCK_METHOD(ov::Any, get_property, (const std::string&, const std::string&), (const));
     MOCK_METHOD(ov::AnyMap, get_supported_property, (const std::string&, const ov::AnyMap&, const bool), (const));
-
+    MOCK_METHOD(ov::AnyMap, create_compile_config, (const std::string&, const ov::AnyMap&), (const));
     MOCK_METHOD(ov::SoPtr<ov::IRemoteContext>,
                 create_context,
                 (const std::string& deviceName, const ov::AnyMap& params),
@@ -48,6 +48,10 @@ public:
                 (const));
     MOCK_METHOD(std::shared_ptr<ov::Model>, read_model, (const std::string&, const ov::Tensor&, bool), (const));
     MOCK_METHOD(std::shared_ptr<ov::Model>, read_model, (const std::string&, const std::string&), (const));
+    MOCK_METHOD(std::shared_ptr<ov::Model>,
+                read_model,
+                (const std::shared_ptr<AlignedBuffer>&, const std::shared_ptr<AlignedBuffer>&),
+                (const));
     MOCK_METHOD(ov::SoPtr<ov::IRemoteContext>, get_default_context, (const std::string&), (const));
     MOCK_METHOD(ov::SoPtr<ov::ICompiledModel>,
                 import_model,

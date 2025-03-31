@@ -7,7 +7,7 @@
 #include <sstream>
 
 #include "itt.hpp"
-#include "openvino/op/util/axes_util.hpp"
+#include "openvino/core/validation_util.hpp"
 #include "openvino/reference/reverse.hpp"
 #include "reverse_shape_inference.hpp"
 
@@ -63,8 +63,8 @@ void Reverse::validate_and_infer_types() {
                               "In 'index' mode the second input must contain integer values.");
     }
 
-    const auto output_shape = shape_infer(this, ov::util::get_node_input_partial_shapes(*this)).front();
-    set_output_type(0, get_input_element_type(0), output_shape);
+    const auto output_shapes = shape_infer(this, ov::util::get_node_input_partial_shapes(*this));
+    set_output_type(0, get_input_element_type(0), output_shapes[0]);
 }
 
 std::shared_ptr<ov::Node> Reverse::clone_with_new_inputs(const OutputVector& new_args) const {
@@ -99,7 +99,7 @@ bool Reverse::evaluate(TensorVector& outputs, const TensorVector& inputs) const 
             }
         }
     } else if (validate_axes_indices_et(axes.get_element_type())) {
-        reversed_axes = util::get_normalized_axes_from_tensor(this, axes, data_shape.size());
+        reversed_axes = ov::util::try_get_normalized_axis_set(axes, data_shape.size(), *this);
     } else {
         return false;
     }

@@ -11,15 +11,6 @@ from openvino.runtime import op, Type as OVType, Shape, Tensor
 from openvino.runtime import opset11 as ops
 
 
-def maybe_convert_max_int(value: int):
-    # FIXME: This is a convertion from 64-bit positive max integer value
-    # to 32-bit positive max integer value. Find a better way to handle this.
-    if value == torch.iinfo(torch.int64).max:
-        return torch.iinfo(torch.int32).max
-    else:
-        return value
-
-
 def make_constant(*args, **kwargs):
     return op.Constant(*args, **kwargs)
 
@@ -34,7 +25,7 @@ def fetch_attr(self_module, target: str):
     Return:
         Any: The value of the attribute.
     """
-    target_atoms = target.split('.')
+    target_atoms = target.split(".")
     attr_itr = self_module
     for i, atom in enumerate(target_atoms):
         if not hasattr(attr_itr, atom):
@@ -50,14 +41,20 @@ def get_type_from_py_type(value):
     if isinstance(value, bool):
         return OVType.boolean
     if isinstance(value, int):
-        # Python int is 64 bit, but we will convert it to int32 except cases when it can't fit in 32 bits
-        if torch.iinfo(torch.int).min <= value <= torch.iinfo(torch.int).max:
-            return OVType.i32
         return OVType.i64
     return OVType.dynamic
 
 
 def torch_tensor_to_ov_const(torch_t: torch.Tensor, shared_memory=True):
+    is_fake_tensor = False
+    try:
+        from torch._prims import FakeTensor
+        is_fake_tensor = isinstance(torch_t, FakeTensor)
+    except:
+        pass
+    assert not is_fake_tensor, '`FakeTensor` is found in the graph during conversion. ' \
+                               'In order to avoid `FakeTensor` in the traced model, ' \
+                               'try to infer the model before exporting.'
     torch_t = torch_t.contiguous()
     if torch_t.dtype == torch.bfloat16:
         # reinterpret bfloat16 data as float16 to allow conversion to numpy
@@ -103,12 +100,13 @@ def get_value_from_getattr(getattr_node, self_module):
         node = stack.pop()
         attr_name = node.s("name")
         assert hasattr(
-            module, attr_name), f"No attribute with name \"{attr_name}\" found in module."
+            module, attr_name), f'No attribute with name "{attr_name}" found in module.'
         path_name = ".".join([path_name, attr_name])
         module = getattr(module, attr_name)
     return module, path_name
 
-def graph_has_ops(graph, op_types:list) -> bool:
+
+def graph_has_ops(graph, op_types: list) -> bool:
     res = False
     for n in graph.nodes():
         if any(kind in n.kind() for kind in op_types):
@@ -118,11 +116,11 @@ def graph_has_ops(graph, op_types:list) -> bool:
         if res:
             return res
     return res
-    
+
 
 pt_to_ov_type_map = {
     "float": OVType.f32,
-    "int": OVType.i32,
+    "int": OVType.i64,
     "bool": OVType.boolean,
     "torch.bfloat16": OVType.bf16,
     "torch.float16": OVType.f16,
@@ -146,7 +144,7 @@ pt_to_ov_type_map = {
     "torch.BoolTensor": OVType.boolean,
     "torch.quint8": OVType.u8,
     "torch.qint8": OVType.i8,
-    "torch.qint32": OVType.i32
+    "torch.qint32": OVType.i32,
 }
 
 
@@ -171,7 +169,7 @@ def process_dict_inputs(inputs, input_params, model):
             ordered_inputs.append(input_name)
 
     input_signature = list(input_params)
-    if ordered_inputs == input_signature[:len(ordered_inputs)]:
+    if ordered_inputs == input_signature[: len(ordered_inputs)]:
         example_inputs = [inputs[input_name] for input_name in ordered_inputs]
         if all([isinstance(inp, torch.Tensor) for inp in example_inputs]):
             return {"example_inputs": [inputs[name] for name in ordered_inputs]}, ordered_inputs, model
@@ -203,8 +201,8 @@ def process_dict_inputs(inputs, input_params, model):
             str(input_params[input_name]).replace("NoneType", "None"))
         input_params_str.append(f"{input_name}={input_name}")
 
-    wrapper_class = wrapper_template.format(input_sign=', '.join(
-        input_sign_str), example_input=', '.join(input_params_str))
+    wrapper_class = wrapper_template.format(input_sign=", ".join(
+        input_sign_str), example_input=", ".join(input_params_str))
     result = {}
     try:
         exec(wrapper_class, result)
@@ -222,7 +220,8 @@ def prepare_example_inputs_and_model(inputs, input_params, model):
     input_is_list = False
     input_signature = list(input_params)
     if isinstance(inputs, dict):
-        examples, ordered, wrapped = process_dict_inputs(inputs, input_params, model)
+        examples, ordered, wrapped = process_dict_inputs(
+            inputs, input_params, model)
         return examples, ordered, wrapped, input_is_list
     if isinstance(inputs, list) and len(inputs) == 1 and isinstance(inputs[0], torch.Tensor):
         if "typing.List" in str(input_params[input_signature[0]].annotation):
@@ -231,7 +230,7 @@ def prepare_example_inputs_and_model(inputs, input_params, model):
 
     if isinstance(inputs, torch.Tensor):
         inputs = [inputs]
-    input_signature = input_signature[:len(inputs)]
+    input_signature = input_signature[: len(inputs)]
     return {"example_inputs": inputs}, input_signature, model, input_is_list
 
 

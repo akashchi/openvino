@@ -9,65 +9,67 @@ Interface PrePostProcessor
        output(idxOrTensorName?): OutputInfo;
    }
 
-- Defined in
-  `addon.ts:126 <https://github.com/openvinotoolkit/openvino/blob/master/src/bindings/js/node/lib/addon.ts#L126>`__
+* **Defined in:**
+  `addon.ts:603 <https://github.com/openvinotoolkit/openvino/blob/master/src/bindings/js/node/lib/addon.ts#L603>`__
+
 
 Methods
 #####################
 
+
 .. rubric:: build
 
+*
 
-.. code-block:: ts
+   .. code-block:: ts
 
-   build(): PrePostProcessor
+      build(): PrePostProcessor
 
-**Returns** :doc: `PrePostProcessor <PrePostProcessor>`
+   * **Returns:** :doc:`PrePostProcessor <PrePostProcessor>`
 
-- Defined in
-  `addon.ts:127 <https://github.com/openvinotoolkit/openvino/blob/master/src/bindings/js/node/lib/addon.ts#L127>`__
+   * **Defined in:**
+     `addon.ts:604 <https://github.com/openvinotoolkit/openvino/blob/master/src/bindings/js/node/lib/addon.ts#L604>`__
+
 
 .. rubric:: input
 
+*
 
+   .. code-block:: ts
 
-.. code-block:: ts
+      input(idxOrTensorName?): InputInfo
 
-   input(idxOrTensorName?): InputInfo
+   * * **Parameters:**
 
-**Parameters**
+     - ``Optional``
 
+     .. code-block:: ts
 
-- ``Optional``
+        idxOrTensorName: string|number
 
-.. code-block:: ts
+   * **Returns:**  :doc:`InputInfo <InputInfo>`
 
-   idxOrTensorName: string|number
-
-
-**Returns**  :doc:`InputInfo <InputInfo>`
-
-- Defined in
-  `addon.ts:128 <https://github.com/openvinotoolkit/openvino/blob/master/src/bindings/js/node/lib/addon.ts#L128>`__
+   * **Defined in:**
+     `addon.ts:605 <https://github.com/openvinotoolkit/openvino/blob/master/src/bindings/js/node/lib/addon.ts#L605>`__
 
 .. rubric:: output
 
+*
 
-.. code-block:: ts
+   .. code-block:: ts
 
-   output(idxOrTensorName?): OutputInfo
+      output(idxOrTensorName?): OutputInfo
 
+   * **Parameters:**
 
-**Parameters**
+   - ``Optional``
 
-- ``Optional``
+     .. code-block:: ts
 
-  .. code-block:: ts
+        idxOrTensorName: string|number
 
-     idxOrTensorName: string|number
+   * **Returns:**  :doc:`OutputInfo <OutputInfo>`
 
+   * **Defined in:**
+     `addon.ts:606 <https://github.com/openvinotoolkit/openvino/blob/master/src/bindings/js/node/lib/addon.ts#L606>`__
 
-**Returns**  :doc:`OutputInfo <OutputInfo>`
-
-- Defined in
-  `addon.ts:129 <https://github.com/openvinotoolkit/openvino/blob/master/src/bindings/js/node/lib/addon.ts#L129>`__

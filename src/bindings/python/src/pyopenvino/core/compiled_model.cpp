@@ -47,10 +47,12 @@ void regclass_CompiledModel(py::module m) {
         "export_model",
         [](ov::CompiledModel& self) {
             std::stringstream _stream;
-            self.export_model(_stream);
+            {
+                py::gil_scoped_release release;
+                self.export_model(_stream);
+            }
             return py::bytes(_stream.str());
         },
-        py::call_guard<py::gil_scoped_release>(),
         R"(
             Exports the compiled model to bytes/output stream.
 
@@ -175,6 +177,16 @@ void regclass_CompiledModel(py::module m) {
                 :rtype: openvino.runtime.Model
             )");
 
+    cls.def("release_memory",
+            &ov::CompiledModel::release_memory,
+            py::call_guard<py::gil_scoped_release>(),
+            R"(
+                Release intermediate memory.
+
+                This method forces the Compiled model to release memory allocated for intermediate structures,
+                e.g. caches, tensors, temporal buffers etc., when possible
+            )");
+
     cls.def_property_readonly("inputs",
                               &ov::CompiledModel::inputs,
                               R"(
@@ -209,7 +221,7 @@ void regclass_CompiledModel(py::module m) {
 
     cls.def(
         "input",
-        (const ov::Output<const ov::Node>& (ov::CompiledModel::*)(const std::string&)const) & ov::CompiledModel::input,
+        (const ov::Output<const ov::Node>& (ov::CompiledModel::*)(const std::string&) const) & ov::CompiledModel::input,
         py::arg("tensor_name"),
         R"(
                 Gets input of a compiled model identified by a tensor_name.
@@ -253,11 +265,11 @@ void regclass_CompiledModel(py::module m) {
                 :rtype: openvino.runtime.ConstOutput
             )");
 
-    cls.def(
-        "output",
-        (const ov::Output<const ov::Node>& (ov::CompiledModel::*)(const std::string&)const) & ov::CompiledModel::output,
-        py::arg("tensor_name"),
-        R"(
+    cls.def("output",
+            (const ov::Output<const ov::Node>& (ov::CompiledModel::*)(const std::string&) const) &
+                ov::CompiledModel::output,
+            py::arg("tensor_name"),
+            R"(
                 Gets output of a compiled model identified by a tensor_name.
                 If the output with given tensor name is not found, this method throws an exception.
 
