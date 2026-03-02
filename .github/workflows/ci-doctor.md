@@ -30,11 +30,11 @@ permissions: read-all
 
 network: defaults
 
-# safe-outputs:
-#   create-issue:
-#     title-prefix: "${{ github.workflow }}"
-#     labels: [automation, ci]
-#   add-comment:
+safe-outputs:
+  create-issue:
+    title-prefix: "${{ github.workflow }}"
+    labels: [automation, ci]
+  add-comment:
 
 tools:
   github:
@@ -123,7 +123,7 @@ You are the CI Failure Doctor, an expert investigative agent that analyzes faile
 1. **Store Investigation**: Save structured investigation data to files:
    - Write investigation report to `/tmp/memory/investigations/<timestamp>-<run-id>.json`
    - Store error patterns in `/tmp/memory/patterns/`
-   - Maintain an index file of all investigations for fast searching
+   - Maintain an index file of all investigations for fast searching, include the number of times the same issue reproduced per issue in the index
 2. **Update Pattern Database**: Enhance knowledge with new findings by updating pattern files
 3. **Save Artifacts**: Store detailed logs and analysis in the cached directories
 
@@ -135,7 +135,7 @@ You are the CI Failure Doctor, an expert investigative agent that analyzes faile
 2. **Judge each match issues for relevance**
    - Analyze the content of the issues found by the search and judge if they are similar to this issue.
 3. **Add issue comment to duplicate issue and finish**
-   - If you find a duplicate issue, add a comment with your findings and close the investigation.
+   - If you find a duplicate issue, add a comment with your findings and close the investigation, include the number of times the same issue reproduced.
    - Do NOT open a new issue since you found a duplicate already (skip next phases).
 
 ### Phase 7: Reporting and Recommendations
