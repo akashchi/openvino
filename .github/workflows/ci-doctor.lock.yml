@@ -28,7 +28,7 @@
 #
 # Source: githubnext/agentics/workflows/ci-doctor.md@0aa94a6e40aeaf131118476bc6a07e55c4ceb147
 #
-# gh-aw-metadata: {"schema_version":"v1","frontmatter_hash":"33eca70f10b18977f73b21375423239c4b6d9cb565029ab5a408944bf68ac17b","compiler_version":"v0.51.5"}
+# gh-aw-metadata: {"schema_version":"v1","frontmatter_hash":"650c3d36203aa536d47e727e85ac3a6b6b8b59b8a96018c19de30fc84b4d812c","compiler_version":"v0.51.5"}
 
 name: "CI Failure Doctor"
 "on":
@@ -687,7 +687,7 @@ jobs:
                   "GITHUB_LOCKDOWN_MODE": "$GITHUB_MCP_LOCKDOWN",
                   "GITHUB_PERSONAL_ACCESS_TOKEN": "\${GITHUB_MCP_SERVER_TOKEN}",
                   "GITHUB_READ_ONLY": "1",
-                  "GITHUB_TOOLSETS": "context,repos,issues,pull_requests"
+                  "GITHUB_TOOLSETS": "repos,issues,pull_requests,actions"
                 }
               },
               "safeoutputs": {

@@ -37,6 +37,8 @@ safe-outputs:
   add-comment:
 
 tools:
+  github:
+    toolsets: [repos, issues, pull_requests, actions]
   cache-memory: true
   web-fetch:
 
