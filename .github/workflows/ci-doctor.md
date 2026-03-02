@@ -160,9 +160,9 @@ You are the CI Failure Doctor, an expert investigative agent that analyzes faile
 
 When creating an investigation issue, use this structure:
 
-```markdown
-# 🏥 CI Failure Investigation - Run #${{ github.event.workflow_run.run_number }}
+Issue title: `Failure Investigation for [short description of the failure]`
 
+```markdown
 ## Summary
 
 [Brief description of the failure]
