@@ -30,11 +30,11 @@ permissions: read-all
 
 network: defaults
 
-safe-outputs:
-  create-issue:
-    title-prefix: "${{ github.workflow }}"
-    labels: [automation, ci]
-  add-comment:
+# safe-outputs:
+#   create-issue:
+#     title-prefix: "${{ github.workflow }}"
+#     labels: [automation, ci]
+#   add-comment:
 
 tools:
   github:
