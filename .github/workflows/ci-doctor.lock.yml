@@ -28,7 +28,7 @@
 #
 # Source: githubnext/agentics/workflows/ci-doctor.md@0aa94a6e40aeaf131118476bc6a07e55c4ceb147
 #
-# gh-aw-metadata: {"schema_version":"v1","frontmatter_hash":"ab6f1bebb48e4555bacc8c6f7173e8338fc34d0c282b41e256a19c678a675565","compiler_version":"v0.51.5"}
+# gh-aw-metadata: {"schema_version":"v1","frontmatter_hash":"33eca70f10b18977f73b21375423239c4b6d9cb565029ab5a408944bf68ac17b","compiler_version":"v0.51.5"}
 
 name: "CI Failure Doctor"
 "on":
@@ -716,7 +716,7 @@ jobs:
       - name: Execute GitHub Copilot CLI
         id: agentic_execution
         # Copilot CLI tool arguments (sorted):
-        timeout-minutes: 10
+        timeout-minutes: 30
         run: |
           set -o pipefail
           # shellcheck disable=SC1003
