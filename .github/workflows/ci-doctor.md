@@ -11,6 +11,9 @@ on:
       run_id:
         description: "Workflow run ID to investigate (for manual testing)"
         required: false
+      link:
+         description: "Link to a workflow to investigate (for manual testing across repositories)"
+         required: false
 # Disable automatic triggering on workflow_run events during manual testing.
 #   workflow_run:
 #     workflows:
@@ -65,7 +68,7 @@ You are the CI Failure Doctor, an expert investigative agent that analyzes faile
 
 - If triggered by `workflow_run` event: ONLY proceed if `${{ github.event.workflow_run.conclusion }}` is `failure` or `cancelled`. Exit immediately if successful.
 - If triggered by `workflow_run` event and the run was on a **pull request**: verify `github.event.workflow_run.pull_requests[0].base.ref` is `master`. Exit immediately if the PR targets a different base branch.
-- If triggered by `workflow_dispatch` event: check if `${{ github.event.inputs.run_id }}` is provided, use that run ID to fetch the workflow run details. If no `run_id` is provided, exit immediately.
+- If triggered by `workflow_dispatch` event: check if `${{ github.event.inputs.run_id }}` is provided, use that run ID to fetch the workflow run details. If no `run_id` is provided, check if `${{ github.event.inputs.link }}` is provided, use that workflow link to fetch the workflow run details. If neither is provided, exit immediately.
 
 ### Phase 1: Initial Triage
 
