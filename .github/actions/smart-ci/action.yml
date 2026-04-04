@@ -70,9 +70,10 @@ runs:
         repository: openvinotoolkit/openvino
         sparse-checkout: .github/actions/wait-for-check-completion
         sparse-checkout-cone-mode: false
+        path: _wait_for_check_src
 
     - name: Wait for labeler to finish
-      uses: ./.github/actions/wait-for-check-completion
+      uses: ./_wait_for_check_src/.github/actions/wait-for-check-completion
       if: ${{ github.event_name == 'pull_request' }}
       with:
         ref: ${{ github.event.pull_request.head.sha }}
@@ -86,6 +87,7 @@ runs:
       with:
         sparse-checkout: .github/components.yml
         sparse-checkout-cone-mode: false
+        clean: false
 
     - name: Install Python dependencies
       uses: py-actions/py-dependency-install@30aa0023464ed4b5b116bd9fbdab87acf01a484e # v4.1.0
