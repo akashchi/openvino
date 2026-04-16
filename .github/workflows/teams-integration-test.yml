@@ -1,0 +1,54 @@
+name: Teams Integration Test
+
+on:
+  workflow_dispatch:
+
+permissions: {}
+
+jobs:
+  test-teams:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Send test message to Microsoft Teams
+        env:
+          TEAMS_WEBHOOK_URL: ${{ secrets.TEAMS_WEBHOOK_URL }}
+        run: |
+          PAYLOAD=$(jq -n '{
+            type: "message",
+            attachments: [{
+              contentType: "application/vnd.microsoft.card.adaptive",
+              content: {
+                "$schema": "http://adaptivecards.io/schemas/adaptive-card.json",
+                type: "AdaptiveCard",
+                version: "1.4",
+                body: [
+                  {
+                    type: "TextBlock",
+                    text: "Teams Integration Test",
+                    weight: "Bolder",
+                    size: "Medium",
+                    color: "Good"
+                  },
+                  {
+                    type: "TextBlock",
+                    text: "This is a **test message** from GitHub Actions to verify the Teams webhook integration is working correctly.",
+                    wrap: true,
+                    spacing: "Small"
+                  },
+                  {
+                    type: "FactSet",
+                    facts: [
+                      { title: "Repository", value: "openvinotoolkit/openvino" },
+                      { title: "Workflow", value: "Teams Integration Test" },
+                      { title: "Status", value: "Connected" }
+                    ]
+                  }
+                ]
+              }
+            }]
+          }')
+
+          curl -sS --fail-with-body \
+            -H "Content-Type: application/json" \
+            -d "$PAYLOAD" \
+            "$TEAMS_WEBHOOK_URL"
