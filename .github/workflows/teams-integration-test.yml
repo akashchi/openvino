@@ -3,52 +3,84 @@ name: Teams Integration Test
 on:
   workflow_dispatch:
 
-permissions: {}
+permissions:
+  issues: read
 
 jobs:
-  test-teams:
+  report-issues:
     runs-on: ubuntu-latest
     steps:
-      - name: Send test message to Microsoft Teams
+      - name: Collect open issues
+        id: collect
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          # Fetch open issues (up to 100) with title, url, date, and author
+          ISSUES=$(gh issue list \
+            --repo "${{ github.repository }}" \
+            --state open \
+            --limit 100 \
+            --json title,url,createdAt,author \
+            --jq '[.[] | {title, url, date: (.createdAt | split("T")[0]), author: .author.login}]')
+
+          COUNT=$(echo "$ISSUES" | jq 'length')
+          echo "count=$COUNT" >> "$GITHUB_OUTPUT"
+
+          # Build markdown list: "- [title](url) — 2026-04-16 by @user"
+          LINES=$(echo "$ISSUES" | jq -r '.[] | "- [\(.title)](\(.url)) — \(.date) by @\(.author)"')
+          EOF=$(dd if=/dev/urandom bs=15 count=1 status=none | base64)
+          echo "lines<<$EOF" >> "$GITHUB_OUTPUT"
+          echo "$LINES" >> "$GITHUB_OUTPUT"
+          echo "$EOF" >> "$GITHUB_OUTPUT"
+
+      - name: Send issue report to Microsoft Teams
+        if: steps.collect.outputs.count != '0'
         env:
           TEAMS_WEBHOOK_URL: ${{ secrets.TEAMS_WEBHOOK_URL }}
+          ISSUE_COUNT: ${{ steps.collect.outputs.count }}
+          ISSUE_LINES: ${{ steps.collect.outputs.lines }}
         run: |
-          PAYLOAD=$(jq -n '{
-            type: "message",
-            attachments: [{
-              contentType: "application/vnd.microsoft.card.adaptive",
-              content: {
-                "$schema": "http://adaptivecards.io/schemas/adaptive-card.json",
-                type: "AdaptiveCard",
-                version: "1.4",
-                body: [
-                  {
-                    type: "TextBlock",
-                    text: "Teams Integration Test",
-                    weight: "Bolder",
-                    size: "Medium",
-                    color: "Good"
-                  },
-                  {
-                    type: "TextBlock",
-                    text: "This is a **test message** from GitHub Actions to verify the Teams webhook integration is working correctly.",
-                    wrap: true,
-                    spacing: "Small"
-                  },
-                  {
-                    type: "FactSet",
-                    facts: [
-                      { title: "Repository", value: "openvinotoolkit/openvino" },
-                      { title: "Workflow", value: "Teams Integration Test" },
-                      { title: "Status", value: "Connected" }
-                    ]
-                  }
-                ]
-              }
-            }]
-          }')
+          PAYLOAD=$(jq -n \
+            --arg count "$ISSUE_COUNT" \
+            --arg lines "$ISSUE_LINES" \
+            '{
+              type: "message",
+              attachments: [{
+                contentType: "application/vnd.microsoft.card.adaptive",
+                content: {
+                  "$schema": "http://adaptivecards.io/schemas/adaptive-card.json",
+                  type: "AdaptiveCard",
+                  version: "1.4",
+                  body: [
+                    {
+                      type: "TextBlock",
+                      text: "Open Issues Report",
+                      weight: "Bolder",
+                      size: "Medium",
+                      color: "Accent"
+                    },
+                    {
+                      type: "TextBlock",
+                      text: ("\($count) open issue(s) in the repository:"),
+                      wrap: true,
+                      spacing: "Small"
+                    },
+                    {
+                      type: "TextBlock",
+                      text: $lines,
+                      wrap: true,
+                      spacing: "Small"
+                    }
+                  ]
+                }
+              }]
+            }')
 
           curl -sS --fail-with-body \
             -H "Content-Type: application/json" \
             -d "$PAYLOAD" \
             "$TEAMS_WEBHOOK_URL"
+
+      - name: No open issues
+        if: steps.collect.outputs.count == '0'
+        run: echo "No open issues found. Skipping Teams notification."
