@@ -15,14 +15,47 @@ concurrency:
 permissions: read-all
 
 jobs:
-  clang-format:
-    runs-on: ubuntu-22.04
-    if: ${{ github.repository_owner == 'openvinotoolkit' }}
-    permissions:
-      contents: read
-      checks: write
-      issues: write
-      pull-requests: write
+  Smart_CI:
+      runs-on: ubuntu-latest
+      if: github.event.pull_request.draft == false || github.run_attempt > 1
+      outputs:
+        affected_components: "${{ steps.smart_ci.outputs.affected_components }}"
+        changed_components: "${{ steps.smart_ci.outputs.changed_components }}"
+        skip_workflow: "${{ steps.smart_ci.outputs.skip_workflow }}"
+      steps:
+        - name: checkout action
+          uses: ababushk/checkout@dd591a6a2ac25618db4eda86e7e0d938f88cf01b # cherry_pick_retries
+          timeout-minutes: 15
+          with:
+            sparse-checkout: .github/actions/smart-ci
+
+        - name: Get affected components
+          id: smart_ci
+          uses: ./.github/actions/smart-ci
+          with:
+            repository: ${{ github.repository }}
+            pr: ${{ github.event.number }}
+            commit_sha: ${{ github.sha }}
+            ref_name: ${{ github.ref_name }}
+            component_pattern: "category: (.*)"
+            repo_token: ${{ secrets.GITHUB_TOKEN }}
+            skip_when_only_listed_labels_set: 'docs'
+            skip_when_only_listed_files_changed: '*.md,*.rst,*.png,*.jpg,*.svg,.github/workflows/ci-doctor.lock.yml'
+
+        - name: Show affected components
+          run: |
+            echo "${{ toJSON(steps.smart_ci.outputs.affected_components) }}"
+          shell: bash
+
+  Docker:
+    needs: Smart_CI
+    runs-on: aks-linux-4-cores-16gb-docker-build
+    container:
+      image: openvinogithubactions.azurecr.io/docker_build:0.2
+      volumes:
+        - /mount:/mount
+    outputs:
+      images: "${{ steps.handle_docker.outputs.images }}"
     steps:
       - name: Checkout
         uses: ababushk/checkout@dd591a6a2ac25618db4eda86e7e0d938f88cf01b # cherry_pick_retries
