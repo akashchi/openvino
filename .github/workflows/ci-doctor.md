@@ -73,6 +73,10 @@ safe-outputs:
           description: "Total number of unique entries currently in the CI Doctor investigation database (count of distinct investigation files under /tmp/gh-aw/cache-memory/investigations/, including the one created by this run). Report as a non-negative integer encoded as a string."
           required: true
           type: string
+        occurrence_count:
+          description: "How many times this same issue has been recorded in the CI Doctor database, including the current investigation. Compute by matching the current failure signature (e.g., normalized error message, failed job name, failure category) against prior investigation/pattern files under /tmp/gh-aw/cache-memory/. Must be >= 1. Report as a positive integer encoded as a string."
+          required: true
+          type: string
       steps:
         - name: Send Teams notification
           env:
@@ -105,6 +109,7 @@ safe-outputs:
             PR_URL=$(echo "$ITEM"           | jq -r '.pr_url // ""')
             AUTHOR=$(echo "$ITEM"           | jq -r '.author // ""')
             DB_ENTRIES=$(echo "$ITEM"       | jq -r '.db_entries // ""')
+            OCCURRENCES=$(echo "$ITEM"      | jq -r '.occurrence_count // ""')
 
             # Build Adaptive Card facts conditionally (only include PR/author when present).
             FACTS=$(jq -nc \
@@ -113,13 +118,15 @@ safe-outputs:
               --arg pr_url          "$PR_URL" \
               --arg author          "$AUTHOR" \
               --arg failed_workflow "$FAILED_WORKFLOW" \
-              --arg db_entries      "$DB_ENTRIES" '
+              --arg db_entries      "$DB_ENTRIES" \
+              --arg occurrences     "$OCCURRENCES" '
                 [
-                  ( $failed_workflow | select(length > 0) | { title: "Workflow",   value: . } ),
-                  ( $pipeline_url    | select(length > 0) | { title: "Pipeline",   value: ("[Open run](" + . + ")") } ),
-                  ( $pr_number       | select(length > 0) | { title: "PR",         value: (if ($pr_url | length) > 0 then ("[#" + . + "](" + $pr_url + ")") else ("#" + .) end) } ),
-                  ( $author          | select(length > 0) | { title: "Author",     value: ("@" + .) } ),
-                  ( $db_entries      | select(length > 0) | { title: "DB entries", value: . } )
+                  ( $failed_workflow | select(length > 0) | { title: "Workflow",    value: . } ),
+                  ( $pipeline_url    | select(length > 0) | { title: "Pipeline",    value: ("[Open run](" + . + ")") } ),
+                  ( $pr_number       | select(length > 0) | { title: "PR",          value: (if ($pr_url | length) > 0 then ("[#" + . + "](" + $pr_url + ")") else ("#" + .) end) } ),
+                  ( $author          | select(length > 0) | { title: "Author",      value: ("@" + .) } ),
+                  ( $occurrences     | select(length > 0) | { title: "Occurrences", value: (. + "×") } ),
+                  ( $db_entries      | select(length > 0) | { title: "DB entries",  value: . } )
                 ] | map(select(. != null))')
 
             PAYLOAD=$(jq -nc \
@@ -324,6 +331,8 @@ Provide all required fields and include the optional PR-related fields whenever 
 - **`author`** (optional) — GitHub login of the PR author or commit author when known. Omit if it cannot be determined from the workflow run / PR metadata.
 
 - **`db_entries`** (required) — Current total number of unique entries in the CI Doctor investigation database. Compute it during Phase 5 by counting distinct files under `/tmp/gh-aw/cache-memory/investigations/` (including the one this run just wrote) and pass the resulting non-negative integer as a string (e.g., `"42"`). If the directory does not yet exist, report `"0"` (or `"1"` if you just created the first entry). Note: counting files under `/tmp/memory/investigations/` will give a wrong result — that path is **not** the persistent cache-memory mount.
+
+- **`occurrence_count`** (required) — How many times **this same issue** has been recorded in the CI Doctor database, including the current investigation (so the value is always >= 1; report `"1"` the first time a signature is seen). Compute it during Phase 3/Phase 5 by matching the current failure's signature against prior entries under `/tmp/gh-aw/cache-memory/investigations/` and `/tmp/gh-aw/cache-memory/patterns/`. Use a stable signature derived from the failure (e.g., normalized primary error message + failed job name + failure category) — **not** the run ID, commit SHA, or timestamp, which would make every failure look unique. Pass the result as a positive integer encoded as a string (e.g., `"1"`, `"7"`).
 
 - **`description`** (required) — Thorough Markdown body. Microsoft Teams Adaptive Cards render only a **limited subset of Markdown** — specifically: headings (`#`/`##`/`###`), bold/italic, inline code, fenced code blocks, ordered/unordered lists, and links. **Do not** use raw HTML tags such as `<details>`, `<summary>`, `<br>`, `<b>`, `<table>`, etc. — they appear as literal text in Teams. Use `###` headings for every section (no collapsibles). Use this structure:
 
