@@ -45,6 +45,10 @@ safe-outputs:
           description: "Short, searchable description of the failure (e.g. 'smoke_Bucketize tests fail on comparison'). No PR/run numbers."
           required: true
           type: string
+        failed_workflow:
+          description: "Name of the GitHub Actions workflow that failed (as reported by `get_workflow_run`, e.g. 'Debian 10 ARM'). Do NOT pass the CI Failure Doctor workflow name."
+          required: true
+          type: string
         pipeline_url:
           description: "URL of the failed GitHub Actions workflow run."
           required: true
@@ -65,12 +69,15 @@ safe-outputs:
           description: "GitHub login of the PR author or commit author, if known. Omit otherwise."
           required: false
           type: string
+        db_entries:
+          description: "Total number of unique entries currently in the CI Doctor investigation database (count of distinct investigation files under /tmp/memory/investigations/, including the one created by this run). Report as a non-negative integer encoded as a string."
+          required: true
+          type: string
       steps:
         - name: Send Teams notification
           env:
             TEAMS_WEBHOOK_URL: ${{ secrets.TEAMS_WEBHOOK_URL }}
             RUN_URL: ${{ github.event.workflow_run.html_url || github.event.inputs.link || '' }}
-            WORKFLOW_NAME: ${{ github.workflow }}
           run: |
             set -euo pipefail
 
@@ -90,25 +97,29 @@ safe-outputs:
               exit 1
             fi
 
-            TITLE=$(echo "$ITEM"        | jq -r '.title // ""')
-            PIPELINE_URL=$(echo "$ITEM" | jq -r '.pipeline_url // ""')
-            DESCRIPTION=$(echo "$ITEM"  | jq -r '.description // ""')
-            PR_NUMBER=$(echo "$ITEM"    | jq -r '.pr_number // ""')
-            PR_URL=$(echo "$ITEM"       | jq -r '.pr_url // ""')
-            AUTHOR=$(echo "$ITEM"       | jq -r '.author // ""')
+            TITLE=$(echo "$ITEM"            | jq -r '.title // ""')
+            FAILED_WORKFLOW=$(echo "$ITEM"  | jq -r '.failed_workflow // ""')
+            PIPELINE_URL=$(echo "$ITEM"     | jq -r '.pipeline_url // ""')
+            DESCRIPTION=$(echo "$ITEM"      | jq -r '.description // ""')
+            PR_NUMBER=$(echo "$ITEM"        | jq -r '.pr_number // ""')
+            PR_URL=$(echo "$ITEM"           | jq -r '.pr_url // ""')
+            AUTHOR=$(echo "$ITEM"           | jq -r '.author // ""')
+            DB_ENTRIES=$(echo "$ITEM"       | jq -r '.db_entries // ""')
 
             # Build Adaptive Card facts conditionally (only include PR/author when present).
             FACTS=$(jq -nc \
-              --arg pipeline_url "$PIPELINE_URL" \
-              --arg pr_number    "$PR_NUMBER" \
-              --arg pr_url       "$PR_URL" \
-              --arg author       "$AUTHOR" \
-              --arg workflow     "$WORKFLOW_NAME" '
+              --arg pipeline_url    "$PIPELINE_URL" \
+              --arg pr_number       "$PR_NUMBER" \
+              --arg pr_url          "$PR_URL" \
+              --arg author          "$AUTHOR" \
+              --arg failed_workflow "$FAILED_WORKFLOW" \
+              --arg db_entries      "$DB_ENTRIES" '
                 [
-                  { title: "Workflow", value: $workflow },
-                  ( $pipeline_url | select(length > 0) | { title: "Pipeline", value: ("[Open run](" + . + ")") } ),
-                  ( $pr_number    | select(length > 0) | { title: "PR",       value: (if ($pr_url | length) > 0 then ("[#" + . + "](" + $pr_url + ")") else ("#" + .) end) } ),
-                  ( $author       | select(length > 0) | { title: "Author",   value: ("@" + .) } )
+                  ( $failed_workflow | select(length > 0) | { title: "Workflow",   value: . } ),
+                  ( $pipeline_url    | select(length > 0) | { title: "Pipeline",   value: ("[Open run](" + . + ")") } ),
+                  ( $pr_number       | select(length > 0) | { title: "PR",         value: (if ($pr_url | length) > 0 then ("[#" + . + "](" + $pr_url + ")") else ("#" + .) end) } ),
+                  ( $author          | select(length > 0) | { title: "Author",     value: ("@" + .) } ),
+                  ( $db_entries      | select(length > 0) | { title: "DB entries", value: . } )
                 ] | map(select(. != null))')
 
             PAYLOAD=$(jq -nc \
@@ -304,11 +315,15 @@ Provide all required fields and include the optional PR-related fields whenever 
 
 - **`pipeline_url`** (required) — `${{ github.event.workflow_run.html_url }}` for `workflow_run` triggers, or the `link` input / resolved run URL when triggered manually.
 
+- **`failed_workflow`** (required) — Name of the workflow whose run is being investigated, taken from `get_workflow_run` (field `name`). For example: `Debian 10 ARM`. Never pass the name of this CI Failure Doctor workflow itself.
+
 - **`pr_number`** / **`pr_url`** (optional) — Provide both together when the failure originated from a pull request (e.g. `github.event.workflow_run.pull_requests[0].number` and its `html_url`). Omit both for `master` runs.
 
 - **`author`** (optional) — GitHub login of the PR author or commit author when known. Omit if it cannot be determined from the workflow run / PR metadata.
 
-- **`description`** (required) — Thorough Markdown body. Use h3 (`###`) or lower for headers; wrap long sections (>10 items) in `<details><summary><b>Section Name</b></summary>` blocks. Use this structure:
+- **`db_entries`** (required) — Current total number of unique entries in the CI Doctor investigation database. Compute it during Phase 5 by counting distinct files under `/tmp/memory/investigations/` (including the one this run just wrote) and pass the resulting non-negative integer as a string (e.g., `"42"`). If the directory does not yet exist, report `"0"` (or `"1"` if you just created the first entry).
+
+- **`description`** (required) — Thorough Markdown body. Microsoft Teams Adaptive Cards render only a **limited subset of Markdown** — specifically: headings (`#`/`##`/`###`), bold/italic, inline code, fenced code blocks, ordered/unordered lists, and links. **Do not** use raw HTML tags such as `<details>`, `<summary>`, `<br>`, `<b>`, `<table>`, etc. — they appear as literal text in Teams. Use `###` headings for every section (no collapsibles). Use this structure:
 
 ```markdown
 ### Summary
@@ -329,12 +344,9 @@ Provide all required fields and include the optional PR-related fields whenever 
 
 [List of failed jobs with key error messages]
 
-<details>
-<summary><b>Investigation Findings</b></summary>
+### Investigation Findings
 
 [Deep analysis results]
-
-</details>
 
 ### Recommended Actions
 
@@ -348,12 +360,9 @@ Provide all required fields and include the optional PR-related fields whenever 
 
 [Short set of additional prompting instructions to copy-and-paste into instructions.md for AI coding agents to help prevent this type of failure in future]
 
-<details>
-<summary><b>Historical Context</b></summary>
+### Historical Context
 
 [Similar past failures and patterns]
-
-</details>
 ```
 
 ## Important Guidelines

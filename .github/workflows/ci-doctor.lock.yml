@@ -28,7 +28,7 @@
 #
 # Source: githubnext/agentics/workflows/ci-doctor.md@0aa94a6e40aeaf131118476bc6a07e55c4ceb147
 #
-# gh-aw-metadata: {"schema_version":"v1","frontmatter_hash":"40fd62511cbf3bdc45e6e6b4953f88631be91cab7d20c347c31389ec0c99adf9","compiler_version":"v0.51.5"}
+# gh-aw-metadata: {"schema_version":"v1","frontmatter_hash":"113e0a125e934e6feba5cb88c2eecc955ebb70e109206bae2e38500c02c82a77","compiler_version":"v0.51.5"}
 
 name: "CI Failure Doctor"
 "on":
@@ -366,7 +366,7 @@ jobs:
           mkdir -p /tmp/gh-aw/safeoutputs
           mkdir -p /tmp/gh-aw/mcp-logs/safeoutputs
           cat > /opt/gh-aw/safeoutputs/config.json << 'GH_AW_SAFE_OUTPUTS_CONFIG_EOF'
-          {"missing_data":{},"missing_tool":{},"noop":{"max":1},"notify-teams":{"description":"Send a CI failure investigation summary to Microsoft Teams. Call this exactly once at the end of the investigation with a concise title and a thorough description of the failure.","inputs":{"author":{"default":null,"description":"GitHub login of the PR author or commit author, if known. Omit otherwise.","required":false,"type":"string"},"description":{"default":null,"description":"Thorough markdown description of the problem: root cause, failed jobs, key error messages, and recommended actions.","required":true,"type":"string"},"pipeline_url":{"default":null,"description":"URL of the failed GitHub Actions workflow run.","required":true,"type":"string"},"pr_number":{"default":null,"description":"Pull request number if the failure occurred on a PR. Omit otherwise.","required":false,"type":"string"},"pr_url":{"default":null,"description":"Pull request URL if the failure occurred on a PR. Omit otherwise.","required":false,"type":"string"},"title":{"default":null,"description":"Short, searchable description of the failure (e.g. 'smoke_Bucketize tests fail on comparison'). No PR/run numbers.","required":true,"type":"string"}},"output":"Notification sent to Microsoft Teams."}}
+          {"missing_data":{},"missing_tool":{},"noop":{"max":1},"notify-teams":{"description":"Send a CI failure investigation summary to Microsoft Teams. Call this exactly once at the end of the investigation with a concise title and a thorough description of the failure.","inputs":{"author":{"default":null,"description":"GitHub login of the PR author or commit author, if known. Omit otherwise.","required":false,"type":"string"},"db_entries":{"default":null,"description":"Total number of unique entries currently in the CI Doctor investigation database (count of distinct investigation files under /tmp/memory/investigations/, including the one created by this run). Report as a non-negative integer encoded as a string.","required":true,"type":"string"},"description":{"default":null,"description":"Thorough markdown description of the problem: root cause, failed jobs, key error messages, and recommended actions.","required":true,"type":"string"},"failed_workflow":{"default":null,"description":"Name of the GitHub Actions workflow that failed (as reported by `get_workflow_run`, e.g. 'Debian 10 ARM'). Do NOT pass the CI Failure Doctor workflow name.","required":true,"type":"string"},"pipeline_url":{"default":null,"description":"URL of the failed GitHub Actions workflow run.","required":true,"type":"string"},"pr_number":{"default":null,"description":"Pull request number if the failure occurred on a PR. Omit otherwise.","required":false,"type":"string"},"pr_url":{"default":null,"description":"Pull request URL if the failure occurred on a PR. Omit otherwise.","required":false,"type":"string"},"title":{"default":null,"description":"Short, searchable description of the failure (e.g. 'smoke_Bucketize tests fail on comparison'). No PR/run numbers.","required":true,"type":"string"}},"output":"Notification sent to Microsoft Teams."}}
           GH_AW_SAFE_OUTPUTS_CONFIG_EOF
           cat > /opt/gh-aw/safeoutputs/tools.json << 'GH_AW_SAFE_OUTPUTS_TOOLS_EOF'
           [
@@ -448,8 +448,16 @@ jobs:
                     "description": "GitHub login of the PR author or commit author, if known. Omit otherwise.",
                     "type": "string"
                   },
+                  "db_entries": {
+                    "description": "Total number of unique entries currently in the CI Doctor investigation database (count of distinct investigation files under /tmp/memory/investigations/, including the one created by this run). Report as a non-negative integer encoded as a string.",
+                    "type": "string"
+                  },
                   "description": {
                     "description": "Thorough markdown description of the problem: root cause, failed jobs, key error messages, and recommended actions.",
+                    "type": "string"
+                  },
+                  "failed_workflow": {
+                    "description": "Name of the GitHub Actions workflow that failed (as reported by `get_workflow_run`, e.g. 'Debian 10 ARM'). Do NOT pass the CI Failure Doctor workflow name.",
                     "type": "string"
                   },
                   "pipeline_url": {
@@ -470,7 +478,9 @@ jobs:
                   }
                 },
                 "required": [
+                  "db_entries",
                   "description",
+                  "failed_workflow",
                   "pipeline_url",
                   "title"
                 ],
@@ -1065,25 +1075,29 @@ jobs:
             exit 1
           fi
 
-          TITLE=$(echo "$ITEM"        | jq -r '.title // ""')
-          PIPELINE_URL=$(echo "$ITEM" | jq -r '.pipeline_url // ""')
-          DESCRIPTION=$(echo "$ITEM"  | jq -r '.description // ""')
-          PR_NUMBER=$(echo "$ITEM"    | jq -r '.pr_number // ""')
-          PR_URL=$(echo "$ITEM"       | jq -r '.pr_url // ""')
-          AUTHOR=$(echo "$ITEM"       | jq -r '.author // ""')
+          TITLE=$(echo "$ITEM"            | jq -r '.title // ""')
+          FAILED_WORKFLOW=$(echo "$ITEM"  | jq -r '.failed_workflow // ""')
+          PIPELINE_URL=$(echo "$ITEM"     | jq -r '.pipeline_url // ""')
+          DESCRIPTION=$(echo "$ITEM"      | jq -r '.description // ""')
+          PR_NUMBER=$(echo "$ITEM"        | jq -r '.pr_number // ""')
+          PR_URL=$(echo "$ITEM"           | jq -r '.pr_url // ""')
+          AUTHOR=$(echo "$ITEM"           | jq -r '.author // ""')
+          DB_ENTRIES=$(echo "$ITEM"       | jq -r '.db_entries // ""')
 
           # Build Adaptive Card facts conditionally (only include PR/author when present).
           FACTS=$(jq -nc \
-            --arg pipeline_url "$PIPELINE_URL" \
-            --arg pr_number    "$PR_NUMBER" \
-            --arg pr_url       "$PR_URL" \
-            --arg author       "$AUTHOR" \
-            --arg workflow     "$WORKFLOW_NAME" '
+            --arg pipeline_url    "$PIPELINE_URL" \
+            --arg pr_number       "$PR_NUMBER" \
+            --arg pr_url          "$PR_URL" \
+            --arg author          "$AUTHOR" \
+            --arg failed_workflow "$FAILED_WORKFLOW" \
+            --arg db_entries      "$DB_ENTRIES" '
               [
-                { title: "Workflow", value: $workflow },
-                ( $pipeline_url | select(length > 0) | { title: "Pipeline", value: ("[Open run](" + . + ")") } ),
-                ( $pr_number    | select(length > 0) | { title: "PR",       value: (if ($pr_url | length) > 0 then ("[#" + . + "](" + $pr_url + ")") else ("#" + .) end) } ),
-                ( $author       | select(length > 0) | { title: "Author",   value: ("@" + .) } )
+                ( $failed_workflow | select(length > 0) | { title: "Workflow",   value: . } ),
+                ( $pipeline_url    | select(length > 0) | { title: "Pipeline",   value: ("[Open run](" + . + ")") } ),
+                ( $pr_number       | select(length > 0) | { title: "PR",         value: (if ($pr_url | length) > 0 then ("[#" + . + "](" + $pr_url + ")") else ("#" + .) end) } ),
+                ( $author          | select(length > 0) | { title: "Author",     value: ("@" + .) } ),
+                ( $db_entries      | select(length > 0) | { title: "DB entries", value: . } )
               ] | map(select(. != null))')
 
           PAYLOAD=$(jq -nc \
@@ -1114,7 +1128,6 @@ jobs:
         env:
           RUN_URL: ${{ github.event.workflow_run.html_url || github.event.inputs.link || '' }}
           TEAMS_WEBHOOK_URL: ${{ secrets.TEAMS_WEBHOOK_URL }}
-          WORKFLOW_NAME: ${{ github.workflow }}
 
   pre_activation:
     if: >
