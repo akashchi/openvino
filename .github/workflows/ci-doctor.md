@@ -361,7 +361,15 @@ Bulleted list of `job-name` — short symptom (one line each).
 
 #### Key Errors
 
-Fenced code block(s) with the most relevant raw log excerpts (trimmed). Cite file paths and line numbers from the logs verbatim.
+One or more fenced code blocks with the most relevant raw log excerpts (trimmed). Cite file paths and line numbers from the logs verbatim.
+
+**Fence rules (critical for Teams rendering):**
+
+- Use **tilde fences** (`~~~`), not backticks, to delimit log excerpts. Backtick fences inside the description frequently collide with stray backticks in log output and cause everything that follows to render as a single unterminated code block in Teams.
+- Open with a line containing exactly `~~~` (optionally followed by a language hint like `~~~text`) and close with a line containing exactly `~~~`. Nothing else on the fence lines.
+- Every opening fence **must** have a matching closing fence before the next `####` heading. Never leave a code block open at the end of a section.
+- Strip or escape any literal `~~~` sequences that appear inside the log excerpt itself (extremely rare in CI logs); backticks inside the excerpt are fine because the fence is tildes.
+- Keep each excerpt short (≤ 30 lines). If you need to show several distinct errors, use several separate `~~~ ... ~~~` blocks rather than one giant block.
 
 #### Explanation
 
