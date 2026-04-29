@@ -70,7 +70,7 @@ safe-outputs:
           required: false
           type: string
         db_entries:
-          description: "Total number of unique entries currently in the CI Doctor investigation database (count of distinct investigation files under /tmp/memory/investigations/, including the one created by this run). Report as a non-negative integer encoded as a string."
+          description: "Total number of unique entries currently in the CI Doctor investigation database (count of distinct investigation files under /tmp/gh-aw/cache-memory/investigations/, including the one created by this run). Report as a non-negative integer encoded as a string."
           required: true
           type: string
       steps:
@@ -207,7 +207,7 @@ You are the CI Failure Doctor, an expert investigative agent that analyzes faile
 ### Phase 3: Historical Context Analysis
 
 1. **Search Investigation History**: Use file-based storage to search for similar failures:
-   - Read from cached investigation files in `/tmp/memory/investigations/`
+   - Read from cached investigation files in `/tmp/gh-aw/cache-memory/investigations/` (this is the directory mounted by `tools.cache-memory: true` and persisted across runs via the GitHub Actions cache; do NOT use `/tmp/memory/`, which is not persistent)
    - Parse previous failure patterns and solutions
    - Look for recurring error signatures
 2. **Issue History**: Search existing issues for related problems
@@ -271,11 +271,13 @@ You are the CI Failure Doctor, an expert investigative agent that analyzes faile
 
 ### Phase 5: Pattern Storage and Knowledge Building
 
-1. **Store Investigation**: Save structured investigation data to files:
-   - Write investigation report to `/tmp/memory/investigations/<timestamp>-<run-id>.json`
+1. **Store Investigation**: Save structured investigation data to files in the persistent cache-memory directory:
+   - **Persistent path**: `/tmp/gh-aw/cache-memory/` is the only directory mounted from the GitHub Actions cache by `tools.cache-memory: true`. Files written here survive across runs. Files written to `/tmp/memory/` (or anywhere else) are **not** persisted and will be lost.
+   - Create the subdirectory if needed: `mkdir -p /tmp/gh-aw/cache-memory/investigations /tmp/gh-aw/cache-memory/patterns`.
+   - Write the investigation report to `/tmp/gh-aw/cache-memory/investigations/<timestamp>-<run-id>.json`
      - **Important**: Use filesystem-safe timestamp format `YYYY-MM-DD-HH-MM-SS-sss` (e.g., `2026-02-12-11-20-45-458`)
      - **Do NOT use** ISO 8601 format with colons (e.g., `2026-02-12T11:20:45.458Z`) - colons are not allowed in artifact filenames
-   - Store error patterns in `/tmp/memory/patterns/`
+   - Store error patterns in `/tmp/gh-aw/cache-memory/patterns/`
    - Maintain an index file of all investigations for fast searching
 2. **Update Pattern Database**: Enhance knowledge with new findings by updating pattern files
 3. **Save Artifacts**: Store detailed logs and analysis in the cached directories
@@ -321,7 +323,7 @@ Provide all required fields and include the optional PR-related fields whenever 
 
 - **`author`** (optional) — GitHub login of the PR author or commit author when known. Omit if it cannot be determined from the workflow run / PR metadata.
 
-- **`db_entries`** (required) — Current total number of unique entries in the CI Doctor investigation database. Compute it during Phase 5 by counting distinct files under `/tmp/memory/investigations/` (including the one this run just wrote) and pass the resulting non-negative integer as a string (e.g., `"42"`). If the directory does not yet exist, report `"0"` (or `"1"` if you just created the first entry).
+- **`db_entries`** (required) — Current total number of unique entries in the CI Doctor investigation database. Compute it during Phase 5 by counting distinct files under `/tmp/gh-aw/cache-memory/investigations/` (including the one this run just wrote) and pass the resulting non-negative integer as a string (e.g., `"42"`). If the directory does not yet exist, report `"0"` (or `"1"` if you just created the first entry). Note: counting files under `/tmp/memory/investigations/` will give a wrong result — that path is **not** the persistent cache-memory mount.
 
 - **`description`** (required) — Thorough Markdown body. Microsoft Teams Adaptive Cards render only a **limited subset of Markdown** — specifically: headings (`#`/`##`/`###`), bold/italic, inline code, fenced code blocks, ordered/unordered lists, and links. **Do not** use raw HTML tags such as `<details>`, `<summary>`, `<br>`, `<b>`, `<table>`, etc. — they appear as literal text in Teams. Use `###` headings for every section (no collapsibles). Use this structure:
 
@@ -391,11 +393,11 @@ Example noop call: `{"noop": {"message": "No action needed: [brief explanation]"
 
 ## Cache Usage Strategy
 
-- Store investigation database and knowledge patterns in `/tmp/memory/investigations/` and `/tmp/memory/patterns/`
-- Cache detailed log analysis and artifacts in `/tmp/investigation/logs/` and `/tmp/investigation/reports/`
-- Persist findings across workflow runs using GitHub Actions cache
-- Build cumulative knowledge about failure patterns and solutions using structured JSON files
-- Use file-based indexing for fast pattern matching and similarity detection
+- **Persistent location**: `tools.cache-memory: true` mounts the GitHub Actions cache at `/tmp/gh-aw/cache-memory/`. This is the **only** path that persists across workflow runs. Anything written elsewhere (e.g., `/tmp/memory/`, `/tmp/investigation/`) is discarded when the runner is torn down.
+- Store the investigation database and knowledge patterns in `/tmp/gh-aw/cache-memory/investigations/` and `/tmp/gh-aw/cache-memory/patterns/`.
+- Cache detailed log analysis and artifacts in `/tmp/gh-aw/cache-memory/logs/` and `/tmp/gh-aw/cache-memory/reports/`.
+- Build cumulative knowledge about failure patterns and solutions using structured JSON files.
+- Use file-based indexing for fast pattern matching and similarity detection.
 - **Filename Requirements**: Use filesystem-safe characters only (no colons, quotes, or special characters)
   - ✅ Good: `2026-02-12-11-20-45-458-12345.json`
   - ❌ Bad: `2026-02-12T11:20:45.458Z-12345.json` (contains colons)
