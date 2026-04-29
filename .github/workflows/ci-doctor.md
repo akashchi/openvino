@@ -286,7 +286,7 @@ You are the CI Failure Doctor, an expert investigative agent that analyzes faile
 
 1. **Create Investigation Report**: Generate a comprehensive analysis including:
    - **Executive Summary**: Quick overview of the failure
-   - **Root Cause**: Detailed explanation of what went wrong
+   - **Root Cause Analysis**: Single, consolidated section covering category, failed jobs, key error excerpts, the actual root-cause explanation, and your confidence level. Do **not** add a separate "Investigation Findings" or "Deep Analysis" section — it would duplicate this one.
    - **Reproduction Steps**: How to reproduce the issue locally
    - **Recommended Actions**: Specific steps to fix the issue
    - **Prevention Strategies**: How to avoid similar failures
@@ -340,15 +340,31 @@ Provide all required fields and include the optional PR-related fields whenever 
 
 ### Root Cause Analysis
 
-[Detailed analysis of what went wrong]
+Write this as a single, consolidated section. Do NOT add a separate "Investigation Findings", "Deep Analysis", or standalone "Failed Jobs and Errors" section — they duplicate this one. Use the following fixed sub-structure with `####` headings, in this order; omit a sub-heading only if there is genuinely nothing to say.
 
-### Failed Jobs and Errors
+#### Category
 
-[List of failed jobs with key error messages]
+One of: Code Issue / Infrastructure / Dependencies / Configuration / Flaky Test / External Service / Network. Add a half-sentence justification.
 
-### Investigation Findings
+#### Failed Jobs
 
-[Deep analysis results]
+Bulleted list of `job-name` — short symptom (one line each).
+
+#### Key Errors
+
+Fenced code block(s) with the most relevant raw log excerpts (trimmed). Cite file paths and line numbers from the logs verbatim.
+
+#### Explanation
+
+2–6 sentences explaining *why* the errors above occurred (the actual root cause, not a restatement of the symptom). Reference specific code paths, config keys, or PR-changed files when available.
+
+#### Confidence
+
+One of: High / Medium / Low — with a one-line justification (e.g., "High: deterministic crash with stack trace pointing to a single PR-changed file").
+
+### Reproduction Steps
+
+[Concrete commands or sequence of actions to reproduce locally; write "N/A" if not reproducible outside CI]
 
 ### Recommended Actions
 
