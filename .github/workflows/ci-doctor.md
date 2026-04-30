@@ -77,6 +77,14 @@ safe-outputs:
           description: "How many times this same issue has been recorded in the CI Doctor database, including the current investigation. Compute by matching the current failure signature (e.g., normalized error message, failed job name, failure category) against prior investigation/pattern files under /tmp/gh-aw/cache-memory/. Must be >= 1. Report as a positive integer encoded as a string."
           required: true
           type: string
+        statistics:
+          description: "Markdown-formatted statistics summary of the CI Doctor pattern database. Must include a table (or list) of every known failure pattern with: pattern signature/title, total reproduction count, first-seen timestamp (UTC, ISO 8601), and last-seen timestamp (UTC, ISO 8601). Sort patterns by reproduction count descending. Compute from files under /tmp/gh-aw/cache-memory/investigations/ and /tmp/gh-aw/cache-memory/patterns/. Keep concise (top 20 patterns max). Use the rendering rules from the description field (tilde fences, no raw HTML)."
+          required: true
+          type: string
+        statistics_json:
+          description: "Full statistics database serialized as a compact JSON string. Must be a JSON object of the form {\"generated_at\": <ISO8601 UTC>, \"total_patterns\": <int>, \"total_investigations\": <int>, \"patterns\": [{\"signature\": <str>, \"title\": <str>, \"category\": <str>, \"count\": <int>, \"first_seen\": <ISO8601 UTC>, \"last_seen\": <ISO8601 UTC>, \"recent_run_urls\": [<str>, ...]}]}. Include ALL known patterns, not just the top N. This payload is uploaded as a workflow artifact for offline analysis."
+          required: true
+          type: string
       steps:
         - name: Send Teams notification
           env:
@@ -110,6 +118,25 @@ safe-outputs:
             AUTHOR=$(echo "$ITEM"           | jq -r '.author // ""')
             DB_ENTRIES=$(echo "$ITEM"       | jq -r '.db_entries // ""')
             OCCURRENCES=$(echo "$ITEM"      | jq -r '.occurrence_count // ""')
+            STATISTICS=$(echo "$ITEM"       | jq -r '.statistics // ""')
+            STATISTICS_JSON=$(echo "$ITEM"  | jq -r '.statistics_json // ""')
+
+            # Persist the full statistics database as a workflow artifact for offline review.
+            STATS_DIR="${RUNNER_TEMP:-/tmp}/ci-doctor-stats"
+            mkdir -p "$STATS_DIR"
+            if [ -n "$STATISTICS_JSON" ]; then
+              # Validate and pretty-print; fall back to raw on parse error.
+              if echo "$STATISTICS_JSON" | jq '.' > "$STATS_DIR/ci-doctor-statistics.json" 2>/dev/null; then
+                echo "Wrote validated statistics JSON ($(wc -c < "$STATS_DIR/ci-doctor-statistics.json") bytes)"
+              else
+                echo "Warning: statistics_json failed jq parse; storing raw payload" >&2
+                printf '%s' "$STATISTICS_JSON" > "$STATS_DIR/ci-doctor-statistics.json"
+              fi
+            fi
+            if [ -n "$STATISTICS" ]; then
+              printf '%s\n' "$STATISTICS" > "$STATS_DIR/ci-doctor-statistics.md"
+            fi
+            echo "stats_dir=$STATS_DIR" >> "$GITHUB_OUTPUT"
 
             # Build Adaptive Card facts conditionally (only include PR/author when present).
             FACTS=$(jq -nc \
@@ -132,6 +159,7 @@ safe-outputs:
             PAYLOAD=$(jq -nc \
               --arg title "$TITLE" \
               --arg description "$DESCRIPTION" \
+              --arg statistics "$STATISTICS" \
               --argjson facts "$FACTS" '
                 {
                   type: "message",
@@ -141,11 +169,14 @@ safe-outputs:
                       "$schema": "http://adaptivecards.io/schemas/adaptive-card.json",
                       type: "AdaptiveCard",
                       version: "1.4",
-                      body: [
+                      body: ([
                         { type: "TextBlock", text: ("\ud83d\udd34 " + $title), weight: "Bolder", size: "Medium", color: "Attention", wrap: true },
                         { type: "FactSet", facts: $facts },
                         { type: "TextBlock", text: $description, wrap: true, spacing: "Medium" }
-                      ]
+                      ] + (if ($statistics | length) > 0 then [
+                        { type: "TextBlock", text: "Pattern Database Statistics", weight: "Bolder", size: "Medium", spacing: "Large", separator: true },
+                        { type: "TextBlock", text: $statistics, wrap: true, spacing: "Small" }
+                      ] else [] end))
                     }
                   }]
                 }')
@@ -154,6 +185,14 @@ safe-outputs:
               -H "Content-Type: application/json" \
               -d "$PAYLOAD" \
               "$TEAMS_WEBHOOK_URL"
+        - name: Upload statistics artifact
+          if: always()
+          uses: actions/upload-artifact@v4
+          with:
+            name: ci-doctor-statistics
+            path: ${{ runner.temp }}/ci-doctor-stats
+            if-no-files-found: ignore
+            retention-days: 90
 
 tools:
   github:
@@ -286,8 +325,23 @@ You are the CI Failure Doctor, an expert investigative agent that analyzes faile
      - **Do NOT use** ISO 8601 format with colons (e.g., `2026-02-12T11:20:45.458Z`) - colons are not allowed in artifact filenames
    - Store error patterns in `/tmp/gh-aw/cache-memory/patterns/`
    - Maintain an index file of all investigations for fast searching
-2. **Update Pattern Database**: Enhance knowledge with new findings by updating pattern files
-3. **Save Artifacts**: Store detailed logs and analysis in the cached directories
+2. **Update Pattern Database**: Enhance knowledge with new findings by updating pattern files. For every investigation, also update or create a per-pattern record under `/tmp/gh-aw/cache-memory/patterns/<signature-hash>.json` with the following schema, so reproduction frequency and timing can be tracked across runs:
+
+   ~~~json
+   {
+     "signature": "<stable hash/string derived from normalized error + failed job name + category>",
+     "title": "<short human-readable title, same style as notify_teams.title>",
+     "category": "<Code Issue | Infrastructure | Dependencies | Configuration | Flaky Test | External Service | Network>",
+     "count": <int, total reproductions including current run>,
+     "first_seen": "<ISO 8601 UTC of earliest occurrence>",
+     "last_seen": "<ISO 8601 UTC of current occurrence>",
+     "recent_run_urls": ["<url1>", "<url2>", "..."]
+   }
+   ~~~
+
+   When the file already exists, increment `count`, refresh `last_seen`, and prepend the current run URL to `recent_run_urls` (keep at most 10 entries). Never recompute `first_seen`.
+3. **Build Statistics Snapshot**: Before sending the Teams notification, aggregate all per-pattern files into a single in-memory database snapshot used to populate `notify_teams.statistics` and `notify_teams.statistics_json` (see Output Requirements). Sort patterns by `count` descending, ties broken by most recent `last_seen`.
+4. **Save Artifacts**: Store detailed logs and analysis in the cached directories.
 
 ### Phase 6: Reporting and Recommendations
 
@@ -333,6 +387,17 @@ Provide all required fields and include the optional PR-related fields whenever 
 - **`db_entries`** (required) — Current total number of unique entries in the CI Doctor investigation database. Compute it during Phase 5 by counting distinct files under `/tmp/gh-aw/cache-memory/investigations/` (including the one this run just wrote) and pass the resulting non-negative integer as a string (e.g., `"42"`). If the directory does not yet exist, report `"0"` (or `"1"` if you just created the first entry). Note: counting files under `/tmp/memory/investigations/` will give a wrong result — that path is **not** the persistent cache-memory mount.
 
 - **`occurrence_count`** (required) — How many times **this same issue** has been recorded in the CI Doctor database, including the current investigation (so the value is always >= 1; report `"1"` the first time a signature is seen). Compute it during Phase 3/Phase 5 by matching the current failure's signature against prior entries under `/tmp/gh-aw/cache-memory/investigations/` and `/tmp/gh-aw/cache-memory/patterns/`. Use a stable signature derived from the failure (e.g., normalized primary error message + failed job name + failure category) — **not** the run ID, commit SHA, or timestamp, which would make every failure look unique. Pass the result as a positive integer encoded as a string (e.g., `"1"`, `"7"`).
+
+- **`statistics`** (required) — Markdown snapshot of the pattern database, rendered inline in the Teams card. Build it from the per-pattern files maintained in Phase 5. Show the top **20** patterns sorted by reproduction count descending (ties broken by most recent `last_seen`). Use a Markdown table with columns: `Pattern`, `Category`, `Count`, `First seen (UTC)`, `Last seen (UTC)`. Highlight the current failure's row with a leading `▶` marker in the `Pattern` column. Apply the same Teams rendering rules as `description` (no raw HTML, use tilde fences if you need code blocks). Keep total length under ~3 KB so the Adaptive Card renders cleanly. Example:
+
+  ~~~markdown
+  | Pattern | Category | Count | First seen (UTC) | Last seen (UTC) |
+  | --- | --- | ---: | --- | --- |
+  | ▶ smoke_Bucketize tests fail on comparison | Code Issue | 7 | 2026-01-04T09:11:02Z | 2026-04-30T14:22:51Z |
+  | iGPU tests fail with incorrect input argument | Infrastructure | 4 | 2026-02-19T03:45:10Z | 2026-04-28T19:07:33Z |
+  ~~~
+
+- **`statistics_json`** (required) — Full pattern database serialized as a compact JSON string (single line, no surrounding code fence). Must include **every** pattern currently tracked, not just the top 20. Schema is documented on the input field. This payload is uploaded as the `ci-doctor-statistics` workflow artifact (alongside the rendered Markdown) and is intended for offline analysis or dashboarding. Keep `recent_run_urls` capped at 10 entries per pattern.
 
 - **`description`** (required) — Thorough Markdown body. Microsoft Teams Adaptive Cards render only a **limited subset of Markdown** — specifically: headings (`#`/`##`/`###`), bold/italic, inline code, fenced code blocks, ordered/unordered lists, and links. **Do not** use raw HTML tags such as `<details>`, `<summary>`, `<br>`, `<b>`, `<table>`, etc. — they appear as literal text in Teams. Use `###` headings for every section (no collapsibles). Use this structure:
 
