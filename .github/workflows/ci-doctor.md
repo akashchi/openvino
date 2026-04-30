@@ -325,7 +325,7 @@ You are the CI Failure Doctor, an expert investigative agent that analyzes faile
      - **Do NOT use** ISO 8601 format with colons (e.g., `2026-02-12T11:20:45.458Z`) - colons are not allowed in artifact filenames
    - Store error patterns in `/tmp/gh-aw/cache-memory/patterns/`
    - Maintain an index file of all investigations for fast searching
-2. **Update Pattern Database**: Enhance knowledge with new findings by updating pattern files. For every investigation, also update or create a per-pattern record under `/tmp/gh-aw/cache-memory/patterns/<signature-hash>.json` with the following schema, so reproduction frequency and timing can be tracked across runs:
+2. **Update Pattern Database — read-modify-write, never overwrite**: Maintain one record per failure signature under `/tmp/gh-aw/cache-memory/patterns/<signature-hash>.json`. Schema:
 
    ~~~json
    {
@@ -339,8 +339,16 @@ You are the CI Failure Doctor, an expert investigative agent that analyzes faile
    }
    ~~~
 
-   When the file already exists, increment `count`, refresh `last_seen`, and prepend the current run URL to `recent_run_urls` (keep at most 10 entries). Never recompute `first_seen`.
-3. **Build Statistics Snapshot**: Before sending the Teams notification, aggregate all per-pattern files into a single in-memory database snapshot used to populate `notify_teams.statistics` and `notify_teams.statistics_json` (see Output Requirements). Sort patterns by `count` descending, ties broken by most recent `last_seen`.
+   The persisted `count` MUST equal the number of times this signature has actually been observed across runs. The most common bug is overwriting the file with `count: 1` on every run; follow these rules to avoid it:
+
+   - **Stable signature first.** Compute `<signature-hash>` deterministically from inputs that do NOT change between reruns of the same failure: normalized primary error message (strip absolute paths, line/column numbers, hex addresses, PIDs, timestamps, run IDs, commit SHAs, tmp dirs, and UUIDs), failed job name, and failure category. Two reruns of the same failure MUST produce the same hash. If they don't, `count` will stay at `1` forever — fix the normalization before writing anything.
+   - **Read before write.** Always check whether `/tmp/gh-aw/cache-memory/patterns/<signature-hash>.json` already exists and load it. Do NOT generate a fresh record from scratch and clobber the existing file.
+   - **If the file exists**: set `count = previous.count + 1`, set `last_seen = <now UTC>`, keep `first_seen` unchanged, prepend the current run URL to `recent_run_urls` and truncate to the 10 most recent entries (deduplicate by URL). Refresh `title`/`category` only if previously empty.
+   - **If the file does not exist** but the same signature appears in prior `/tmp/gh-aw/cache-memory/investigations/*.json` entries (e.g., the patterns dir was lost or never populated), reconstruct the record: set `count` to the number of matching investigation files including the current one, derive `first_seen`/`last_seen` from those investigations' timestamps, and seed `recent_run_urls` from them. Then write the file.
+   - **Only if neither exists**: create a new record with `count: 1`, `first_seen = last_seen = <now UTC>`.
+   - **Reconciliation invariant.** After writing, the persisted `count` for the current signature MUST equal `notify_teams.occurrence_count`. If they differ, the persisted record is wrong — fix it (typically by switching to the read-modify-write path above) before sending the notification. Apply the same reconciliation pass to every other pattern file you touch when building the snapshot: if a pattern file's `count` is lower than the number of matching investigation files for the same signature, raise `count` to that number.
+
+3. **Build Statistics Snapshot**: After step 2 has updated and reconciled every pattern record, aggregate all files under `/tmp/gh-aw/cache-memory/patterns/` into the snapshot used to populate `notify_teams.statistics` and `notify_teams.statistics_json`. The `count` reported for each pattern in both fields MUST be read directly from the (just-updated) per-pattern files — do NOT recompute it as `1` for the current pattern, and do NOT use a per-run counter. Sort patterns by `count` descending, ties broken by most recent `last_seen`. The current failure's row MUST show the same `count` value as `notify_teams.occurrence_count`; if it doesn't, return to step 2 and fix the persisted record before emitting the notification.
 4. **Save Artifacts**: Store detailed logs and analysis in the cached directories.
 
 ### Phase 6: Reporting and Recommendations
@@ -398,6 +406,8 @@ Provide all required fields and include the optional PR-related fields whenever 
   ~~~
 
 - **`statistics_json`** (required) — Full pattern database serialized as a compact JSON string (single line, no surrounding code fence). Must include **every** pattern currently tracked, not just the top 20. Schema is documented on the input field. This payload is uploaded as the `ci-doctor-statistics` workflow artifact (alongside the rendered Markdown) and is intended for offline analysis or dashboarding. Keep `recent_run_urls` capped at 10 entries per pattern.
+
+  **Count consistency (mandatory):** the `count` value for every pattern in `statistics_json` (and in the rendered `statistics` table) MUST be the persisted `count` read from the corresponding `/tmp/gh-aw/cache-memory/patterns/<signature-hash>.json` file *after* Phase 5 step 2 has updated it. In particular, the current failure's pattern MUST report `count == occurrence_count`. Do NOT emit `count: 1` for every pattern — that is a symptom of either (a) overwriting the persisted record instead of read-modify-write, or (b) generating a fresh signature hash on each run. Validate this invariant before calling `notify_teams`; if it fails, fix the persistence step rather than the reported numbers.
 
 - **`description`** (required) — Thorough Markdown body. Microsoft Teams Adaptive Cards render only a **limited subset of Markdown** — specifically: headings (`#`/`##`/`###`), bold/italic, inline code, fenced code blocks, ordered/unordered lists, and links. **Do not** use raw HTML tags such as `<details>`, `<summary>`, `<br>`, `<b>`, `<table>`, etc. — they appear as literal text in Teams. Use `###` headings for every section (no collapsibles). Use this structure:
 
