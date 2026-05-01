@@ -185,6 +185,7 @@ safe-outputs:
               -H "Content-Type: application/json" \
               -d "$PAYLOAD" \
               "$TEAMS_WEBHOOK_URL"
+
         - name: Upload statistics artifact
           if: always()
           uses: actions/upload-artifact@v4
@@ -198,6 +199,18 @@ tools:
   github:
     toolsets: [default, actions]  # default: context, repos, issues, pull_requests; actions: workflow logs
   cache-memory: true
+
+post-steps:
+  - name: Upload CI Doctor investigations and patterns
+    if: always()
+    uses: actions/upload-artifact@v4
+    with:
+      name: ci-doctor-investigations
+      path: |
+        /tmp/gh-aw/cache-memory/investigations
+        /tmp/gh-aw/cache-memory/patterns
+      if-no-files-found: ignore
+      retention-days: 90
 
 timeout-minutes: 20
 

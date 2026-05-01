@@ -28,7 +28,7 @@
 #
 # Source: githubnext/agentics/workflows/ci-doctor.md@0aa94a6e40aeaf131118476bc6a07e55c4ceb147
 #
-# gh-aw-metadata: {"schema_version":"v1","frontmatter_hash":"ff33d3b575ed327f3051782d5448a79e5f60e97e4f581a04a392ff862321668a","compiler_version":"v0.51.5"}
+# gh-aw-metadata: {"schema_version":"v1","frontmatter_hash":"51dc2826af499786bc797494081f333a5df372a94a81fc18d1abd890e3ee7e83","compiler_version":"v0.51.5"}
 
 name: "CI Failure Doctor"
 "on":
@@ -822,6 +822,17 @@ jobs:
         with:
           name: cache-memory
           path: /tmp/gh-aw/cache-memory
+      - if: always()
+        name: Upload CI Doctor investigations and patterns
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          if-no-files-found: ignore
+          name: ci-doctor-investigations
+          path: |
+            /tmp/gh-aw/cache-memory/investigations
+            /tmp/gh-aw/cache-memory/patterns
+          retention-days: 90
+
       - name: Upload agent artifacts
         if: always()
         continue-on-error: true
