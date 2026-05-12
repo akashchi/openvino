@@ -451,54 +451,134 @@ You are the CI Failure Doctor for the Merge Queue, an expert investigative agent
      - **Do NOT use** ISO 8601 format with colons (e.g., `2026-02-12T11:20:45.458Z`) - colons are not allowed in artifact filenames
    - Store error patterns in `/tmp/gh-aw/cache-memory/mq/patterns/`
    - Maintain an index file of all investigations for fast searching
-2. **Update Pattern Database — read-modify-write, never overwrite**: Maintain one record per failure signature under `/tmp/gh-aw/cache-memory/mq/patterns/<signature-hash>.json`. Schema:
+2. **Update Pattern Database — MANDATORY read-modify-write procedure**:
+
+   Each failure signature gets exactly one JSON file at `/tmp/gh-aw/cache-memory/mq/patterns/<signature-hash>.json`.
+
+   **Schema:**
 
    ~~~json
    {
-     "signature": "<stable string derived from normalized error + failed job name + category>",
-     "title": "<short human-readable title, same style as notify_teams.title>",
+     "signature": "<stable string>",
+     "title": "<short human-readable title>",
      "category": "<Code Issue | Infrastructure | Dependencies | Configuration | Flaky Test | External Service | Network>",
-     "count": <int, total reproductions including current run>,
-     "first_seen": "<ISO 8601 UTC of earliest occurrence>",
-     "last_seen": "<ISO 8601 UTC of current occurrence>",
-     "recent_run_urls": ["<url1>", "<url2>", "..."],
-     "affected_prs": ["<pr_url1>", "<pr_url2>", "..."],
-     "recent_timestamps": ["<ISO 8601 UTC of each occurrence, newest first>"]
+     "count": 4,
+     "first_seen": "2026-05-10T08:00:00Z",
+     "last_seen": "2026-05-12T14:30:00Z",
+     "recent_run_urls": ["https://...run4", "https://...run3", "https://...run2", "https://...run1"],
+     "affected_prs": ["https://...pr4", "https://...pr3"],
+     "recent_timestamps": ["2026-05-12T14:30:00Z", "2026-05-12T10:15:00Z", "2026-05-11T22:00:00Z", "2026-05-10T08:00:00Z"]
    }
    ~~~
 
-   The persisted `count` MUST equal the number of times this signature has actually been observed across runs. The most common bug is overwriting the file with `count: 1` on every run; follow these rules to avoid it:
+   **Step-by-step procedure (follow EXACTLY in this order):**
 
-   - **Stable signature first.** Compute `<signature-hash>` deterministically from inputs that do NOT change between reruns of the same failure: normalized primary error message (strip absolute paths, line/column numbers, hex addresses, PIDs, timestamps, run IDs, commit SHAs, tmp dirs, and UUIDs), failed job name, and failure category. Two reruns of the same failure MUST produce the same hash.
-   - **Read before write.** Always check whether `/tmp/gh-aw/cache-memory/mq/patterns/<signature-hash>.json` already exists and load it. Do NOT generate a fresh record from scratch and clobber the existing file.
-   - **If the file exists**: set `count = previous.count + 1`, set `last_seen = <now UTC>`, keep `first_seen` unchanged, prepend the current run URL to `recent_run_urls` and truncate to the 10 most recent entries (deduplicate by URL). If the current failure is associated with a PR, prepend the PR URL to `affected_prs` and truncate to the 10 most recent (deduplicate by URL). Prepend the current UTC timestamp to `recent_timestamps` and retain entries from the last 24 hours. Refresh `title`/`category` only if previously empty.
-   - **If the file does not exist** but the same signature appears in prior `/tmp/gh-aw/cache-memory/mq/investigations/*.json` entries (e.g., the patterns dir was lost or never populated), reconstruct the record: set `count` to the number of matching investigation files including the current one, derive `first_seen`/`last_seen` from those investigations' timestamps, and seed `recent_run_urls` and `affected_prs` from them. Then write the file.
-   - **Only if neither exists**: create a new record with `count: 1`, `first_seen = last_seen = <now UTC>`.
-   - **Reconciliation invariant.** After writing, the persisted `count` for the current signature MUST equal `notify_teams.occurrence_count`. If they differ, the persisted record is wrong — fix it (typically by switching to the read-modify-write path above) before sending the notification. Apply the same reconciliation pass to every other pattern file you touch when building the snapshot: if a pattern file's `count` is lower than the number of matching investigation files for the same signature, raise `count` to that number.
+   **Step A — Compute signature hash:**
+   Derive a stable `<signature-hash>` from ONLY these inputs (which do NOT change between reruns of the same failure):
+   - Normalized primary error message: strip absolute paths, line/column numbers, hex addresses, PIDs, timestamps, run IDs, commit SHAs, tmp dirs, UUIDs
+   - Failed job name (exact string from the workflow run)
+   - Failure category (one of the 7 categories above)
 
-3. **Build Statistics Snapshot**: After step 2 has updated and reconciled every pattern record, aggregate all files under `/tmp/gh-aw/cache-memory/mq/patterns/` into the snapshot used to populate `notify_teams.statistics` and `notify_teams.statistics_json`. The `count` reported for each pattern in both fields MUST be read directly from the (just-updated) per-pattern files — do NOT recompute it as `1` for the current pattern, and do NOT use a per-run counter. Sort patterns by `count` descending, ties broken by most recent `last_seen`. The current failure's row MUST show the same `count` value as `notify_teams.occurrence_count`; if it doesn't, return to step 2 and fix the persisted record before emitting the notification.
+   Concatenate these three strings with `|` separator, then compute a hash (e.g., first 16 chars of SHA-256). Two reruns of the same failure MUST produce the same hash.
+
+   **Step B — Read existing file:**
+   Attempt to read `/tmp/gh-aw/cache-memory/mq/patterns/<signature-hash>.json`.
+   - If the file exists, parse it as JSON into a variable called `existing`.
+   - If the file does NOT exist, set `existing = null`.
+
+   **Step C — Compute the updated record:**
+
+   ~~~pseudocode
+   NOW = current UTC time in ISO 8601 format (e.g., "2026-05-12T14:30:00Z")
+   CURRENT_RUN_URL = the URL of the current workflow run
+   CURRENT_PR_URL = the PR URL (or null if no PR)
+
+   IF existing != null:
+       record.signature   = existing.signature
+       record.title       = title from investigation (refresh always)
+       record.category    = category from investigation (refresh always)
+       record.count       = existing.count + 1          ← MUST increment
+       record.first_seen  = existing.first_seen         ← NEVER change
+       record.last_seen   = NOW
+       record.recent_run_urls = [CURRENT_RUN_URL] + existing.recent_run_urls
+           → deduplicate by URL, then truncate to first 10 entries
+       record.affected_prs = (if CURRENT_PR_URL: [CURRENT_PR_URL] + existing.affected_prs else existing.affected_prs)
+           → deduplicate by URL, then truncate to first 10 entries
+       record.recent_timestamps = [NOW] + existing.recent_timestamps
+           → keep only entries where timestamp >= (NOW - 24 hours)
+   ELSE:
+       record.signature   = the computed signature string
+       record.title       = title from investigation
+       record.category    = category from investigation
+       record.count       = 1
+       record.first_seen  = NOW
+       record.last_seen   = NOW
+       record.recent_run_urls = [CURRENT_RUN_URL]
+       record.affected_prs = (if CURRENT_PR_URL: [CURRENT_PR_URL] else [])
+       record.recent_timestamps = [NOW]
+   ~~~
+
+   **Step D — Write the file:**
+   Write `record` as JSON to `/tmp/gh-aw/cache-memory/mq/patterns/<signature-hash>.json`. Overwrite the file completely with the new content.
+
+   **Step E — MANDATORY verification (read-back check):**
+   Immediately after writing, read the file back and verify:
+   - `count` equals the value you just computed (NOT 1 unless this is genuinely the first occurrence)
+   - `recent_timestamps` contains the current timestamp `NOW` as the first entry
+   - `last_seen` equals `NOW`
+   - `first_seen` has NOT changed from `existing.first_seen` (if file existed before)
+
+   If any check fails, you have a bug in your write logic. Fix it before proceeding.
+
+   **Common failure modes to avoid:**
+   - ❌ Writing `count: 1` because you forgot to read the existing file first
+   - ❌ Writing `count: 1` because you recomputed the signature hash differently (different normalization) and created a new file instead of updating the old one
+   - ❌ Omitting `recent_timestamps` entirely (this breaks Phase 5.5 recurrence detection)
+   - ❌ Setting `first_seen` to NOW when the file already existed
+   - ❌ Forgetting to include the current timestamp in `recent_timestamps`
+
+3. **Build Statistics Snapshot**: After step 2, aggregate all `.json` files under `/tmp/gh-aw/cache-memory/mq/patterns/` into the statistics fields for `notify_teams`. For each file:
+   - Read and parse the JSON
+   - Use the `count`, `first_seen`, `last_seen`, `title`, `category` values AS-IS from the file (do NOT recompute them)
+   - The current failure's pattern MUST report `count == notify_teams.occurrence_count`
+
+   Sort patterns by `count` descending (ties broken by most recent `last_seen`). Format as the markdown table and JSON described in the Output Requirements section.
+
+   **Validation before calling notify_teams:** Read back the current pattern file one more time. The `count` field in the file MUST equal the `occurrence_count` value you are about to pass to `notify_teams`. If they differ, go back to Step B and redo the update.
+
 4. **Save Artifacts**: Store detailed logs and analysis in the cached directories.
 
 ### Phase 5.5: Recurring Failure Escalation Check
 
 After updating the pattern database (Phase 5 step 2), check whether the current failure's pattern has occurred **3 or more times in the last 12 hours**.
 
-**Recurrence detection logic:**
+**Recurrence detection procedure (follow EXACTLY):**
 
-1. Read the **updated** pattern record for the current failure's signature from the persisted pattern file (after Phase 5 step 2 has incremented it).
-2. Examine the `recent_timestamps` array in the pattern record. Count how many entries fall within the last 12 hours (i.e., their timestamp is >= `now - 12 hours`). The current occurrence's timestamp is already included in the array.
-3. **If the count of occurrences in the last 12 hours is >= 3**:
-   - Filter `affected_prs` and `recent_run_urls` from the pattern record to only those associated with the last-12-hours window (up to 10 entries each).
-   - Format both lists as markdown bullet lists.
-   - Call the `notify_teams_recurring` safe-output tool with:
-     - `title`: same as `notify_teams.title`
-     - `failed_workflow`: same as `notify_teams.failed_workflow`
-     - `pipeline_url`: URL of the current failed run
-     - `recent_count`: the number of occurrences in the last 12 hours as a string (e.g., `"3"`, `"5"`)
-     - `description`: a concise gist of the recurring problem — what keeps failing, suspected root cause, and recommended escalation action (e.g., "Consider disabling flaky test X" or "Network infrastructure issue requires infra team attention")
-     - `affected_prs`: markdown list of affected PRs from the last 12 hours
-     - `recent_run_urls`: markdown list of failure run URLs from the last 12 hours
-4. **If fewer than 3 occurrences in the last 12 hours**: Do NOT call `notify_teams_recurring`. Only the standard `notify_teams` notification is sent.
+~~~pseudocode
+1. FILE_PATH = /tmp/gh-aw/cache-memory/mq/patterns/<signature-hash>.json
+2. Read FILE_PATH → parse as JSON into `pattern`
+3. NOW = current UTC time
+4. CUTOFF = NOW - 12 hours
+5. recent_hits = [ts for ts in pattern.recent_timestamps if ts >= CUTOFF]
+6. recent_count = len(recent_hits)
+
+IF recent_count >= 3:
+    → collect affected_prs (up to 10)
+    → collect recent_run_urls (up to 10)
+    → format both as markdown bullet lists
+    → call notify_teams_recurring with:
+        title = same as notify_teams.title
+        failed_workflow = same as notify_teams.failed_workflow
+        pipeline_url = URL of the current failed run
+        recent_count = str(recent_count)  (e.g., "3", "4", "5")
+        description = concise gist of the recurring problem
+        affected_prs = markdown list
+        recent_run_urls = markdown list
+ELSE:
+    → do NOT call notify_teams_recurring
+~~~
+
+**Important:** If `pattern.recent_timestamps` is empty or missing, it means the pattern file was written incorrectly in Phase 5 step 2. Go back and fix the write — the current timestamp MUST appear in `recent_timestamps`. Do NOT skip the escalation check just because the array is empty.
 
 ### Phase 6: Reporting and Recommendations
 
@@ -545,7 +625,7 @@ Provide all required fields and include the optional PR-related fields whenever 
 
 - **`db_entries`** (required) — Current total number of unique entries in the CI Doctor MQ investigation database. Compute it during Phase 5 by counting distinct files under `/tmp/gh-aw/cache-memory/mq/investigations/` (including the one this run just wrote) and pass the resulting non-negative integer as a string (e.g., `"42"`). If the directory does not yet exist, report `"0"` (or `"1"` if you just created the first entry). Note: counting files under `/tmp/memory/investigations/` or `/tmp/gh-aw/cache-memory/investigations/` will give a wrong result — those paths belong to the main CI Doctor, not the MQ variant.
 
-- **`occurrence_count`** (required) — How many times **this same issue** has been recorded in the CI Doctor MQ database, including the current investigation (so the value is always >= 1; report `"1"` the first time a signature is seen). Compute it during Phase 3/Phase 5 by matching the current failure's signature against prior entries under `/tmp/gh-aw/cache-memory/mq/patterns/` and extracting the `count` field from the matched file. Use a stable signature derived from the failure (e.g., normalized primary error message + failed job name + failure category) — **not** the run ID, commit SHA, or timestamp, which would make every failure look unique. Pass the result as a positive integer encoded as a string (e.g., `"1"`, `"7"`).
+- **`occurrence_count`** (required) — How many times **this same issue** has been recorded in the CI Doctor MQ database, including the current investigation. This value MUST be read directly from the `count` field of the pattern file at `/tmp/gh-aw/cache-memory/mq/patterns/<signature-hash>.json` AFTER you have completed the Phase 5 step 2 write and verification. Do NOT compute this independently — read it from the file. Pass as a positive integer encoded as a string (e.g., `"1"`, `"4"`).
 
 - **`statistics`** (required) — Markdown snapshot of the pattern database, rendered inline in the Teams card. Build it from the per-pattern files maintained in Phase 5. Show the top **20** patterns sorted by reproduction count descending (ties broken by most recent `last_seen`). Use a Markdown table with columns: `Pattern`, `Category`, `Count`, `First seen (UTC)`, `Last seen (UTC)`. Highlight the current failure's row with a leading `▶` marker in the `Pattern` column. Apply the same Teams rendering rules as `description` (no raw HTML, use tilde fences if you need code blocks). Keep total length under ~3 KB so the Adaptive Card renders cleanly. Example:
 
