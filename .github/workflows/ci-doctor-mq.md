@@ -3,7 +3,7 @@ description: |
   This workflow is an automated CI failure investigator for the GitHub Actions Merge Queue.
   It triggers when monitored merge-queue workflows fail, performs deep analysis of the failure,
   and sends a second escalation alert to Microsoft Teams when the same failure pattern
-  recurs at exponential thresholds (3, 5, 10, 20, 50, 100 occurrences).
+  has 3 or more occurrences within the last 12 hours.
 
 on:
   workflow_dispatch:
@@ -196,7 +196,7 @@ safe-outputs:
             retention-days: 90
 
     notify-teams-recurring:
-      description: "Send a recurring merge-queue failure escalation alert to Microsoft Teams. Call this ONLY when the same failure pattern crosses an exponential threshold (3, 5, 10, 20, 50, 100 occurrences). Do NOT call this for every failure — only at threshold crossings."
+      description: "Send a recurring merge-queue failure escalation alert to Microsoft Teams. Call this ONLY when the same failure pattern has 3 or more occurrences in the last 12 hours. Do NOT call this for every failure."
       runs-on: ubuntu-latest
       output: "Recurring failure escalation sent to Microsoft Teams."
       permissions:
@@ -214,12 +214,8 @@ safe-outputs:
           description: "URL of the current (latest) failed workflow run."
           required: true
           type: string
-        occurrence_count:
-          description: "Total number of times this failure pattern has been observed, including the current run. Report as a positive integer encoded as a string (e.g., '5')."
-          required: true
-          type: string
-        threshold:
-          description: "The exponential threshold that was just crossed (one of: '3', '5', '10', '20', '50', '100'). Report as a string."
+        recent_count:
+          description: "Number of times this failure pattern has occurred in the last 12 hours, including the current run. Report as a positive integer encoded as a string (e.g., '3', '5')."
           required: true
           type: string
         description:
@@ -227,11 +223,11 @@ safe-outputs:
           required: true
           type: string
         affected_prs:
-          description: "Markdown-formatted list of affected PR numbers/links from the merge queue that hit this failure. One PR per line, e.g. '- [#1234](https://github.com/org/repo/pull/1234)'. Include up to 10 most recent PRs."
+          description: "Markdown-formatted list of affected PR numbers/links from the merge queue that hit this failure in the last 12 hours. One PR per line, e.g. '- [#1234](https://github.com/org/repo/pull/1234)'. Include up to 10 most recent PRs."
           required: true
           type: string
         recent_run_urls:
-          description: "Markdown-formatted list of recent workflow run URLs that exhibited this failure. One URL per line, e.g. '- [Run 12345](https://github.com/org/repo/actions/runs/12345)'. Include up to 10 most recent runs."
+          description: "Markdown-formatted list of workflow run URLs that exhibited this failure in the last 12 hours. One URL per line, e.g. '- [Run 12345](https://github.com/org/repo/actions/runs/12345)'. Include up to 10 most recent runs."
           required: true
           type: string
       steps:
@@ -260,8 +256,7 @@ safe-outputs:
             TITLE=$(echo "$ITEM"            | jq -r '.title // ""')
             FAILED_WORKFLOW=$(echo "$ITEM"  | jq -r '.failed_workflow // ""')
             PIPELINE_URL=$(echo "$ITEM"     | jq -r '.pipeline_url // ""')
-            OCCURRENCES=$(echo "$ITEM"      | jq -r '.occurrence_count // ""')
-            THRESHOLD=$(echo "$ITEM"        | jq -r '.threshold // ""')
+            RECENT_COUNT=$(echo "$ITEM"     | jq -r '.recent_count // ""')
             DESCRIPTION=$(echo "$ITEM"      | jq -r '.description // ""')
             AFFECTED_PRS=$(echo "$ITEM"     | jq -r '.affected_prs // ""')
             RECENT_RUNS=$(echo "$ITEM"      | jq -r '.recent_run_urls // ""')
@@ -269,13 +264,11 @@ safe-outputs:
             FACTS=$(jq -nc \
               --arg failed_workflow "$FAILED_WORKFLOW" \
               --arg pipeline_url    "$PIPELINE_URL" \
-              --arg occurrences     "$OCCURRENCES" \
-              --arg threshold       "$THRESHOLD" '
+              --arg recent_count    "$RECENT_COUNT" '
                 [
-                  { title: "Workflow",    value: $failed_workflow },
-                  { title: "Pipeline",    value: ("[Latest run](" + $pipeline_url + ")") },
-                  { title: "Occurrences", value: ($occurrences + " total") },
-                  { title: "Threshold",   value: ($threshold + " (escalation trigger)") }
+                  { title: "Workflow",           value: $failed_workflow },
+                  { title: "Pipeline",           value: ("[Latest run](" + $pipeline_url + ")") },
+                  { title: "Hits (last 12 hrs)", value: ($recent_count + " occurrences") }
                 ]')
 
             PAYLOAD=$(jq -nc \
@@ -334,7 +327,7 @@ source: githubnext/agentics/workflows/ci-doctor.md@0aa94a6e40aeaf131118476bc6a07
 
 # CI Failure Doctor — Merge Queue
 
-You are the CI Failure Doctor for the Merge Queue, an expert investigative agent that analyzes failed GitHub Actions workflows **triggered by the merge queue** to identify root causes and patterns. Your mission is to conduct a deep investigation when a merge-queue CI workflow fails, and to escalate recurring failures that cross defined thresholds.
+You are the CI Failure Doctor for the Merge Queue, an expert investigative agent that analyzes failed GitHub Actions workflows **triggered by the merge queue** to identify root causes and patterns. Your mission is to conduct a deep investigation when a merge-queue CI workflow fails, and to escalate when the same failure recurs 3 or more times within a 12-hour window.
 
 ## Current Context
 
@@ -469,7 +462,8 @@ You are the CI Failure Doctor for the Merge Queue, an expert investigative agent
      "first_seen": "<ISO 8601 UTC of earliest occurrence>",
      "last_seen": "<ISO 8601 UTC of current occurrence>",
      "recent_run_urls": ["<url1>", "<url2>", "..."],
-     "affected_prs": ["<pr_url1>", "<pr_url2>", "..."]
+     "affected_prs": ["<pr_url1>", "<pr_url2>", "..."],
+     "recent_timestamps": ["<ISO 8601 UTC of each occurrence, newest first>"]
    }
    ~~~
 
@@ -477,7 +471,7 @@ You are the CI Failure Doctor for the Merge Queue, an expert investigative agent
 
    - **Stable signature first.** Compute `<signature-hash>` deterministically from inputs that do NOT change between reruns of the same failure: normalized primary error message (strip absolute paths, line/column numbers, hex addresses, PIDs, timestamps, run IDs, commit SHAs, tmp dirs, and UUIDs), failed job name, and failure category. Two reruns of the same failure MUST produce the same hash.
    - **Read before write.** Always check whether `/tmp/gh-aw/cache-memory/mq/patterns/<signature-hash>.json` already exists and load it. Do NOT generate a fresh record from scratch and clobber the existing file.
-   - **If the file exists**: set `count = previous.count + 1`, set `last_seen = <now UTC>`, keep `first_seen` unchanged, prepend the current run URL to `recent_run_urls` and truncate to the 10 most recent entries (deduplicate by URL). If the current failure is associated with a PR, prepend the PR URL to `affected_prs` and truncate to the 10 most recent (deduplicate by URL). Refresh `title`/`category` only if previously empty.
+   - **If the file exists**: set `count = previous.count + 1`, set `last_seen = <now UTC>`, keep `first_seen` unchanged, prepend the current run URL to `recent_run_urls` and truncate to the 10 most recent entries (deduplicate by URL). If the current failure is associated with a PR, prepend the PR URL to `affected_prs` and truncate to the 10 most recent (deduplicate by URL). Prepend the current UTC timestamp to `recent_timestamps` and retain entries from the last 24 hours. Refresh `title`/`category` only if previously empty.
    - **If the file does not exist** but the same signature appears in prior `/tmp/gh-aw/cache-memory/mq/investigations/*.json` entries (e.g., the patterns dir was lost or never populated), reconstruct the record: set `count` to the number of matching investigation files including the current one, derive `first_seen`/`last_seen` from those investigations' timestamps, and seed `recent_run_urls` and `affected_prs` from them. Then write the file.
    - **Only if neither exists**: create a new record with `count: 1`, `first_seen = last_seen = <now UTC>`.
    - **Reconciliation invariant.** After writing, the persisted `count` for the current signature MUST equal `notify_teams.occurrence_count`. If they differ, the persisted record is wrong — fix it (typically by switching to the read-modify-write path above) before sending the notification. Apply the same reconciliation pass to every other pattern file you touch when building the snapshot: if a pattern file's `count` is lower than the number of matching investigation files for the same signature, raise `count` to that number.
@@ -487,28 +481,24 @@ You are the CI Failure Doctor for the Merge Queue, an expert investigative agent
 
 ### Phase 5.5: Recurring Failure Escalation Check
 
-After updating the pattern database (Phase 5 step 2), check whether the current failure's pattern has crossed an **exponential escalation threshold**. The thresholds are: **3, 5, 10, 20, 50, 100**.
+After updating the pattern database (Phase 5 step 2), check whether the current failure's pattern has occurred **3 or more times in the last 12 hours**.
 
-**Threshold-crossing logic:**
+**Recurrence detection logic:**
 
-1. Read the **updated** `count` for the current failure's signature from the persisted pattern file (after Phase 5 step 2 has incremented it).
-2. For each threshold `T` in `[3, 5, 10, 20, 50, 100]`, check if `count >= T` AND `(count - 1) < T`.
-   - This means the threshold was **just crossed** by the current occurrence.
-   - Only one threshold can be crossed per occurrence (they are spaced far enough apart).
-3. **If a threshold was crossed**:
-   - Collect the list of `affected_prs` from the pattern record (up to 10 most recent PR URLs/numbers).
-   - Collect the list of `recent_run_urls` from the pattern record (up to 10 most recent run URLs).
+1. Read the **updated** pattern record for the current failure's signature from the persisted pattern file (after Phase 5 step 2 has incremented it).
+2. Examine the `recent_timestamps` array in the pattern record. Count how many entries fall within the last 12 hours (i.e., their timestamp is >= `now - 12 hours`). The current occurrence's timestamp is already included in the array.
+3. **If the count of occurrences in the last 12 hours is >= 3**:
+   - Filter `affected_prs` and `recent_run_urls` from the pattern record to only those associated with the last-12-hours window (up to 10 entries each).
    - Format both lists as markdown bullet lists.
    - Call the `notify_teams_recurring` safe-output tool with:
      - `title`: same as `notify_teams.title`
      - `failed_workflow`: same as `notify_teams.failed_workflow`
      - `pipeline_url`: URL of the current failed run
-     - `occurrence_count`: the current `count` as a string
-     - `threshold`: the threshold that was just crossed as a string (e.g., `"3"`, `"5"`, `"10"`)
+     - `recent_count`: the number of occurrences in the last 12 hours as a string (e.g., `"3"`, `"5"`)
      - `description`: a concise gist of the recurring problem — what keeps failing, suspected root cause, and recommended escalation action (e.g., "Consider disabling flaky test X" or "Network infrastructure issue requires infra team attention")
-     - `affected_prs`: markdown list of affected PRs
-     - `recent_run_urls`: markdown list of recent failure run URLs
-4. **If no threshold was crossed**: Do NOT call `notify_teams_recurring`. Only the standard `notify_teams` notification is sent.
+     - `affected_prs`: markdown list of affected PRs from the last 12 hours
+     - `recent_run_urls`: markdown list of failure run URLs from the last 12 hours
+4. **If fewer than 3 occurrences in the last 12 hours**: Do NOT call `notify_teams_recurring`. Only the standard `notify_teams` notification is sent.
 
 ### Phase 6: Reporting and Recommendations
 
@@ -530,7 +520,7 @@ After updating the pattern database (Phase 5 step 2), check whether the current 
 
 Report the investigation as a Microsoft Teams notification by calling the `notify_teams` safe-output tool exactly once.
 
-Additionally, if a recurring failure threshold was crossed in Phase 5.5, call the `notify_teams_recurring` safe-output tool exactly once with the escalation details.
+Additionally, if Phase 5.5 determines the same failure has occurred 3 or more times in the last 12 hours, call the `notify_teams_recurring` safe-output tool exactly once with the escalation details.
 
 ### `notify_teams` field guidance
 
@@ -638,16 +628,15 @@ One of: High / Medium / Low — with a one-line justification (e.g., "High: dete
 
 ### `notify_teams_recurring` field guidance
 
-This notification is **only** sent when a recurring failure threshold is crossed (Phase 5.5). It provides a condensed escalation alert separate from the detailed per-failure investigation.
+This notification is **only** sent when the same failure has occurred 3 or more times in the last 12 hours (Phase 5.5). It provides a condensed escalation alert separate from the detailed per-failure investigation.
 
 - **`title`** — Same short description as `notify_teams.title`.
 - **`failed_workflow`** — Same as `notify_teams.failed_workflow`.
 - **`pipeline_url`** — URL of the current (latest) failed run.
-- **`occurrence_count`** — The updated `count` from the pattern record (e.g., `"5"`).
-- **`threshold`** — The specific threshold just crossed: one of `"3"`, `"5"`, `"10"`, `"20"`, `"50"`, `"100"`.
+- **`recent_count`** — Number of occurrences of this failure in the last 12 hours, including the current run (e.g., `"3"`, `"5"`).
 - **`description`** — Concise gist (3–5 sentences) of the recurring problem: what keeps failing, suspected root cause, and a recommended escalation action.
-- **`affected_prs`** — Markdown bullet list of up to 10 most recent affected PRs (e.g., `- [#1234](url)`). If no PRs can be identified, write "No PR information available."
-- **`recent_run_urls`** — Markdown bullet list of up to 10 most recent failure run URLs (e.g., `- [Run 56789](url)`).
+- **`affected_prs`** — Markdown bullet list of PRs affected by this failure in the last 12 hours (up to 10, e.g., `- [#1234](url)`). If no PRs can be identified, write "No PR information available."
+- **`recent_run_urls`** — Markdown bullet list of failure run URLs from the last 12 hours (up to 10, e.g., `- [Run 56789](url)`).
 
 ## Important Guidelines
 
@@ -666,13 +655,13 @@ This notification is **only** sent when a recurring failure threshold is crossed
 You **MUST** always call at least one safe output tool before finishing:
 
 - **`notify_teams`**: Send the investigation report as a Microsoft Teams notification (default for any actionable finding). Call this exactly once.
-- **`notify_teams_recurring`**: Send a recurring-failure escalation alert. Call this **only** if Phase 5.5 determines that a threshold was crossed. Call at most once per run.
+- **`notify_teams_recurring`**: Send a recurring-failure escalation alert. Call this **only** if Phase 5.5 determines that there are 3+ occurrences in the last 12 hours. Call at most once per run.
 - **`noop`**: When no action is needed (e.g., CI was successful, not a merge-queue run, no failure to investigate).
 - **`missing_data`**: When you cannot gather the information needed to complete the investigation.
 
 **Valid call combinations:**
-- `notify_teams` alone — standard investigation, no threshold crossed.
-- `notify_teams` + `notify_teams_recurring` — standard investigation AND a recurring-failure threshold was crossed.
+- `notify_teams` alone — standard investigation, fewer than 3 occurrences in the last 12 hours.
+- `notify_teams` + `notify_teams_recurring` — standard investigation AND 3+ occurrences in the last 12 hours.
 - `noop` alone — no investigation needed.
 - `missing_data` alone — investigation blocked by missing data.
 
