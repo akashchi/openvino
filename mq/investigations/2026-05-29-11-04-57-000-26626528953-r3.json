@@ -1,0 +1,26 @@
+{
+  "run_id": 26626528953,
+  "run_url": "https://github.com/openvinotoolkit/openvino/actions/runs/26626528953",
+  "workflow": "Linux (Ubuntu 22.04, Python 3.11)",
+  "conclusion": "failure",
+  "event": "pull_request",
+  "head_branch": "GHA-Implement-L0-build-Windows",
+  "head_sha": "cfb209438a05e923a2e085aaa04e078a32e97c15",
+  "author": "gkoscins",
+  "timestamp": "2026-05-29T11:04:57Z",
+  "failed_jobs": [
+    "Conformance (OP)",
+    "ONNX Models Tests / ONNX Models tests",
+    "PyTorch Models tests / PyTorch Models tests"
+  ],
+  "primary_error": "ValueError: Either a revision or a version must be specified.",
+  "root_cause": "transformers hub_kernels.py imports kernels.layer.LayerRepository which requires revision or version; broken by new transformers release",
+  "category": "Dependencies",
+  "pattern_hash": "a48e0adb1beada96",
+  "affected_tests": [
+    "test_convert_model_precommit[CPU-llama_awq-casperhansen/tinyllama-1b-awq]",
+    "test_convert_model_precommit[CPU-gpt2-openai-community/gpt2]",
+    "test_convert_model_precommit[CPU-llama-TinyLlama/TinyLlama-1.1B-Chat-v1.0]",
+    "test_export_model_precommit[CPU-llama_awq-casperhansen/tinyllama-1b-awq]"
+  ]
+}
