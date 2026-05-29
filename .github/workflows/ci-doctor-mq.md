@@ -311,7 +311,7 @@ tools:
 post-steps:
   - name: Upload CI Doctor MQ investigations and patterns
     if: always()
-    uses: actions/upload-artifact@v4
+    uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
     with:
       name: ci-doctor-mq-investigations
       path: |
@@ -531,11 +531,11 @@ You are the CI Failure Doctor for the Merge Queue, an expert investigative agent
    If any check fails, you have a bug in your write logic. Fix it before proceeding.
 
    **Common failure modes to avoid:**
-   - ❌ Writing `count: 1` because you forgot to read the existing file first
-   - ❌ Writing `count: 1` because you recomputed the signature hash differently (different normalization) and created a new file instead of updating the old one
-   - ❌ Omitting `recent_timestamps` entirely (this breaks Phase 5.5 recurrence detection)
-   - ❌ Setting `first_seen` to NOW when the file already existed
-   - ❌ Forgetting to include the current timestamp in `recent_timestamps`
+   - Writing `count: 1` because you forgot to read the existing file first
+   - Writing `count: 1` because you recomputed the signature hash differently (different normalization) and created a new file instead of updating the old one
+   - Omitting `recent_timestamps` entirely (this breaks Phase 5.5 recurrence detection)
+   - Setting `first_seen` to NOW when the file already existed
+   - Forgetting to include the current timestamp in `recent_timestamps`
 
 3. **Build Statistics Snapshot**: After step 2, aggregate all `.json` files under `/tmp/gh-aw/cache-memory/mq/patterns/` into the statistics fields for `notify_teams`. For each file:
    - Read and parse the JSON

@@ -28,7 +28,11 @@
 #
 # Source: githubnext/agentics/workflows/ci-doctor.md@0aa94a6e40aeaf131118476bc6a07e55c4ceb147
 #
+<<<<<<< HEAD
 # gh-aw-metadata: {"schema_version":"v1","frontmatter_hash":"6ea646e0feee8d9b514a555aff3af93e0494fd3d784145088a5f4d8ec28e88c3","compiler_version":"v0.51.5"}
+=======
+# gh-aw-metadata: {"schema_version":"v1","frontmatter_hash":"3617b985fd39f8ba759e50aab40d2473222a5f38b6f1aad882e5bfd6b411058d","compiler_version":"v0.51.5"}
+>>>>>>> upstream/master
 
 name: "CI Failure Doctor — Merge Queue"
 "on":
@@ -882,7 +886,11 @@ jobs:
           path: /tmp/gh-aw/cache-memory
       - if: always()
         name: Upload CI Doctor MQ investigations and patterns
+<<<<<<< HEAD
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+=======
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # b7c566a772e6b6bfb58ed0dc250532a479d7789f
+>>>>>>> upstream/master
         with:
           if-no-files-found: ignore
           name: ci-doctor-mq-investigations
