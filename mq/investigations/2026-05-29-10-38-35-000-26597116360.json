@@ -1,0 +1,17 @@
+{
+  "run_id": 26597116360,
+  "run_url": "https://github.com/openvinotoolkit/openvino/actions/runs/26597116360",
+  "workflow": "Windows (VS 2022, Python 3.11, Release)",
+  "timestamp": "2026-05-29T10:38:35Z",
+  "conclusion": "failure",
+  "head_sha": "c734d9213801b9844830e80420098bf2b0874cc6",
+  "head_branch": "feature/jit-swish-emitter-riscv-v2",
+  "failed_jobs": [
+    "OpenVINO tokenizers extension / OpenVINO tokenizers extension"
+  ],
+  "failed_step": "Upload OpenVINO tokenizers wheel (step 10)",
+  "root_cause": "Artifact upload step fails on run_attempt=2 because artifact 'openvino_tokenizers_wheel' already exists from attempt 1 and overwrite=false",
+  "category": "Configuration",
+  "pattern_hash": "2e370a7af649b57c",
+  "author": "Quaant"
+}

@@ -1,0 +1,15 @@
+{
+  "signature": "artifact upload fails on re-run attempt with overwrite false|OpenVINO tokenizers extension / OpenVINO tokenizers extension|Configuration",
+  "title": "Tokenizers wheel artifact upload fails on workflow re-run (overwrite: false)",
+  "category": "Configuration",
+  "count": 1,
+  "first_seen": "2026-05-29T10:38:35Z",
+  "last_seen": "2026-05-29T10:38:35Z",
+  "recent_run_urls": [
+    "https://github.com/openvinotoolkit/openvino/actions/runs/26597116360"
+  ],
+  "affected_prs": [],
+  "recent_timestamps": [
+    "2026-05-29T10:38:35Z"
+  ]
+}
