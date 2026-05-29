@@ -1,0 +1,16 @@
+{
+  "run_id": 26626528953,
+  "run_url": "https://github.com/openvinotoolkit/openvino/actions/runs/26626528953",
+  "workflow": "Linux (Ubuntu 22.04, Python 3.11)",
+  "event": "pull_request",
+  "branch": "GHA-Implement-L0-build-Windows",
+  "commit": "cfb209438a05e923a2e085aaa04e078a32e97c15",
+  "author": "gkoscins",
+  "timestamp": "2026-05-29T10:57:46Z",
+  "failed_jobs": ["Conformance (OP)", "ONNX Models Tests / ONNX Models tests", "PyTorch Models tests / PyTorch Models tests"],
+  "root_cause": "transformers package new version imports hub_kernels.py which instantiates LayerRepository from kernels package with no revision/version, causing ValueError at module import time",
+  "category": "Dependencies",
+  "signature_hash": "a48e0adb1beada96",
+  "reinvestigation": true,
+  "note": "Second CI Doctor run on the same failing workflow run"
+}

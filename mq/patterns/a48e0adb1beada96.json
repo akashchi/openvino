@@ -2,14 +2,15 @@
   "signature": "Either a revision or a version must be specified.|PyTorch Models tests / PyTorch Models tests|Dependencies",
   "title": "PyTorch Models tests fail - transformers kernels package requires revision/version",
   "category": "Dependencies",
-  "count": 1,
+  "count": 2,
   "first_seen": "2026-05-29T10:48:15Z",
-  "last_seen": "2026-05-29T10:48:15Z",
+  "last_seen": "2026-05-29T10:57:46Z",
   "recent_run_urls": [
     "https://github.com/openvinotoolkit/openvino/actions/runs/26626528953"
   ],
   "affected_prs": [],
   "recent_timestamps": [
+    "2026-05-29T10:57:46Z",
     "2026-05-29T10:48:15Z"
   ]
 }
