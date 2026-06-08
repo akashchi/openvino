@@ -36,6 +36,7 @@ safe-outputs:
   add-comment:
     max: 1              # at most one remediation comment per investigation
     target: "*"         # workflow_run trigger has no PR context; agent supplies the PR number
+    allowed-repos: ["akashchi/openvino"]  # testing: allow commenting on the test PR repo
   jobs:
     notify-teams:
       description: "Send a CI failure investigation summary to Microsoft Teams. Call this exactly once at the end of the investigation with a concise title and a thorough description of the failure."
@@ -609,11 +610,13 @@ Additionally, if Phase 5.5 determines the same failure has occurred 3 or more ti
 
 Additionally, **when the failure is associated with a PR in the merge queue**, post a remediation comment on that PR by calling the `add_comment` safe-output tool exactly once (see field guidance below). If no PR can be identified, skip the comment.
 
+> **Testing override (workflow_dispatch only):** When this workflow is triggered via `workflow_dispatch` (manual run), **always** post the remediation comment on the test PR [akashchi/openvino#157](https://github.com/akashchi/openvino/pull/157) regardless of whether the investigated run is associated with a PR. Call `add_comment` with `item_number: 157` and `repo: "akashchi/openvino"`. This lets us verify the comment path end-to-end. For real `workflow_run` (merge-queue) triggers, ignore this override and follow the normal PR-association rules below.
+
 ### `add_comment` field guidance
 
-Post a concise, actionable remediation comment on the affected merge-queue PR so the author has the context and next steps. Call `add_comment` **at most once per investigation** and **only** when a PR can be identified.
+Post a concise, actionable remediation comment on the affected merge-queue PR so the author has the context and next steps. Call `add_comment` **at most once per investigation** and **only** when a PR can be identified (or for the testing override above).
 
-- **`item_number`** (required) — The number of the affected PR in the merge queue (the same value reported as `notify_teams.pr_number`). This is required because the `workflow_run` trigger carries no PR context; the comment cannot be posted without it.
+- **`item_number`** (required) — The number of the affected PR in the merge queue (the same value reported as `notify_teams.pr_number`). This is required because the `workflow_run` trigger carries no PR context; the comment cannot be posted without it. For the `workflow_dispatch` testing override, use `item_number: 157` together with `repo: "akashchi/openvino"`.
 
 - **`body`** (required) — Markdown comment body. Keep it focused and short. GitHub renders standard Markdown here (headings, bold, inline code, fenced code blocks with backticks, lists, links). Use this structure:
 
@@ -784,7 +787,7 @@ You **MUST** always call at least one safe output tool before finishing:
 
 **Valid call combinations:**
 - `notify_teams` alone — standard investigation with no identifiable PR, fewer than 3 occurrences in the last 12 hours.
-- `notify_teams` + `add_comment` — standard investigation where the failure is tied to a PR in the merge queue.
+- `notify_teams` + `add_comment` — standard investigation where the failure is tied to a PR in the merge queue, **or** any `workflow_dispatch` test run (comment on PR akashchi/openvino#157 per the testing override).
 - `notify_teams` + `notify_teams_recurring` (+ `add_comment` when a PR is identified) — standard investigation AND 3+ occurrences in the last 12 hours.
 - `noop` alone — no investigation needed.
 - `missing_data` alone — investigation blocked by missing data.
