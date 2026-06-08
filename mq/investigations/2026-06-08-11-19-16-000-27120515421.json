@@ -1,0 +1,23 @@
+{
+  "run_id": "27120515421",
+  "run_url": "https://github.com/openvinotoolkit/openvino/actions/runs/27120515421",
+  "timestamp": "2026-06-08T11:19:16Z",
+  "workflow_name": "Linux (Ubuntu 22.04, Python 3.11)",
+  "head_sha": "3e632b89086ffa4702dc7a4f5917632b6ef871a4",
+  "head_branch": "add_read_model_onnx_fuzzer",
+  "pr_number": "34433",
+  "pr_url": "https://github.com/openvinotoolkit/openvino/pull/34433",
+  "author": "praasz",
+  "failed_jobs": [
+    {
+      "id": "80039732491",
+      "name": "OpenVINO JS API / OpenVINO JS API",
+      "conclusion": "failure"
+    }
+  ],
+  "failure_category": "Network",
+  "primary_error": "HTTPError: Response code 504 (Gateway Time-out)",
+  "root_cause": "The electron@39.8.5 postinstall script (node install.js) failed to download the Electron binary from its CDN with an HTTP 504 Gateway Timeout. This caused the demo-electron-app-project npm install to fail, resulting in 'electron: not found' when the E2E test tried to run npm start.",
+  "signature_hash": "ffc970cff5141846",
+  "signature": "HTTPError: Response code 504 Gateway Time-out|OpenVINO JS API / OpenVINO JS API|Network"
+}
