@@ -306,11 +306,8 @@ safe-outputs:
 tools:
   github:
     toolsets: [default, actions]  # default: context, repos, issues, pull_requests; actions: workflow logs
-  repo-memory:
-    branch-name: memory/ci-doctor-mq
-    allowed-extensions: [".json"]
-    max-file-size: 102400
-    max-file-count: 1000
+  cache-memory: 
+    retention-days: 90
 
 post-steps:
   - name: Upload CI Doctor MQ investigations and patterns
