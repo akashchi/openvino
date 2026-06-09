@@ -1,18 +1,1 @@
-{
-  "signature": "HTTPError: Response code 504 Gateway Time-out|OpenVINO JS API / OpenVINO JS API|Network",
-  "title": "OpenVINO JS API Electron binary download fails with HTTP 504 Gateway Timeout",
-  "category": "Network",
-  "count": 2,
-  "first_seen": "2026-06-08T11:19:16Z",
-  "last_seen": "2026-06-08T11:27:15Z",
-  "recent_run_urls": [
-    "https://github.com/openvinotoolkit/openvino/actions/runs/27120515421"
-  ],
-  "affected_prs": [
-    "https://github.com/openvinotoolkit/openvino/pull/34433"
-  ],
-  "recent_timestamps": [
-    "2026-06-08T11:27:15Z",
-    "2026-06-08T11:19:16Z"
-  ]
-}
+{"signature":"HTTPError: Response code 504 Gateway Time-out|OpenVINO JS API / OpenVINO JS API|Network","title":"OpenVINO JS API Electron binary download fails with HTTP 504 Gateway Timeout","category":"Network","count":2,"first_seen":"2026-06-08T11:19:16Z","last_seen":"2026-06-08T11:27:15Z","recent_run_urls":["https://github.com/openvinotoolkit/openvino/actions/runs/27120515421"],"affected_prs":["https://github.com/openvinotoolkit/openvino/pull/34433"],"recent_timestamps":["2026-06-08T11:27:15Z","2026-06-08T11:19:16Z"]}
