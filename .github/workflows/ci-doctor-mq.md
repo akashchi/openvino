@@ -333,10 +333,6 @@ post-steps:
 
 timeout-minutes: 20
 
-<<<<<<< HEAD
-# source: githubnext/agentics/workflows/ci-doctor.md@497230d3867fe453aae74b15d06178d45a39fcce
-=======
->>>>>>> upstream/master
 ---
 
 # CI Failure Doctor — Merge Queue
