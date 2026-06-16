@@ -68,14 +68,17 @@ safe-outputs:
           description: "Pull request number if the failure is associated with a PR in the merge queue. Omit otherwise."
           required: false
           type: string
+          default: "not_found"
         pr_url:
           description: "Pull request URL if the failure is associated with a PR in the merge queue. Omit otherwise."
           required: false
           type: string
+          default: "not_found"
         author:
           description: "GitHub login of the PR author or commit author, if known. Omit otherwise."
           required: false
           type: string
+          default: "not_found"
         db_entries:
           description: "Total number of unique entries currently in the CI Doctor MQ investigation database (count of distinct investigation files under /tmp/gh-aw/repo-memory/default/mq/investigations/, including the one created by this run). Report as a non-negative integer encoded as a string."
           required: true
@@ -316,7 +319,9 @@ tools:
   repo-memory:
     branch-name: memory/ci-doctor-mq
     file-glob: ["*.md", "*.json", "*.jsonl"]
-    max-file-size: 102400
+    allowed-extensions: [".md", ".json", ".jsonl"]
+    max-file-size: 1048576 # 1MB max
+    max-patch-size: 1048576 # 1MB max
     max-file-count: 500
 
 post-steps:
