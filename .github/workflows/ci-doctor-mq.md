@@ -318,7 +318,6 @@ tools:
     toolsets: [default, actions]  # default: context, repos, issues, pull_requests; actions: workflow logs
   repo-memory:
     branch-name: memory/ci-doctor-mq
-    file-glob: ["*.md", "*.json", "*.jsonl"]
     allowed-extensions: [".md", ".json", ".jsonl"]
     max-file-size: 1048576 # 1MB max
     max-patch-size: 1048576 # 1MB max
@@ -816,5 +815,5 @@ Example noop call: `{"noop": {"message": "No action needed: [brief explanation]"
 - **Filename Requirements**: Use filesystem-safe characters only (no colons, quotes, or special characters)
   - ✅ Good: `2026-02-12-11-20-45-458-12345.json`
   - ❌ Bad: `2026-02-12T11:20:45.458Z-12345.json` (contains colons)
-- **Allowed file extensions**: Only save artifacts as `.json`, `.md`, or `.jsonl` files. These are the only extensions tracked by `tools.repo-memory` (`file-glob: ["*.md", "*.json", "*.jsonl"]`). Files with any other extension (e.g., `.txt`, `.log`, `.yaml`) will **not** be persisted to the `memory/ci-doctor-mq` branch and will be lost when the runner is torn down.
+- **Allowed file extensions**: Only save artifacts as `.json`, `.md`, or `.jsonl` files. These are the only extensions tracked by `tools.repo-memory`. Files with any other extension (e.g., `.txt`, `.log`, `.yaml`) will **not** be persisted to the `memory/ci-doctor-mq` branch and will be lost when the runner is torn down. If there are any files with not-allowed extensions present in the `/tmp/gh-aw/repo-memory/default/mq` folder, remove them safely before finishing.
 - **Isolated branch**: This workflow uses `/tmp/gh-aw/repo-memory/default/mq/` as its own subdirectory within the dedicated `memory/ci-doctor-mq` branch. This keeps merge-queue failure patterns isolated from any other workflows, ensuring threshold-crossing logic only counts merge-queue occurrences.
