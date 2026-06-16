@@ -1,0 +1,17 @@
+{
+  "affected_prs": [
+    "https://github.com/openvinotoolkit/openvino/pull/35531"
+  ],
+  "category": "Code Issue",
+  "count": 1,
+  "first_seen": "2026-06-16T09:13:42Z",
+  "last_seen": "2026-06-16T09:13:42Z",
+  "recent_run_urls": [
+    "https://github.com/openvinotoolkit/openvino/actions/runs/27443535436"
+  ],
+  "recent_timestamps": [
+    "2026-06-16T09:13:42Z"
+  ],
+  "signature": "Cannot get dims for non static shape|PyTorch Layer Tests / PyTorch Layer Tests|Code Issue",
+  "title": "CPU repacking path asserts on dynamic shapes"
+}

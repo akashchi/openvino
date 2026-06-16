@@ -1,0 +1,42 @@
+{
+  "author": null,
+  "category": "Code Issue",
+  "created_at": "2026-06-16T09:13:42Z",
+  "failed_jobs": [
+    {
+      "name": "Pytorch Layer Tests / PyTorch Layer Tests",
+      "symptom": "dynamic-shape PyTorch attention models fail during compile"
+    },
+    {
+      "name": "TensorFlow Models tests / TensorFlow Models tests",
+      "symptom": "TF model-hub precommit fails during compile on CPU"
+    },
+    {
+      "name": "PyTorch Models tests / PyTorch Models tests",
+      "symptom": "TorchVision/Timm model-hub precommit fails during compile on CPU"
+    },
+    {
+      "name": "CPU functional tests / CPU functional tests",
+      "symptom": "CPU functional coverage hits the same static-shape assertion"
+    },
+    {
+      "name": "C++ unit tests / C++ unit tests",
+      "symptom": "C++ unit coverage reports the same CPU shape assertion"
+    }
+  ],
+  "head_sha": "0bda823ecad7f42bae8289892e0db5e0be27ef3b",
+  "pr_number": "35531",
+  "pr_url": "https://github.com/openvinotoolkit/openvino/pull/35531",
+  "primary_error": "Cannot get dims for non static shape",
+  "recommended_actions": [
+    "Guard the new repacking path so dynamic shapes skip this pass or fall back to the non-repacked flow instead of calling Shape::getStaticDims().",
+    "If repacking must stay enabled, derive the destination descriptor from a guaranteed-static weight shape, not from the dynamic partial shape flowing through the reordered input.",
+    "Add a regression test with a dynamic-shape CPU attention/model-hub case that previously reached the assertion."
+  ],
+  "root_cause": "The new CPU snippets repacking path now runs for dynamic-shape models and then unconditionally asks for static dims. In `src/plugins/intel_cpu/src/transformations/snippets/x64/pass/repack_matmul_weights.cpp:44-52`, the destination blocked descriptor is built from `shape.getStaticDims()`. For dynamic models, the source shape derived from the reorder/partial-shape path is not static, so the assertion in `cpu_shape.h:128` fires while compiling multiple CPU model-hub and layer tests.",
+  "run_id": "27443535436",
+  "run_url": "https://github.com/openvinotoolkit/openvino/actions/runs/27443535436",
+  "signature_hash": "6eb2d4bbde24a8ec",
+  "title": "CPU repacking path asserts on dynamic shapes",
+  "workflow": "Linux (Ubuntu 22.04, Python 3.11)"
+}
