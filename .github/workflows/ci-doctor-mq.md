@@ -31,7 +31,7 @@ permissions: read-all
 
 engine:
   id: copilot
-  model: gpt-5-mini
+  model: claude-haiku-4.5
 
 network: defaults
 
