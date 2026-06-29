@@ -350,7 +350,7 @@ steps:
 
       # Get failed jobs and their failed steps
       gh api "repos/openvinotoolkit/openvino/actions/runs/28266230900/jobs" \
-        --jq '[.jobs[] | select(.conclusion == "failed" or .conclusion == "cancelled") | {id:.id, name:.name, failed_steps:[.steps[]? | select(.conclusion=="failed") | .name]}]' \
+        --jq '[.jobs[] | select(.conclusion == "failure" or .conclusion == "cancelled") | {id:.id, name:.name, failed_steps:[.steps[]? | select(.conclusion=="failure") | .name]}]' \
         > "$LOG_DIR/failed-jobs.json"
 
       FAILED_COUNT=$(jq 'length' "$LOG_DIR/failed-jobs.json")
