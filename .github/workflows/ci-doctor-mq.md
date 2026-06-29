@@ -345,10 +345,10 @@ steps:
       FILTERED_DIR="/tmp/gh-aw/agent/ci-doctor/filtered"
       mkdir -p "$LOG_DIR" "$FILTERED_DIR"
 
-      echo "=== CI Doctor: Pre-downloading logs for run 28260319677 ==="
+      echo "=== CI Doctor: Pre-downloading logs for run 28161192347 ==="
 
       # Get failed jobs and their failed steps
-      gh api "repos/openvinotoolkit/openvino/actions/runs/28260319677/jobs" \
+      gh api "repos/openvinotoolkit/openvino/actions/runs/28161192347/jobs" \
         --jq '[.jobs[] | select(.conclusion == "failure" or .conclusion == "cancelled") | {id:.id, name:.name, failed_steps:[.steps[]? | select(.conclusion=="failure") | .name]}]' \
         > "$LOG_DIR/failed-jobs.json"
 
@@ -387,7 +387,7 @@ steps:
       SUMMARY_FILE="/tmp/gh-aw/agent/ci-doctor/summary.txt"
       {
         echo "=== CI Doctor Pre-Analysis ==="
-        echo "Run ID: 28260319677"
+        echo "Run ID: 28161192347"
         echo ""
         echo "Failed jobs (details in $LOG_DIR/failed-jobs.json):"
         jq -r '.[] | "  Job \(.id): \(.name)\n    Failed steps: \(.failed_steps | join(", "))"' \
