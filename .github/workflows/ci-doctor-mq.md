@@ -335,7 +335,6 @@ tools:
 
 steps:
   - name: Download CI failure logs and artifacts
-    if: ${{ steps.ci-doctor-cache.outputs.cache-hit != 'true' }}
     env:
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       RUN_ID: ${{ github.event.workflow_run.id || github.event.inputs.run_id }}
