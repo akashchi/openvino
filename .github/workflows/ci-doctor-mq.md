@@ -17,10 +17,20 @@ on:
   workflow_run:
     workflows:
       - "Linux (Ubuntu 22.04, Python 3.11)"
+      - "Linux (Ubuntu 24.04, Python 3.12)"
+      - "Android"
+      - "Linux ARM64 (Ubuntu 22.04, Python 3.11)"
+      - "Linux (Ubuntu 22.04, ARM64 cross-compilation, Python 3.11)"
+      - "Linux Static CC (Ubuntu 22.04, Python 3.11, Clang)"
+      - "Linux RISC-V (Ubuntu 22.04, Python 3.10)"
       - "Windows (VS 2022, Python 3.11, Release)"
+      - "Windows (VS 2022, Python 3.11, Debug)"
+      - "Windows Conditional Compilation (VS 2022, Python 3.11)"
+      - "Webassembly"
+      - "Manylinux 2_28"
+      - "Clang-tidy static analysis (Ubuntu 24.04, Python 3.12, Clang-18, Clang-tidy-18)"
     types:
       - completed
-
 concurrency:
   group: gh-aw-${{ github.workflow }}
 
@@ -31,7 +41,7 @@ permissions: read-all
 
 engine:
   id: copilot
-  model: claude-haiku-4.5
+  model: claude-sonnet-4.6
 
 network: defaults
 
@@ -198,7 +208,7 @@ safe-outputs:
 
         - name: Upload statistics artifact
           if: always()
-          uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
+          uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a  # v7.0.1
           with:
             name: ci-doctor-mq-statistics
             path: ${{ runner.temp }}/ci-doctor-mq-stats
@@ -326,7 +336,7 @@ tools:
 post-steps:
   - name: Upload CI Doctor MQ investigations and patterns
     if: always()
-    uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
+    uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a  # v7.0.1
     with:
       name: ci-doctor-mq-investigations
       path: |
@@ -611,6 +621,55 @@ ELSE:
    - Provide specific file locations and line numbers for fixes
    - Suggest code changes or configuration updates
 
+### Phase 7: Output Format Validation (MANDATORY before any safe-output call)
+
+You MUST validate and normalise the payload
+before calling `notify_teams` or `notify_teams_recurring`.
+
+**Every numeric-looking field in these tools is declared as `type: string` and
+MUST be passed as a JSON string, not a JSON number.** Wrap the value in quotes.
+
+1. **Build the payload object first**, then run the checklist below against it.
+   Do not call the safe-output tool until every check passes.
+
+2. **String-encoding checklist** — for each field, confirm the value is a string
+   (quoted), never a bare number, boolean, null, or object:
+
+   For `notify_teams`:
+   - `title` — non-empty string
+   - `failed_workflow` — non-empty string
+   - `pipeline_url` — non-empty string (a valid URL)
+   - `description` — non-empty string
+   - `db_entries` — string-encoded non-negative integer, e.g. `"42"` (NOT `42`)
+   - `occurrence_count` — string-encoded positive integer, e.g. `"4"` (NOT `4`)
+   - `statistics` — non-empty string
+   - `statistics_json` — string (a JSON document serialized into a string; the
+     value itself must be a string, even though its contents are JSON)
+   - `pr_number` — when provided, string-encoded integer, e.g. `"27618"`
+     (NOT `27618`). This is the field most commonly rejected — double-check it.
+   - `pr_url` — when provided, string
+   - `author` — when provided, string
+
+   For `notify_teams_recurring`:
+   - `title`, `failed_workflow`, `pipeline_url`, `description`,
+     `affected_prs`, `recent_run_urls` — non-empty strings
+   - `recent_count` — string-encoded positive integer, e.g. `"3"` (NOT `3`)
+
+3. **Normalization rule**: if you computed any of the numeric fields as an
+   integer (e.g., `count` read from a pattern file, a file count, or a PR number
+   parsed from the API), explicitly convert it to its string form before placing
+   it in the payload. For example, treat `pr_number` derived as `27618` as
+   `"27618"`.
+
+4. **Optional-field rule**: for optional fields (`pr_number`, `pr_url`,
+   `author`), either provide a correctly-typed string value OR an explicit string "not_found". Never pass `null`, an empty object, or a bare number.
+
+5. **Final self-check**: re-read the assembled payload one last time and verify
+   that no value that should be a string is an unquoted number. Only after this
+   check passes may you call the safe-output tool. If you are unsure whether a
+   field is correctly typed, coerce it to a string — string is always the safe
+   choice for these tools.
+
 ## Output Requirements
 
 Report the investigation as a Microsoft Teams notification by calling the `notify_teams` safe-output tool exactly once.
@@ -635,14 +694,14 @@ Post a concise, actionable remediation comment on the affected merge-queue PR so
 **Pipeline**: [<failed_workflow name>](<pipeline_url>)
 **Failure**: <one-line summary, same as notify_teams.title>
 
-#### What happened
-
-<2–4 sentence plain-language description of the failure: which job(s) failed and the key error.>
-
 #### Possible remedy
 
 <1–4 concrete, actionable steps to fix or work around the failure, based on the
 root-cause analysis. Reference specific files/lines from the logs when available.>
+
+#### What happened
+
+<1–2 sentence plain-language description of the failure: which job(s) failed and the key error.>
 
 <If repo-memory shows this is a known/recurring pattern, add one line noting how
 many times it has been seen and link the most recent prior failure run.>
@@ -654,7 +713,7 @@ Source the comment content directly from the investigation you already produced:
   * **What happened** is a condensed version of the Root Cause Analysis (Phase 4 / Phase 6).
   * **Possible remedy** comes from your Recommended Actions, refined with any matching pattern data from repo-memory (`/tmp/gh-aw/repo-memory/default/mq/patterns/` and `/tmp/gh-aw/repo-memory/default/mq/investigations/`). If a prior pattern exists, prefer the remedy that resolved it before.
 
-Do not duplicate the full Teams description in the comment — keep it to the pipeline reference, a short failure description, and a short possible remedy.
+Do not duplicate the full Teams description in the comment — keep it to the pipeline reference, a short possible remedy, and a failure description.
 
 ### `notify_teams` field guidance
 
@@ -785,6 +844,10 @@ This notification is **only** sent when the same failure has occurred 3 or more 
 - **Bounded Code Inspection**: Never analyze the whole codebase. Do not read test files line-by-line or traverse component trees. Stay within the limits defined in Phase 4 (Source Code Inspection Safeguards): log-derived scope, max 10 files, max 5 search queries, PR-diff-first. If the failure cannot be localized within those limits, stop and report "needs human triage" with the evidence collected so far.
 
 ## Mandatory Output Requirement
+
+**Before calling any safe output tool, run the Phase 7 Output Format Validation
+checklist.** All numeric-looking fields (`pr_number`, `db_entries`,
+`occurrence_count`, `recent_count`) MUST be passed as JSON strings, not numbers.
 
 You **MUST** always call at least one safe output tool before finishing:
 
