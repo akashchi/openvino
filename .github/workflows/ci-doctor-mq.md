@@ -346,10 +346,10 @@ steps:
       FILTERED_DIR="/tmp/gh-aw/agent/ci-doctor/filtered"
       mkdir -p "$LOG_DIR" "$ARTIFACT_DIR" "$FILTERED_DIR"
 
-      echo "=== CI Doctor: Pre-downloading logs and artifacts for run $RUN_ID ==="
+      echo "=== CI Doctor: Pre-downloading logs and artifacts for run 28266230900 ==="
 
       # Get failed jobs and their failed steps
-      gh api "repos/openvinotoolkit/openvino/actions/runs/$RUN_ID/jobs" \
+      gh api "repos/openvinotoolkit/openvino/actions/runs/28266230900/jobs" \
         --jq '[.jobs[] | select(.conclusion == "failed" or .conclusion == "cancelled") | {id:.id, name:.name, failed_steps:[.steps[]? | select(.conclusion=="failed") | .name]}]' \
         > "$LOG_DIR/failed-jobs.json"
 
@@ -386,8 +386,8 @@ steps:
 
       # Download and unpack all artifacts from the failed run
       echo ""
-      echo "=== Downloading artifacts for run $RUN_ID ==="
-      gh run download "$RUN_ID" --repo "openvinotoolkit/openvino" --dir "$ARTIFACT_DIR" 2>/dev/null \
+      echo "=== Downloading artifacts for run 28266230900 ==="
+      gh run download "28266230900" --repo "openvinotoolkit/openvino" --dir "$ARTIFACT_DIR" 2>/dev/null \
         || echo "No artifacts available or download failed"
 
       # Apply heuristics to artifact text files
@@ -409,7 +409,7 @@ steps:
       SUMMARY_FILE="/tmp/gh-aw/agent/ci-doctor/summary.txt"
       {
         echo "=== CI Doctor Pre-Analysis ==="
-        echo "Run ID: $RUN_ID"
+        echo "Run ID: 28266230900"
         echo ""
         echo "Failed jobs (details in $LOG_DIR/failed-jobs.json):"
         jq -r '.[] | "  Job \(.id): \(.name)\n    Failed steps: \(.failed_steps | join(", "))"' \
