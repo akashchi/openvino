@@ -1,0 +1,30 @@
+{
+  "created_at": "2026-06-29T12:11:47Z",
+  "run_id": "28161192347",
+  "run_url": "https://github.com/openvinotoolkit/openvino/actions/runs/28161192347",
+  "workflow_name": "Linux (Ubuntu 22.04, Python 3.11)",
+  "head_sha": "6f75563f67efb6a2a9ad0a52cfee133a8d4b4ac5",
+  "event": "push",
+  "author": null,
+  "pr_number": null,
+  "pr_url": null,
+  "category": "Flaky Test",
+  "signature_hash": "3c0de9ec520a68d1",
+  "title": "TF2 Keras LSTM layer test fails with borderline numerical accuracy deviation",
+  "primary_error": "AssertionError: Comparing with Framework failed: Max diff is 0.05215764045715332 (threshold: 5e-2)",
+  "failed_jobs": [
+    {
+      "name": "TensorFlow Layer Tests / TensorFlow Layer Tests",
+      "symptom": "test_tf2_keras_lstm.py::TestKerasLSTM::test_keras_lstm_flags_float32 fails with max diff 0.052 > epsilon 0.05"
+    }
+  ],
+  "test_details": {
+    "test": "test_tf2_keras_lstm.py::TestKerasLSTM::test_keras_lstm_flags_float32",
+    "params": "{'input_names': ['x'], 'input_shapes': [[4, 8, 3]], 'input_type': tf.float32, 'dropouts': (0.1, 0.3), 'units': 3, 'activation': 'relu', 'use_bias': False, 'recurrent_activation': 'tanh', 'flags': True}",
+    "max_diff": 0.05215764045715332,
+    "threshold": 0.05,
+    "ov_version": "2026.3.0-69023-6f75563f67e"
+  },
+  "root_cause": "Borderline numerical accuracy failure in TF2 Keras LSTM layer test. The max diff (0.0522) barely exceeds the 5e-2 tolerance for this LSTM variant (relu activation, tanh recurrent_activation, with dropout). This could be a flaky numerical precision issue from floating-point rounding in the LSTM computation path.",
+  "confidence": "Medium"
+}

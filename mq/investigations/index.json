@@ -18,6 +18,14 @@
       "run_url": "https://github.com/openvinotoolkit/openvino/actions/runs/28260319677",
       "signature_hash": "47343d37385888bd",
       "title": "benchmark_app Python async mode crashes with STATUS_ACCESS_VIOLATION (0xC0000005) on Windows"
+    },
+    {
+      "created_at": "2026-06-29T12:11:47Z",
+      "path": "/tmp/gh-aw/repo-memory/default/mq/investigations/2026-06-29-12-11-47-000-28161192347.json",
+      "run_id": "28161192347",
+      "run_url": "https://github.com/openvinotoolkit/openvino/actions/runs/28161192347",
+      "signature_hash": "3c0de9ec520a68d1",
+      "title": "TF2 Keras LSTM layer test fails with borderline numerical accuracy deviation"
     }
   ]
 }

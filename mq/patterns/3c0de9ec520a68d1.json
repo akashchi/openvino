@@ -1,0 +1,11 @@
+{
+  "signature": "AssertionError Comparing with Framework failed|TensorFlow Layer Tests / TensorFlow Layer Tests|Flaky Test",
+  "title": "TF2 Keras LSTM layer test fails with borderline numerical accuracy deviation",
+  "category": "Flaky Test",
+  "count": 1,
+  "first_seen": "2026-06-29T12:11:47Z",
+  "last_seen": "2026-06-29T12:11:47Z",
+  "recent_run_urls": ["https://github.com/openvinotoolkit/openvino/actions/runs/28161192347"],
+  "affected_prs": [],
+  "recent_timestamps": ["2026-06-29T12:11:47Z"]
+}
