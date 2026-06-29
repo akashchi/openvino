@@ -1,0 +1,50 @@
+{
+  "timestamp": "2026-06-29T10:52:33Z",
+  "run_id": "28260319677",
+  "run_url": "https://github.com/openvinotoolkit/openvino/actions/runs/28260319677",
+  "workflow": "Windows (VS 2022, Python 3.11, Release)",
+  "conclusion": "failure",
+  "trigger_event": "push",
+  "head_sha": "40bd59fdca30d8b0a8057e7f23a1b76830add379",
+  "head_branch": "master",
+  "triggering_commit": "dependabot: Update pyright requirement from <=1.1.410 to <=1.1.411 in /src/bindings/python",
+  "pr_number": null,
+  "pr_url": null,
+  "pr_author": "dependabot[bot]",
+  "failed_jobs": [
+    {
+      "id": 83741303259,
+      "name": "Samples",
+      "failed_steps": ["Samples tests"]
+    },
+    {
+      "id": 83750507097,
+      "name": "ci/gha_overall_status_windows",
+      "failed_steps": ["Check status of all jobs"]
+    }
+  ],
+  "root_cause_category": "Code Issue",
+  "root_cause_summary": "benchmark_app Python sample crashes with Windows STATUS_ACCESS_VIOLATION (exit code 0xC0000005) when running with -api async -no_warmup on CPU. The app completes all 11 steps and outputs results but crashes on exit during teardown. The C++ variant of the same test passes, implicating the Python binding cleanup/destructor path. The triggering commit (pyright linting update) is unrelated.",
+  "pattern_hash": "47343d37385888bd",
+  "failed_test": "tests/smoke_tests/test_benchmark_app.py::test_benchmark_app_no_warmup_with_api_modes[async-CPU-Python]",
+  "error_detail": {
+    "exit_code": 3221225477,
+    "windows_code": "0xC0000005 STATUS_ACCESS_VIOLATION",
+    "command": "benchmark_app -i dog-224x224.bmp -m bvlcalexnet-12.onnx -d CPU -niter 1 -nireq 1 -api async -no_warmup",
+    "last_step_completed": "Step 11/11 Dumping statistics report",
+    "crash_phase": "after completion (during Python/binding teardown)"
+  },
+  "notable_findings": [
+    "benchmark_app async-CPU-C++ PASSED; only async-CPU-Python FAILED",
+    "The benchmark app completed all 11 steps and output valid results before crashing",
+    "Exit code 3221225477 = 0xC0000005 = STATUS_ACCESS_VIOLATION (Windows memory access violation)",
+    "186 passed, 1 failed, 15 skipped in total",
+    "The triggering commit only changes pyright linting requirement - unrelated to the crash"
+  ],
+  "recommended_actions": [
+    "Investigate recent changes to the Python benchmark_app sample or Python bindings async/infer-request teardown path on Windows",
+    "Search for recently merged PRs that touched samples/python/benchmark_app.py or Python bindings async inference lifecycle",
+    "Run benchmark_app Python async mode with no_warmup under a Windows debugger (WinDbg/Dr. Watson) to capture the crash callstack",
+    "Check if the crash is reproducible on Linux to narrow platform scope"
+  ]
+}

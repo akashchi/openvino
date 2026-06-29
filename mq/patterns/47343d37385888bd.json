@@ -1,0 +1,11 @@
+{
+  "signature": "benchmark_app returned access violation exit code STATUS_ACCESS_VIOLATION async cpu windows|Samples|Code Issue",
+  "title": "benchmark_app Python async mode crashes with STATUS_ACCESS_VIOLATION (0xC0000005) on Windows",
+  "category": "Code Issue",
+  "count": 1,
+  "first_seen": "2026-06-29T10:52:33Z",
+  "last_seen": "2026-06-29T10:52:33Z",
+  "recent_run_urls": ["https://github.com/openvinotoolkit/openvino/actions/runs/28260319677"],
+  "affected_prs": [],
+  "recent_timestamps": ["2026-06-29T10:52:33Z"]
+}

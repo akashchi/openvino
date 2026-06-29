@@ -10,6 +10,14 @@
       "pattern_hash": "3545bc843559a7d9",
       "category": "Infrastructure",
       "title": "PyTorch Layer Tests artifact upload fails silently"
+    },
+    {
+      "created_at": "2026-06-29T10:52:33Z",
+      "path": "/tmp/gh-aw/repo-memory/default/mq/investigations/2026-06-29-10-52-33-000-28260319677.json",
+      "run_id": "28260319677",
+      "run_url": "https://github.com/openvinotoolkit/openvino/actions/runs/28260319677",
+      "signature_hash": "47343d37385888bd",
+      "title": "benchmark_app Python async mode crashes with STATUS_ACCESS_VIOLATION (0xC0000005) on Windows"
     }
   ]
 }
