@@ -71,6 +71,14 @@
       "run_url": "https://github.com/openvinotoolkit/openvino/actions/runs/27443535436",
       "signature_hash": "6eb2d4bbde24a8ec",
       "title": "CPU repacking path asserts on dynamic shapes"
+    },
+    {
+      "path": "/tmp/gh-aw/repo-memory/default/mq/investigations/2026-06-29-10-33-27-000-28266230900-r2.json",
+      "run_id": "28266230900",
+      "run_url": "https://github.com/openvinotoolkit/openvino/actions/runs/28266230900",
+      "created_at": "2026-06-29T10:33:27Z",
+      "signature_hash": "3545bc843559a7d9",
+      "title": "PyTorch Layer Tests artifact upload fails silently (no test-results artifact created)"
     }
   ]
 }

@@ -1,0 +1,40 @@
+{
+  "timestamp": "2026-06-29T10:33:27Z",
+  "run_id": "28266230900",
+  "run_url": "https://github.com/openvinotoolkit/openvino/actions/runs/28266230900",
+  "workflow": "Windows (VS 2022, Python 3.11, Release)",
+  "conclusion": "failure",
+  "trigger_event": "pull_request",
+  "head_sha": "9d2fc6c7c4a0fb3a89410c5f08501c472395a648",
+  "pr_number": 36539,
+  "pr_url": "https://github.com/openvinotoolkit/openvino/pull/36539",
+  "pr_author": "michal-miotk",
+  "pr_branch": "mmap",
+  "pr_title": "[GPU] Support CPU pointers on remote tensor",
+  "failed_jobs": [
+    {
+      "id": 83761628622,
+      "name": "Pytorch Layer Tests / PyTorch Layer Tests",
+      "failed_steps": ["Upload Test Results"]
+    },
+    {
+      "id": 83767063699,
+      "name": "ci/gha_overall_status_windows",
+      "failed_steps": ["Check status of all jobs"]
+    }
+  ],
+  "root_cause_category": "Infrastructure",
+  "root_cause_summary": "The actions/upload-artifact step for test-results-python-pytorch-layers completed validation (1 file found, name valid, root dir valid) but then terminated silently in under 1 second without uploading. No error message was logged. Pytest itself completed successfully with 16281 passed, 4 xpassed tests. This is the second CI Doctor investigation of the same workflow failure run.",
+  "pattern_hash": "3545bc843559a7d9",
+  "notable_findings": [
+    "4 xpassed tests in pytorch_tests - tests previously expected to fail now pass (test_arange, test_einsum, test_atan2)",
+    "Artifact test-results-python-pytorch-layers is absent from the run artifacts list confirming upload failure",
+    "The upload action terminated after ~240ms consistent with a silent infrastructure abort",
+    "ci/gha_overall_status_windows failed only as a cascade from the PyTorch job failure"
+  ],
+  "recommended_actions": [
+    "Re-run the failed Pytorch Layer Tests job - the failure appears to be an infrastructure flake",
+    "Consider updating xfail markers for test_arange, test_einsum, test_atan2 tests that now pass",
+    "Monitor GitHub Actions artifact storage status at https://www.githubstatus.com/"
+  ]
+}

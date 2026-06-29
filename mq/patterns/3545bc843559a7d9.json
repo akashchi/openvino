@@ -2,10 +2,17 @@
   "signature": "artifact upload step silent failure no files uploaded|Pytorch Layer Tests / PyTorch Layer Tests|Infrastructure",
   "title": "PyTorch Layer Tests artifact upload fails silently (no test-results artifact created)",
   "category": "Infrastructure",
-  "count": 1,
+  "count": 2,
   "first_seen": "2026-06-29T10:13:59Z",
-  "last_seen": "2026-06-29T10:13:59Z",
-  "recent_run_urls": ["https://github.com/openvinotoolkit/openvino/actions/runs/28266230900"],
-  "affected_prs": ["https://github.com/openvinotoolkit/openvino/pull/36539"],
-  "recent_timestamps": ["2026-06-29T10:13:59Z"]
+  "last_seen": "2026-06-29T10:33:27Z",
+  "recent_run_urls": [
+    "https://github.com/openvinotoolkit/openvino/actions/runs/28266230900"
+  ],
+  "affected_prs": [
+    "https://github.com/openvinotoolkit/openvino/pull/36539"
+  ],
+  "recent_timestamps": [
+    "2026-06-29T10:33:27Z",
+    "2026-06-29T10:13:59Z"
+  ]
 }
