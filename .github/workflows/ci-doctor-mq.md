@@ -341,10 +341,6 @@ steps:
       REPO: ${{ github.repository }}
     run: |
       set -e
-      if [ -z "${RUN_ID:-}" ]; then
-        echo "No run ID available (manual link-based trigger); skipping pre-download"
-        exit 0
-      fi
       LOG_DIR="/tmp/gh-aw/agent/ci-doctor/logs"
       ARTIFACT_DIR="/tmp/gh-aw/agent/ci-doctor/artifacts"
       FILTERED_DIR="/tmp/gh-aw/agent/ci-doctor/filtered"
@@ -353,7 +349,7 @@ steps:
       echo "=== CI Doctor: Pre-downloading logs and artifacts for run $RUN_ID ==="
 
       # Get failed jobs and their failed steps
-      gh api "repos/$REPO/actions/runs/$RUN_ID/jobs" \
+      gh api "repos/openvinotoolkit/openvino/actions/runs/$RUN_ID/jobs" \
         --jq '[.jobs[] | select(.conclusion == "failed" or .conclusion == "cancelled") | {id:.id, name:.name, failed_steps:[.steps[]? | select(.conclusion=="failed") | .name]}]' \
         > "$LOG_DIR/failed-jobs.json"
 
@@ -372,7 +368,7 @@ steps:
       jq -r '.[].id' "$LOG_DIR/failed-jobs.json" | while read -r JOB_ID; do
         LOG_FILE="$LOG_DIR/job-${JOB_ID}.log"
         echo "Downloading log for job $JOB_ID..."
-        gh api "repos/$REPO/actions/jobs/$JOB_ID/logs" > "$LOG_FILE" 2>/dev/null \
+        gh api "repos/openvinotoolkit/openvino/actions/jobs/$JOB_ID/logs" > "$LOG_FILE" 2>/dev/null \
           || echo "(log download failed)" > "$LOG_FILE"
         echo "  -> Saved $(wc -l < "$LOG_FILE") lines to $LOG_FILE"
 
@@ -391,7 +387,7 @@ steps:
       # Download and unpack all artifacts from the failed run
       echo ""
       echo "=== Downloading artifacts for run $RUN_ID ==="
-      gh run download "$RUN_ID" --repo "$REPO" --dir "$ARTIFACT_DIR" 2>/dev/null \
+      gh run download "$RUN_ID" --repo "openvinotoolkit/openvino" --dir "$ARTIFACT_DIR" 2>/dev/null \
         || echo "No artifacts available or download failed"
 
       # Apply heuristics to artifact text files
