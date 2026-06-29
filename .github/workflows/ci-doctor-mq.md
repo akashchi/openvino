@@ -14,23 +14,23 @@ on:
       link:
          description: "Link to a workflow to investigate (for manual testing across repositories)"
          required: false
-  workflow_run:
-    workflows:
-      - "Linux (Ubuntu 22.04, Python 3.11)"
-      - "Linux (Ubuntu 24.04, Python 3.12)"
-      - "Android"
-      - "Linux ARM64 (Ubuntu 22.04, Python 3.11)"
-      - "Linux (Ubuntu 22.04, ARM64 cross-compilation, Python 3.11)"
-      - "Linux Static CC (Ubuntu 22.04, Python 3.11, Clang)"
-      - "Linux RISC-V (Ubuntu 22.04, Python 3.10)"
-      - "Windows (VS 2022, Python 3.11, Release)"
-      - "Windows (VS 2022, Python 3.11, Debug)"
-      - "Windows Conditional Compilation (VS 2022, Python 3.11)"
-      - "Webassembly"
-      - "Manylinux 2_28"
-      - "Clang-tidy static analysis (Ubuntu 24.04, Python 3.12, Clang-18, Clang-tidy-18)"
-    types:
-      - completed
+  # workflow_run:
+  #   workflows:
+  #     - "Linux (Ubuntu 22.04, Python 3.11)"
+  #     - "Linux (Ubuntu 24.04, Python 3.12)"
+  #     - "Android"
+  #     - "Linux ARM64 (Ubuntu 22.04, Python 3.11)"
+  #     - "Linux (Ubuntu 22.04, ARM64 cross-compilation, Python 3.11)"
+  #     - "Linux Static CC (Ubuntu 22.04, Python 3.11, Clang)"
+  #     - "Linux RISC-V (Ubuntu 22.04, Python 3.10)"
+  #     - "Windows (VS 2022, Python 3.11, Release)"
+  #     - "Windows (VS 2022, Python 3.11, Debug)"
+  #     - "Windows Conditional Compilation (VS 2022, Python 3.11)"
+  #     - "Webassembly"
+  #     - "Manylinux 2_28"
+  #     - "Clang-tidy static analysis (Ubuntu 24.04, Python 3.12, Clang-18, Clang-tidy-18)"
+  #   types:
+  #     - completed
 concurrency:
   group: gh-aw-${{ github.workflow }}
 
@@ -342,11 +342,10 @@ steps:
     run: |
       set -e
       LOG_DIR="/tmp/gh-aw/agent/ci-doctor/logs"
-      ARTIFACT_DIR="/tmp/gh-aw/agent/ci-doctor/artifacts"
       FILTERED_DIR="/tmp/gh-aw/agent/ci-doctor/filtered"
-      mkdir -p "$LOG_DIR" "$ARTIFACT_DIR" "$FILTERED_DIR"
+      mkdir -p "$LOG_DIR" "$FILTERED_DIR"
 
-      echo "=== CI Doctor: Pre-downloading logs and artifacts for run 28266230900 ==="
+      echo "=== CI Doctor: Pre-downloading logs for run 28266230900 ==="
 
       # Get failed jobs and their failed steps
       gh api "repos/openvinotoolkit/openvino/actions/runs/28266230900/jobs" \
@@ -374,34 +373,13 @@ steps:
 
         # Apply generic heuristics: find lines with common error indicators
         HINTS_FILE="$FILTERED_DIR/job-${JOB_ID}-hints.txt"
-        grep -n -iE "(error[: ]|ERROR|FAIL|panic:|fatal[: ]|undefined[: ]|exception|exit status [^0])" \
-          "$LOG_FILE" | head -30 > "$HINTS_FILE" 2>/dev/null || true
+        grep -n -m 30 -iE "(error[: ]|ERROR|FAIL|panic:|fatal[: ]|undefined[: ]|exception|exit status [^0])" \
+          "$LOG_FILE" > "$HINTS_FILE" 2>/dev/null || true
 
         if [ -s "$HINTS_FILE" ]; then
           echo "  -> Pre-located $(wc -l < "$HINTS_FILE") hint line(s) in $HINTS_FILE"
         else
           echo "  -> No error hints found in $LOG_FILE"
-        fi
-      done
-
-      # Download and unpack all artifacts from the failed run
-      echo ""
-      echo "=== Downloading artifacts for run 28266230900 ==="
-      gh run download "28266230900" --repo "openvinotoolkit/openvino" --dir "$ARTIFACT_DIR" 2>/dev/null \
-        || echo "No artifacts available or download failed"
-
-      # Apply heuristics to artifact text files
-      find "$ARTIFACT_DIR" -type f \( \
-        -name "*.txt" -o -name "*.log" -o -name "*.json" \
-        -o -name "*.xml" -o -name "*.out" -o -name "*.err" \
-      \) | while read -r ARTIFACT_FILE; do
-        REL_PATH="${ARTIFACT_FILE#"$ARTIFACT_DIR"/}"
-        SAFE_NAME=$(echo "$REL_PATH" | tr '/' '_')
-        HINTS_FILE="$FILTERED_DIR/artifact-${SAFE_NAME}-hints.txt"
-        grep -n -iE "(error[: ]|ERROR|FAIL|panic:|fatal[: ]|undefined[: ]|exception|exit status [^0])" \
-          "$ARTIFACT_FILE" | head -30 > "$HINTS_FILE" 2>/dev/null || true
-        if [ -s "$HINTS_FILE" ]; then
-          echo "  -> Artifact hints: $HINTS_FILE ($(wc -l < "$HINTS_FILE") lines from $ARTIFACT_FILE)"
         fi
       done
 
@@ -419,11 +397,6 @@ steps:
         for LOG_FILE in "$LOG_DIR"/job-*.log; do
           [ -f "$LOG_FILE" ] || continue
           echo "  $LOG_FILE ($(wc -l < "$LOG_FILE") lines)"
-        done
-        echo ""
-        echo "Downloaded artifact files ($ARTIFACT_DIR):"
-        find "$ARTIFACT_DIR" -type f | while read -r f; do
-          echo "  $f"
         done
         echo ""
         echo "Filtered hint files ($FILTERED_DIR):"
@@ -468,15 +441,14 @@ You are the CI Failure Doctor for the Merge Queue, an expert investigative agent
 
 ## Pre-Analysis Data
 
-Logs and artifacts have been pre-downloaded before this session started:
+Logs have been pre-downloaded before this session started:
 
 - **Summary**: `/tmp/gh-aw/agent/ci-doctor/summary.txt` — failed jobs, failed steps, all file locations, and pre-located error hints
 - **Job metadata**: `/tmp/gh-aw/agent/ci-doctor/logs/failed-jobs.json` — structured list of failed jobs and their failed steps
 - **Log files**: `/tmp/gh-aw/agent/ci-doctor/logs/job-<job-id>.log` — full job logs downloaded from GitHub Actions
-- **Artifact files**: `/tmp/gh-aw/agent/ci-doctor/artifacts/` — all workflow run artifacts, unpacked by artifact name
-- **Hint files**: `/tmp/gh-aw/agent/ci-doctor/filtered/*-hints.txt` — pre-located error lines (from logs and artifacts) via generic grep heuristics
+- **Hint files**: `/tmp/gh-aw/agent/ci-doctor/filtered/*-hints.txt` — pre-located error lines (from logs) via generic grep heuristics
 
-**Start here**: Read `/tmp/gh-aw/agent/ci-doctor/summary.txt` first — it lists every file location and the first few hint matches. Then examine the relevant hint files to jump directly to error locations (read ~50 lines around each hinted line number before loading the full log or artifact).
+**Start here**: Read `/tmp/gh-aw/agent/ci-doctor/summary.txt` first — it lists every file location and the first few hint matches. Then examine the relevant hint files to jump directly to error locations (read ~50 lines around each hinted line number before loading the full log).
 
 ## Investigation Protocol
 
@@ -500,10 +472,9 @@ Logs and artifacts have been pre-downloaded before this session started:
 
 ### Phase 2: Deep Log Analysis
 
-1. **Use Pre-Downloaded Logs and Artifacts**: Start with the files in `/tmp/gh-aw/agent/ci-doctor/`:
+1. **Use Pre-Downloaded Logs**: Start with the files in `/tmp/gh-aw/agent/ci-doctor/`:
    - Read `/tmp/gh-aw/agent/ci-doctor/summary.txt` and the hint files first (minimal context load).
-   - Read ~50 lines around each hinted line number in the full log or artifact file.
-   - Check `/tmp/gh-aw/agent/ci-doctor/artifacts/` for any structured output (test reports, coverage, etc.).
+   - Read ~50 lines around each hinted line number in the full log file.
    - Only load the full log content if the hints are insufficient.
 2. **Fallback Log Retrieval**: If the pre-downloaded files are unavailable, use `get_job_logs` with `failed_only=true` to get logs from all failed jobs. **This step is mandatory — do not skip it or substitute with source code analysis.**
 3. **Pattern Recognition**: Analyze logs for:
