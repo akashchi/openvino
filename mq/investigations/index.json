@@ -1,0 +1,15 @@
+{
+  "investigations": [
+    {
+      "timestamp": "2026-06-29T10:13:59Z",
+      "run_id": "28266230900",
+      "file": "2026-06-29-10-13-59-000-28266230900.json",
+      "workflow": "Windows (VS 2022, Python 3.11, Release)",
+      "conclusion": "failure",
+      "pr_number": 36539,
+      "pattern_hash": "3545bc843559a7d9",
+      "category": "Infrastructure",
+      "title": "PyTorch Layer Tests artifact upload fails silently"
+    }
+  ]
+}
