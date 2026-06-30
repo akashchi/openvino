@@ -26,6 +26,14 @@
       "run_url": "https://github.com/openvinotoolkit/openvino/actions/runs/28161192347",
       "signature_hash": "3c0de9ec520a68d1",
       "title": "TF2 Keras LSTM layer test fails with borderline numerical accuracy deviation"
+    },
+    {
+      "created_at": "2026-06-30T11:11:15Z",
+      "path": "/tmp/gh-aw/repo-memory/default/mq/investigations/2026-06-30-11-11-15-000-27948895651.json",
+      "run_id": "27948895651",
+      "run_url": "https://github.com/openvinotoolkit/openvino/actions/runs/27948895651",
+      "signature_hash": "7c27d216995debbf",
+      "title": "classification_sample_async Python sample times out with AUTO device"
     }
   ]
 }

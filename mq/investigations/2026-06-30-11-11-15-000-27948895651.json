@@ -1,0 +1,37 @@
+{
+  "schema_version": "1.0",
+  "investigation_id": "2026-06-30-11-11-15-000-27948895651",
+  "timestamp": "2026-06-30T11:11:15Z",
+  "run_id": "27948895651",
+  "run_url": "https://github.com/openvinotoolkit/openvino/actions/runs/27948895651",
+  "workflow_name": "Linux (Ubuntu 22.04, Python 3.11)",
+  "pr_number": "36369",
+  "pr_url": "https://github.com/openvinotoolkit/openvino/pull/36369",
+  "author": "dependabot[bot]",
+  "category": "Flaky Test",
+  "title": "classification_sample_async Python sample times out with AUTO device",
+  "signature": "classification sample async timeout auto device python selectors poll|Samples / Samples|Flaky Test",
+  "signature_hash": "7c27d216995debbf",
+  "confidence": "High",
+  "failed_jobs": [
+    {
+      "name": "Samples / Samples",
+      "conclusion": "failure",
+      "symptom": "test_classification_sample_async_fp32[param5] (Python + AUTO device) timed out after 180s in selectors.poll()"
+    }
+  ],
+  "key_errors": [
+    "FAILED install/tests/smoke_tests/test_classification_sample_async.py::TestClassification::test_classification_sample_async_fp32[param5] - Failed: Timeout (>180.0s) from pytest-timeout.",
+    "E           Failed: Timeout (>180.0s) from pytest-timeout.\n/usr/lib/python3.11/selectors.py:415: Failed",
+    "Running command: python3 classification_sample_async.py -i dog-224x224.bmp -m bvlcalexnet-12.onnx -d AUTO"
+  ],
+  "root_cause": "The Python classification_sample_async sample hung indefinitely (>180s) when using the AUTO device plugin. All other device variants (CPU, MULTI:CPU) and the C++ binary with AUTO all passed. The hang occurs inside Python's selectors.poll() call, indicating the async inference completion callback was never delivered. This is an intermittent (flaky) behavior in the AUTO plugin's asynchronous Python binding path during device enumeration, model compilation, or callback dispatch. The PR under test (dependabot bump of github/codeql-action) changes only CI workflow configuration and has no bearing on the failing test - this is an environment/timing issue unrelated to the PR.",
+  "reproduction_steps": "N/A - intermittent, not reliably reproducible. May be triggered by high CI load causing AUTO device selection/compilation to exceed the 180s pytest-timeout limit.",
+  "recommended_actions": [
+    "Re-queue the PR - this is an intermittent failure unrelated to the PR changes (github/codeql-action version bump).",
+    "Investigate if the AUTO plugin async callback path in Python has a known race condition or excessive initialization latency under load.",
+    "Consider increasing the pytest-timeout for the AUTO device async test or adding a retry mechanism for known flaky device-selection paths."
+  ],
+  "prevention_strategies": "Add test retry logic for classification_sample_async with AUTO device. Monitor the frequency of this flaky pattern and open a tracking issue if it exceeds 2-3 occurrences per week. The AUTO plugin's async Python binding path may benefit from a bounded initialization timeout separate from the inference timeout.",
+  "historical_context": "No prior occurrences in the CI Doctor MQ database. First observation of this pattern. Similar AUTO plugin timeout flakiness has been observed in other async sample tests on Windows (see pattern 47343d37385888bd), suggesting intermittent AUTO plugin initialization issues are a recurring theme across platforms."
+}

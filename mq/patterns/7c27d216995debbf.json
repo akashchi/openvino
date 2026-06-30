@@ -1,0 +1,19 @@
+{
+  "schema_version": "1.0",
+  "signature": "classification sample async timeout auto device python selectors poll|Samples / Samples|Flaky Test",
+  "signature_hash": "7c27d216995debbf",
+  "title": "classification_sample_async Python sample times out with AUTO device",
+  "category": "Flaky Test",
+  "count": 1,
+  "first_seen": "2026-06-30T11:11:15Z",
+  "last_seen": "2026-06-30T11:11:15Z",
+  "recent_run_urls": [
+    "https://github.com/openvinotoolkit/openvino/actions/runs/27948895651"
+  ],
+  "affected_prs": [
+    "https://github.com/openvinotoolkit/openvino/pull/36369"
+  ],
+  "recent_timestamps": [
+    "2026-06-30T11:11:15Z"
+  ]
+}
