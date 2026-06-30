@@ -54,27 +54,31 @@ a:hover {
 }
 
 header h1 {
-    margin: 0 0 4px;
+    margin: 0 0 10px;
     font-size: 24px;
     letter-spacing: -.2px;
 }
 
-header p.lead {
+.lead-list {
     margin: 0;
+    padding: 0;
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    font-size: 13.5px;
     color: var(--muted);
     max-width: 760px;
 }
 
-.legend {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 14px;
-    margin: 14px 0 0;
-    font-size: 12.5px;
-    color: var(--muted);
+.lead-list li::before {
+    content: "·";
+    margin-right: 8px;
+    color: var(--accent);
+    font-weight: 700;
 }
 
-.legend b {
+.lead-list b {
     color: var(--text);
 }
 
@@ -114,19 +118,32 @@ header p.lead {
     margin-top: 4px;
 }
 
-/* category split bar */
-.bar {
-    display: flex;
-    height: 10px;
-    border-radius: 6px;
-    overflow: hidden;
-    margin: 6px 0 0;
-    background: var(--panel-2);
+/* category summary table */
+.cat-summary {
+    border-collapse: collapse;
+    font-size: 13px;
+    margin: 16px 0 20px;
 }
 
-.bar>span {
-    display: block;
-    height: 100%;
+.cat-summary th {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: .5px;
+    color: var(--muted);
+    font-weight: 600;
+    padding: 0 10px 6px 0;
+    border-bottom: 1px solid var(--border);
+    text-align: left;
+}
+
+.cat-summary td {
+    padding: 5px 10px 5px 0;
+    border-bottom: 1px solid var(--border);
+    vertical-align: middle;
+}
+
+.cat-summary tr:last-child td {
+    border-bottom: none;
 }
 
 .toolbar {
@@ -378,15 +395,21 @@ h2.section {
 }
 
 .field {
-    margin: 10px 0;
+    margin: 14px 0;
 }
 
 .field .fl {
-    font-size: 11.5px;
+    display: inline-block;
+    font-size: 11px;
+    font-weight: 700;
     text-transform: uppercase;
-    letter-spacing: .5px;
-    color: var(--muted);
-    margin-bottom: 3px;
+    letter-spacing: .7px;
+    color: var(--text);
+    background: var(--panel-2);
+    border-left: 3px solid var(--accent);
+    padding: 2px 8px 2px 7px;
+    border-radius: 0 4px 4px 0;
+    margin-bottom: 6px;
 }
 
 .field .fv {
@@ -444,7 +467,8 @@ details.raw pre {
     display: inline-block;
     font-size: 11px;
     font-weight: 600;
-    padding: 2px 8px;
+    line-height: 1;
+    padding: 3px 8px;
     border-radius: 999px;
     white-space: nowrap;
     vertical-align: middle;
@@ -463,6 +487,8 @@ details.raw pre {
 .badge.recur {
     background: var(--cat-flaky);
     color: #000;
+    border-radius: 4px;
+    align-self: center;
 }
 
 .badge.conf-High {

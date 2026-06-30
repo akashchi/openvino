@@ -4,34 +4,26 @@
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>MQ Dashboard — CI Failure Investigations</title>
+    <title>CI Doctor Merge Queue Investigations Dashboard</title>
     <link rel="stylesheet" href="dashboard.css" />
 </head>
 
 <body>
     <div class="wrap">
         <header>
-            <h1>MQ Dashboard</h1>
-            <p class="lead">A human-readable view of the <code>mq/</code> merge-queue CI failure database for OpenVINO.
-                <b>Investigations</b> are individual analyses of a single failed CI run; <b>patterns</b> are recurring
-                failure
-                fingerprints. They are linked by a shared <b>signature</b>.
-            </p>
-            <div class="legend">
-                <span><b>Investigation</b> → one failed run, fully analysed</span>
-                <span><b>Pattern</b> → deduplicated, recurring failure</span>
-                <span><b>Signature</b> → the key that connects them</span>
-            </div>
+            <h1>CI Doctor Merge Queue Investigations Dashboard</h1>
+            <ul class="lead-list">
+                <li><b>Investigation</b> — a single failed CI run, fully analysed (root cause, errors, PR, reproduction)
+                </li>
+                <li><b>Pattern</b> — a deduplicated fingerprint grouping recurring failures of the same kind</li>
+                <li><b>Signature</b> — the shared key linking every investigation to its pattern</li>
+            </ul>
         </header>
 
         <div id="app">
             <p id="loading" style="color:var(--muted); margin:30px 0;">Loading database…</p>
         </div>
 
-        <footer>
-            Data source: <code>mq/investigations/</code> &amp; <code>mq/patterns/</code> ·
-            This page reads the JSON files live and renders them — no build step.
-        </footer>
     </div>
 
     <script type="module" src="js/main.js"></script>
