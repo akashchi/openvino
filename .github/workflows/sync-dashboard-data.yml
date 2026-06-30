@@ -1,0 +1,37 @@
+name: Sync MQ Dashboard Data
+
+on:
+  schedule:
+    - cron: '0 4 * * *'   # daily at 04:00 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ci/gha/ci-doctor-dashboard
+          fetch-depth: 0
+
+      - name: Add upstream remote
+        run: |
+          git remote add upstream https://github.com/openvinotoolkit/openvino.git || true
+          git remote set-url upstream https://github.com/openvinotoolkit/openvino.git
+
+      - name: Fetch upstream data branch
+        run: git fetch upstream memory/ci-doctor-mq
+
+      - name: Merge upstream into local branch
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git merge upstream/memory/ci-doctor-mq \
+            --no-edit \
+            -m "chore: sync with upstream memory/ci-doctor-mq"
+
+      - name: Push updated branch
+        run: git push origin ci/gha/ci-doctor-dashboard
