@@ -345,10 +345,10 @@ steps:
       FILTERED_DIR="/tmp/gh-aw/agent/ci-doctor/filtered"
       mkdir -p "$LOG_DIR" "$FILTERED_DIR"
 
-      echo "=== CI Doctor: Pre-downloading logs for run $RUN_ID ==="
+      echo "=== CI Doctor: Pre-downloading logs for run 27948895651 ==="
 
       # Get failed jobs and their failed steps
-      gh api "repos/$REPO/actions/runs/$RUN_ID/jobs" \
+      gh api "repos/openvinotoolkit/openvino/actions/runs/27948895651/jobs" \
         --jq '[.jobs[] | select(.conclusion == "failure" or .conclusion == "cancelled") | {id:.id, name:.name, failed_steps:[.steps[]? | select(.conclusion=="failure") | .name]}]' \
         > "$LOG_DIR/failed-jobs.json"
 
@@ -367,7 +367,7 @@ steps:
       jq -r '.[].id' "$LOG_DIR/failed-jobs.json" | while read -r JOB_ID; do
         LOG_FILE="$LOG_DIR/job-${JOB_ID}.log"
         echo "Downloading log for job $JOB_ID..."
-        gh api "repos/$REPO/actions/jobs/$JOB_ID/logs" > "$LOG_FILE" 2>/dev/null \
+        gh api "repos/openvinotoolkit/openvino/actions/jobs/$JOB_ID/logs" > "$LOG_FILE" 2>/dev/null \
           || echo "(log download failed)" > "$LOG_FILE"
         echo "  -> Saved $(wc -l < "$LOG_FILE") lines to $LOG_FILE"
 
@@ -387,7 +387,7 @@ steps:
       SUMMARY_FILE="/tmp/gh-aw/agent/ci-doctor/summary.txt"
       {
         echo "=== CI Doctor Pre-Analysis ==="
-        echo "Run ID: $RUN_ID"
+        echo "Run ID: 27948895651"
         echo ""
         echo "Failed jobs (details in $LOG_DIR/failed-jobs.json):"
         jq -r '.[] | "  Job \(.id): \(.name)\n    Failed steps: \(.failed_steps | join(", "))"' \
