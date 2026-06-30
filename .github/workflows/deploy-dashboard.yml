@@ -25,8 +25,9 @@ jobs:
       url: ${{ steps.deployment.outputs.page_url }}dashboard/
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-        ref: ci/gha/ci-doctor-dashboard
+      - uses: actions/checkout@v7
+        with:
+          ref: ci/gha/ci-doctor-dashboard
 
       - uses: actions/configure-pages@v5
 
