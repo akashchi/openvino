@@ -334,7 +334,7 @@ tools:
     max-file-count: 500
 
 steps:
-  - name: Download CI failure logs and artifacts
+  - name: Download CI failure logs
     env:
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       RUN_ID: ${{ github.event.workflow_run.id || github.event.inputs.run_id }}
@@ -345,10 +345,10 @@ steps:
       FILTERED_DIR="/tmp/gh-aw/agent/ci-doctor/filtered"
       mkdir -p "$LOG_DIR" "$FILTERED_DIR"
 
-      echo "=== CI Doctor: Pre-downloading logs for run 28161192347 ==="
+      echo "=== CI Doctor: Pre-downloading logs for run $RUN_ID ==="
 
       # Get failed jobs and their failed steps
-      gh api "repos/openvinotoolkit/openvino/actions/runs/28161192347/jobs" \
+      gh api "repos/$REPO/actions/runs/$RUN_ID/jobs" \
         --jq '[.jobs[] | select(.conclusion == "failure" or .conclusion == "cancelled") | {id:.id, name:.name, failed_steps:[.steps[]? | select(.conclusion=="failure") | .name]}]' \
         > "$LOG_DIR/failed-jobs.json"
 
@@ -367,7 +367,7 @@ steps:
       jq -r '.[].id' "$LOG_DIR/failed-jobs.json" | while read -r JOB_ID; do
         LOG_FILE="$LOG_DIR/job-${JOB_ID}.log"
         echo "Downloading log for job $JOB_ID..."
-        gh api "repos/openvinotoolkit/openvino/actions/jobs/$JOB_ID/logs" > "$LOG_FILE" 2>/dev/null \
+        gh api "repos/$REPO/actions/jobs/$JOB_ID/logs" > "$LOG_FILE" 2>/dev/null \
           || echo "(log download failed)" > "$LOG_FILE"
         echo "  -> Saved $(wc -l < "$LOG_FILE") lines to $LOG_FILE"
 
@@ -387,7 +387,7 @@ steps:
       SUMMARY_FILE="/tmp/gh-aw/agent/ci-doctor/summary.txt"
       {
         echo "=== CI Doctor Pre-Analysis ==="
-        echo "Run ID: 28161192347"
+        echo "Run ID: $RUN_ID"
         echo ""
         echo "Failed jobs (details in $LOG_DIR/failed-jobs.json):"
         jq -r '.[] | "  Job \(.id): \(.name)\n    Failed steps: \(.failed_steps | join(", "))"' \
@@ -558,24 +558,50 @@ Logs have been pre-downloaded before this session started:
 
 ### Phase 5: Pattern Storage and Knowledge Building
 
+**Artefact schemas (MANDATORY — read before writing anything):**
+Every JSON artefact this phase writes MUST conform to a fixed JSON Schema committed in the repository. The repository is sparse-checked-out at the path reported as **workspace** in the Current Context (environment variable `GITHUB_WORKSPACE`). The schemas are:
+
+- **Investigation records** → `${GITHUB_WORKSPACE}/.github/ci-doctor-mq/schemas/investigation.schema.json`
+  Applies to every file under `investigations/` **except** `index.json`.
+- **Pattern records** → `${GITHUB_WORKSPACE}/.github/ci-doctor-mq/schemas/pattern.schema.json`
+  Applies to every `<signature-hash>.json` file under `patterns/`.
+
+Rules that apply to both artefact types:
+
+- Read the relevant schema file **before** composing an artefact so the structure and field names match exactly. Do not invent your own field names or layout — the previous lack of a schema is the reason older investigation/pattern files had inconsistent structures.
+- Set `"schema_version": "1.0"` on every artefact you write.
+- Both schemas declare `"additionalProperties": false`. Do **not** add fields that are not defined in the schema — extra fields make the artefact invalid.
+- Use the exact field names, types, and `enum` values from the schema. `category` must be one of the seven categories; `confidence` must be `High`/`Medium`/`Low`.
+- Timestamp **values** inside JSON use full ISO 8601 with colons (e.g., `2026-05-12T14:30:00Z`); only **file names** use the colon-free `YYYY-MM-DD-HH-MM-SS-sss` form.
+
+**Validation procedure (run immediately after writing each artefact — MANDATORY):**
+
+1. Read the artefact back from disk and parse it as JSON (this also confirms it is well-formed).
+2. Read the matching schema file.
+3. Validate the parsed object against the schema. If a JSON Schema validator is available in the run environment (e.g., Python with the `jsonschema` package — `python3 -c "import jsonschema, json, sys; jsonschema.validate(json.load(open(sys.argv[1])), json.load(open(sys.argv[2])))" <artefact> <schema>`), use it. Otherwise perform an explicit conformance check covering: every `required` field present; each field's `type`/`enum`/`format` honoured; **no** field outside the schema's `properties` (because `additionalProperties` is `false`); and array `minItems`/`maxItems` limits respected.
+4. If validation fails, fix the artefact and repeat until it validates. **Never leave an invalid artefact on disk**, and do not proceed to the next phase with an unvalidated artefact.
+
 1. **Store Investigation**: Save structured investigation data to files in the persistent repo-memory directory:
    - **Persistent path**: `/tmp/gh-aw/repo-memory/default/` is the directory mounted by `tools.repo-memory` and persisted indefinitely via a dedicated Git branch (`memory/ci-doctor-mq`). Files written here survive across runs permanently. Files written elsewhere are **not** persisted and will be lost.
    - **MQ-specific subdirectory**: This workflow uses `/tmp/gh-aw/repo-memory/default/mq/` to keep merge-queue investigations isolated from any other workflows using repo-memory.
    - Create the subdirectory if needed: `mkdir -p /tmp/gh-aw/repo-memory/default/mq/investigations /tmp/gh-aw/repo-memory/default/mq/patterns`.
    - Write the investigation report to `/tmp/gh-aw/repo-memory/default/mq/investigations/<timestamp>-<run-id>.json`
+     - The file content MUST conform to the **investigation schema** (`investigation.schema.json`) described in the "Artefact schemas" block above, and MUST be validated with the validation procedure right after writing.
      - **Important**: Use filesystem-safe timestamp format `YYYY-MM-DD-HH-MM-SS-sss` (e.g., `2026-02-12-11-20-45-458`)
      - **Do NOT use** ISO 8601 format with colons (e.g., `2026-02-12T11:20:45.458Z`) - colons are not safe in filenames
-   - Store error patterns in `/tmp/gh-aw/repo-memory/default/mq/patterns/` as `.json` files (one file per failure signature, e.g., `<signature-hash>.json`)
+   - Store error patterns in `/tmp/gh-aw/repo-memory/default/mq/patterns/` as `.json` files (one file per failure signature, e.g., `<signature-hash>.json`), each conforming to the **pattern schema** (`pattern.schema.json`)
    - Maintain an index of all investigations as a `.json` file (e.g., `/tmp/gh-aw/repo-memory/default/mq/investigations/index.json`) for fast searching
 2. **Update Pattern Database — MANDATORY read-modify-write procedure**:
 
    Each failure signature gets exactly one JSON file at `/tmp/gh-aw/repo-memory/default/mq/patterns/<signature-hash>.json`.
 
-   **Schema:**
+   **Schema:** the authoritative definition is `${GITHUB_WORKSPACE}/.github/ci-doctor-mq/schemas/pattern.schema.json`. The record MUST validate against it (see the validation procedure in the "Artefact schemas" block above). Shape:
 
    ~~~json
    {
+     "schema_version": "1.0",
      "signature": "<stable string>",
+     "signature_hash": "<hash matching the file name>",
      "title": "<short human-readable title>",
      "category": "<Code Issue | Infrastructure | Dependencies | Configuration | Flaky Test | External Service | Network>",
      "count": 4,
@@ -610,7 +636,9 @@ Logs have been pre-downloaded before this session started:
    CURRENT_PR_URL = the PR URL (or null if no PR)
 
    IF existing != null:
+       record.schema_version = "1.0"
        record.signature   = existing.signature
+       record.signature_hash = <signature-hash>
        record.title       = title from investigation (refresh always)
        record.category    = category from investigation (refresh always)
        record.count       = existing.count + 1          ← MUST increment
@@ -623,7 +651,9 @@ Logs have been pre-downloaded before this session started:
        record.recent_timestamps = [NOW] + existing.recent_timestamps
            → keep only entries where timestamp >= (NOW - 24 hours)
    ELSE:
+       record.schema_version = "1.0"
        record.signature   = the computed signature string
+       record.signature_hash = <signature-hash>
        record.title       = title from investigation
        record.category    = category from investigation
        record.count       = 1
@@ -639,6 +669,8 @@ Logs have been pre-downloaded before this session started:
 
    **Step E — MANDATORY verification (read-back check):**
    Immediately after writing, read the file back and verify:
+   - the record validates against `pattern.schema.json` (run the validation procedure from the "Artefact schemas" block)
+   - `schema_version` equals `"1.0"` and `signature_hash` matches the file name
    - `count` equals the value you just computed (NOT 1 unless this is genuinely the first occurrence)
    - `recent_timestamps` contains the current timestamp `NOW` as the first entry
    - `last_seen` equals `NOW`
