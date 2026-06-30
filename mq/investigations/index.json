@@ -111,6 +111,34 @@
       "timestamp": "2026-06-29T12:18:57Z",
       "workflow": "Linux (Ubuntu 22.04, Python 3.11)",
       "category": "Flaky Test"
+    },
+    {
+      "file": "2026-06-29-15-59-13-000-28379764406.json",
+      "run_id": "28379764406",
+      "timestamp": "2026-06-29T15:59:13Z",
+      "title": "Windows self-hosted runner ECONNREFUSED on GitHub artifact service",
+      "category": "Infrastructure",
+      "signature_hash": "3a6ca31c39b0147d"
+    },
+    {
+      "file": "2026-06-29-21-12-18-000-28401943026.json",
+      "run_id": 28401943026,
+      "signature": "eb85200a77e84af0",
+      "timestamp": "2026-06-29T21:12:18Z",
+      "workflow": "Linux (Ubuntu 22.04, Python 3.11)",
+      "category": "Network"
+    },
+    {
+      "file": "2026-06-30-06-54-51-000-28425259819.json",
+      "run_id": "28425259819",
+      "run_url": "https://github.com/openvinotoolkit/openvino/actions/runs/28425259819",
+      "pr_number": "36627",
+      "timestamp": "2026-06-30T06:54:51Z",
+      "title": "CMake fails to download oneapi-tbb due to unresolvable storage.openvinotoolkit.org hostname",
+      "category": "Network",
+      "signature_hash": "b8b6bc5f75a07aea"
     }
-  ]
+  ],
+  "total": 17,
+  "last_updated": "2026-06-30T06:54:51Z"
 }
