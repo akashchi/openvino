@@ -3,6 +3,7 @@ name: Deploy MQ Dashboard
 on:
   push:
     branches:
+      - main
       - ci/gha/ci-doctor-dashboard
     paths:
       - 'mq/**'
@@ -25,14 +26,13 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-        with:
-          # Data lives on the feature branch; always deploy from there.
-          ref: ci/gha/ci-doctor-dashboard
 
       - uses: actions/configure-pages@v5
 
       - uses: actions/upload-pages-artifact@v3
         with:
+          # Serves mq/ as the Pages root so that the dashboard's relative
+          # fetch paths (../investigations/, ../patterns/) resolve correctly.
           path: mq/
 
       - uses: actions/deploy-pages@v4
