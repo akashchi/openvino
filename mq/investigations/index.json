@@ -153,5 +153,47 @@
     "signature_hash": "39ded9b2c8a06334",
     "pr_number": 36427,
     "file": "2026-06-30-13-46-31-000-28446416608.json"
+  },
+  {
+    "file": "2026-07-01-09-51-46-000-28505410343.json",
+    "run_id": 28505410343,
+    "signature": "6b6a229047392a0f",
+    "timestamp": "2026-07-01T09:51:46Z",
+    "workflow": "Windows (VS 2022, Python 3.11, Debug)",
+    "category": "Infrastructure"
+  },
+  {
+    "file": "2026-07-01-10-28-17-000-28505410481.json",
+    "run_id": 28505410481,
+    "signature": "134f01149f41adcc",
+    "timestamp": "2026-07-01T10:28:17Z",
+    "workflow": "Windows (VS 2022, Python 3.11, Release)",
+    "category": "Flaky Test"
+  },
+  {
+    "file": "2026-07-01-11-21-46-000-28507710758.json",
+    "run_id": "28507710758",
+    "run_url": "https://github.com/openvinotoolkit/openvino/actions/runs/28507710758",
+    "pr_number": "35805",
+    "timestamp": "2026-07-01T11:21:46Z",
+    "title": "CachingTest LoadMulti_race import_model call count mismatch in C++ unit tests (Windows)",
+    "category": "Flaky Test",
+    "signature_hash": "0528d54ff68248cd"
+  },
+  {
+    "file": "2026-07-01-18-01-12-000-28532884711.json",
+    "run_id": 28532884711,
+    "signature": "1808e665f1f70825",
+    "timestamp": "2026-07-01T18:01:12Z",
+    "workflow": "Linux (Ubuntu 22.04, Python 3.11)",
+    "category": "Network"
+  },
+  {
+    "file": "2026-07-01-18-47-51-000-28537468325.json",
+    "run_id": "28537468325",
+    "signature": "89059626d1cbf7b3",
+    "timestamp": "2026-07-01T18:47:51Z",
+    "workflow": "Windows (VS 2022, Python 3.11, Release)",
+    "category": "Infrastructure"
   }
 ]
