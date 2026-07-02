@@ -1,6 +1,7 @@
 // Renders a signature group (a pattern + its linked investigations).
 
 import { esc, asList, fmtDay } from "./utils.js";
+import { catColor } from "./config.js";
 import { badgeCat } from "./badges.js";
 import { invPR, invRunUrl, invTime } from "./normalizers.js";
 import { renderInvestigation } from "./render-investigation.js";
@@ -42,7 +43,7 @@ export function renderGroup(group, patterns) {
   const invsHtml = group.investigations.map(inv => renderInvestigation(inv, patterns)).join("");
   const searchText = [group.title, group.sig].join(" ").toLowerCase();
 
-  return `<div class="group" data-search="${esc(searchText)}">
+  return `<div class="group" data-search="${esc(searchText)}" style="--c:${catColor(group.category)}">
     <div class="g-head" onclick="this.parentNode.classList.toggle('open')">
       <span class="chev">▶</span>
       <div>

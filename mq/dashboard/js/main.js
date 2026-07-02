@@ -1,10 +1,8 @@
-// Entry point: load data, build the model, render, and wire up controls.
+// Entry point: load data, build the model, then hand off to the router.
 
 import { loadData } from "./data.js";
 import { buildModel } from "./model.js";
-import { renderStats } from "./render-stats.js";
-import { renderCategories } from "./render-categories.js";
-import { applySearch, setAll } from "./search.js";
+import { initRouter } from "./router.js";
 import { esc } from "./utils.js";
 
 function renderError(app, err) {
@@ -31,17 +29,7 @@ async function main() {
         if (!data.investigations.length) throw new Error("No investigations found.");
 
         const model = buildModel(data);
-        app.innerHTML = renderStats(model) + `<div class="toolbar">
-        <input id="q" type="search" placeholder="Search titles, PRs, errors, signatures…" />
-        <button class="btn" id="expand">Expand all</button>
-        <button class="btn" id="collapse">Collapse all</button>
-      </div>
-      <h2 class="section">Failures by category — click to expand</h2>
-      <div id="cats">${renderCategories(model)}</div>`;
-
-        document.getElementById("q").addEventListener("input", e => applySearch(e.target.value));
-        document.getElementById("expand").addEventListener("click", () => setAll(true));
-        document.getElementById("collapse").addEventListener("click", () => setAll(false));
+        initRouter(model);
     } catch (err) {
         renderError(app, err);
     }

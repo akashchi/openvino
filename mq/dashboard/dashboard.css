@@ -121,32 +121,129 @@ header h1 {
     margin-top: 4px;
 }
 
-/* category summary table */
-.cat-summary {
-    border-collapse: collapse;
-    font-size: 13px;
-    margin: 16px 0 20px;
+/* Kanban board of category cards (home view) */
+.kanban {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
+    gap: 14px;
+    margin: 12px 0 24px;
 }
 
-.cat-summary th {
-    font-size: 11px;
-    text-transform: uppercase;
-    letter-spacing: .5px;
-    color: var(--muted);
-    font-weight: 600;
-    padding: 0 10px 6px 0;
-    border-bottom: 1px solid var(--border);
-    text-align: left;
+.kcard {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    aspect-ratio: 1 / 1;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-top: 4px solid var(--c, var(--cat-other));
+    border-radius: 12px;
+    padding: 16px 16px 14px;
+    box-shadow: var(--shadow);
+    color: inherit;
+    text-decoration: none;
+    transition: transform .12s ease, border-color .12s ease, box-shadow .12s ease;
 }
 
-.cat-summary td {
-    padding: 5px 10px 5px 0;
-    border-bottom: 1px solid var(--border);
+.kcard:hover {
+    transform: translateY(-3px);
+    border-color: var(--c, var(--accent));
+    box-shadow: 0 6px 18px rgba(0, 0, 0, .28);
+    text-decoration: none;
+}
+
+.kcard-name {
+    font-size: 17px;
+    font-weight: 700;
+    letter-spacing: -.2px;
+    line-height: 1.25;
+}
+
+.kcard-name::before {
+    content: "";
+    display: inline-block;
+    width: 10px;
+    height: 10px;
+    border-radius: 3px;
+    background: var(--c, var(--cat-other));
+    margin-right: 8px;
     vertical-align: middle;
 }
 
-.cat-summary tr:last-child td {
-    border-bottom: none;
+.kcard-metrics {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 14px 18px;
+    margin-top: auto;
+}
+
+.kmetric {
+    display: flex;
+    flex-direction: column;
+}
+
+.knum {
+    font-size: 24px;
+    font-weight: 700;
+    line-height: 1;
+}
+
+.klbl {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: .4px;
+    color: var(--muted);
+    margin-top: 3px;
+}
+
+.kcard-open {
+    position: absolute;
+    top: 14px;
+    right: 16px;
+    font-size: 12px;
+    color: var(--muted);
+    opacity: 0;
+    transition: opacity .12s ease;
+}
+
+.kcard:hover .kcard-open {
+    opacity: 1;
+    color: var(--c, var(--accent));
+}
+
+/* category page */
+.back-link {
+    display: inline-block;
+    font-size: 13px;
+    color: var(--muted);
+    margin: 4px 0 14px;
+}
+
+.back-link:hover {
+    color: var(--accent);
+}
+
+.cat-page-head {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin: 0 0 18px;
+    padding-bottom: 14px;
+    border-bottom: 1px solid var(--border);
+}
+
+.cat-page-head .cat-dot {
+    width: 16px;
+    height: 16px;
+    border-radius: 5px;
+    background: var(--c, var(--cat-other));
+    flex: none;
+}
+
+.cat-page-head h2 {
+    margin: 0;
+    font-size: 22px;
+    letter-spacing: -.2px;
 }
 
 .toolbar {
@@ -194,75 +291,42 @@ h2.section {
     margin: 26px 0 12px;
 }
 
-/* category panel */
-.cat {
-    border: 1px solid var(--border);
-    border-radius: 10px;
-    margin-bottom: 12px;
-    background: var(--panel);
-    overflow: hidden;
+/* group (pattern) card — Kanban box grid */
+.pattern-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 14px;
+    align-items: start;
 }
 
-.cat>.cat-head {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    padding: 14px 16px;
-    cursor: pointer;
-    user-select: none;
-    border-left: 5px solid var(--c, var(--cat-other));
-}
-
-.cat>.cat-head:hover {
-    background: var(--panel-2);
-}
-
-.cat-head .chev {
-    color: var(--muted);
-    transition: transform .15s ease;
-}
-
-.cat.open>.cat-head .chev {
-    transform: rotate(90deg);
-}
-
-.cat-head .name {
-    font-weight: 600;
-    font-size: 15px;
-}
-
-.cat-head .meta {
-    color: var(--muted);
-    font-size: 12.5px;
-    margin-left: auto;
-    text-align: right;
-}
-
-.cat-body {
-    display: none;
-    padding: 4px 14px 14px;
-}
-
-.cat.open>.cat-body {
-    display: block;
-}
-
-/* group (pattern) card */
 .group {
     border: 1px solid var(--border);
-    border-radius: 9px;
-    margin: 10px 0;
+    border-top: 4px solid var(--c, var(--cat-other));
+    border-radius: 10px;
     background: var(--panel-2);
     overflow: hidden;
+    box-shadow: var(--shadow);
+    transition: transform .12s ease, box-shadow .12s ease;
+}
+
+.group:not(.open):hover {
+    transform: translateY(-3px);
+    box-shadow: 0 6px 18px rgba(0, 0, 0, .28);
+}
+
+/* An opened box spans the whole row; sibling boxes reflow (slide down). */
+.group.open {
+    grid-column: 1 / -1;
 }
 
 .group>.g-head {
     display: flex;
     align-items: flex-start;
     gap: 10px;
-    padding: 12px 14px;
+    padding: 14px;
     cursor: pointer;
     user-select: none;
+    min-height: 74px;
 }
 
 .group>.g-head:hover {
