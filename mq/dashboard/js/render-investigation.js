@@ -3,7 +3,8 @@
 import { esc, asList, fmtDay } from "./utils.js";
 import {
     invSig, invPR, invRunUrl, invTitle, invWf, invTime,
-    rootCause, errorList, jobNames,
+    rootCause, errorList, failedJobs,
+    invReproduction, invPrevention, invHistory,
 } from "./normalizers.js";
 
 function workflowLabel(inv) {
@@ -35,6 +36,15 @@ function testRows(inv) {
     return rows;
 }
 
+// Render each failed job as a pill; append conclusion/symptom when known.
+function jobPills(jobs) {
+    return jobs.map(job => {
+        const conclusion = job.conclusion ? ` <span class="badge count">${esc(job.conclusion)}</span>` : "";
+        const symptom = job.symptom ? `<div style="color:var(--muted);font-size:12px;margin-top:2px">${esc(job.symptom)}</div>` : "";
+        return `<div style="margin:4px 0"><span class="pill">${esc(job.name)}</span>${conclusion}${symptom}</div>`;
+    }).join("");
+}
+
 function metaLinks(inv, pr) {
     const bits = [];
     const runUrl = invRunUrl(inv);
@@ -54,7 +64,7 @@ export function renderInvestigation(inv, patterns) {
     const pr = invPR(inv);
     const rc = rootCause(inv);
     const errs = errorList(inv);
-    const jobs = jobNames(inv);
+    const jobs = failedJobs(inv);
     const pattern = patterns[sig];
 
     const fields = [];
@@ -66,7 +76,7 @@ export function renderInvestigation(inv, patterns) {
 
     if (inv.summary) add("Summary", esc(inv.summary));
     if (rc.text) add(rootCauseLabel(rc), esc(rc.text));
-    if (jobs.length) add("Failed job(s)", jobs.map(j => `<span class="pill">${esc(j)}</span>`).join(""));
+    if (jobs.length) add("Failed job(s)", jobPills(jobs));
     if (inv.failed_step) add("Failed step", esc(inv.failed_step));
     if (errs.length) add("Errors / evidence", `<pre class="err">${errs.map(esc).join("\n")}</pre>`);
 
@@ -77,10 +87,9 @@ export function renderInvestigation(inv, patterns) {
 
     if (inv.test_params) add("Test params", `<pre class="err">${esc(JSON.stringify(inv.test_params, null, 2))}</pre>`);
     if (inv.recommended_actions) add("Recommended actions", `<ul>${asList(inv.recommended_actions).map(a => `<li>${esc(a)}</li>`).join("")}</ul>`);
-    if (inv.reproduction) add("Reproduction", esc(inv.reproduction));
-    if (inv.prevention) add("Prevention", esc(inv.prevention));
-    if (inv.investigation_notes) add("Notes", esc(inv.investigation_notes));
-    if (inv.notes) add("Notes", esc(inv.notes));
+    if (invReproduction(inv)) add("Reproduction", esc(invReproduction(inv)));
+    if (invPrevention(inv)) add("Prevention", esc(invPrevention(inv)));
+    if (invHistory(inv)) add("Historical context", esc(invHistory(inv)));
     if (inv.pr_changes) add("PR changes", esc(inv.pr_changes));
 
     add("Links &amp; meta", metaLinks(inv, pr));
@@ -90,7 +99,7 @@ export function renderInvestigation(inv, patterns) {
     const raw = `<details class="raw"><summary>Raw JSON</summary><pre>${esc(rawJson)}</pre></details>`;
 
     const title = invTitle(inv, patterns);
-    const searchText = [title, sig, pr.number, pr.author, inv.summary, rc.text, jobs.join(" "), errs.join(" ")]
+    const searchText = [title, sig, pr.number, pr.author, inv.summary, rc.text, jobs.map(j => j.name).join(" "), errs.join(" ")]
         .join(" ").toLowerCase();
 
     return `<div class="inv" data-search="${esc(searchText)}">

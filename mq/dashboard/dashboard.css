@@ -12,6 +12,9 @@
     --cat-network: #4493f8;
     --cat-infra: #a371f7;
     --cat-code: #f85149;
+    --cat-deps: #2ea043;
+    --cat-config: #db61a2;
+    --cat-external: #ec8e2c;
     --cat-other: #6e7681;
 }
 
