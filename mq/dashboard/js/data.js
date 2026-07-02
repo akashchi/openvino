@@ -6,7 +6,7 @@ import { invSig } from "./normalizers.js";
 
 export async function loadData() {
     const index = await (await fetch(`${INV_DIR}/index.json`)).json();
-    const metas = index.investigations || [];
+    const metas = Array.isArray(index) ? index : (index.investigations || []);
 
     const investigations = await Promise.all(metas.map(async meta => {
         try {
