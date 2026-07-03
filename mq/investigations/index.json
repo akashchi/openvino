@@ -45,6 +45,17 @@
       "pattern_hash": "2570b2138c2fc4f5",
       "category": "Flaky Test",
       "title": "Keras LSTM test_keras_lstm_flags_float32 fails on CPU - numerical accuracy mismatch exceeds tolerance"
+    },
+    {
+      "timestamp": "2026-07-03T08:45:36Z",
+      "run_id": "28505410481",
+      "file": "2026-07-03-08-45-36-000-28505410481-r2.json",
+      "workflow": "Windows (VS 2022, Python 3.11, Release)",
+      "conclusion": "failure",
+      "pr_number": 36640,
+      "pattern_hash": "2570b2138c2fc4f5",
+      "category": "Flaky Test",
+      "title": "Keras LSTM test_keras_lstm_flags_float32 fails on CPU - numerical accuracy mismatch exceeds tolerance"
     }
   ]
 }

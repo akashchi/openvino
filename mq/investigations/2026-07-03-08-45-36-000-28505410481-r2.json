@@ -1,0 +1,45 @@
+{
+    "schema_version": "1.0",
+    "investigation_id": "2026-07-03-08-45-36-000-28505410481-r2",
+    "timestamp": "2026-07-03T08:45:36Z",
+    "run_id": "28505410481",
+    "run_url": "https://github.com/openvinotoolkit/openvino/actions/runs/28505410481",
+    "workflow_name": "Windows (VS 2022, Python 3.11, Release)",
+    "pr_number": "36640",
+    "pr_url": "https://github.com/openvinotoolkit/openvino/pull/36640",
+    "author": "akashchi",
+    "category": "Flaky Test",
+    "title": "Keras LSTM test_keras_lstm_flags_float32 fails on CPU - numerical accuracy mismatch exceeds tolerance",
+    "signature": "AssertionError: Comparing with Framework failed - Keras LSTM numerical accuracy mismatch|Flaky Test",
+    "signature_hash": "2570b2138c2fc4f5",
+    "confidence": "High",
+    "failed_jobs": [
+        {
+            "name": "TensorFlow Layer Tests / TensorFlow Layer Tests",
+            "conclusion": "failure",
+            "symptom": "test_keras_lstm_flags_float32 (relu activation, tanh recurrent, dropout=(0.1,0.3), no bias, flags=True) fails — OV vs TF max diff 0.117 exceeds tolerance 0.05"
+        },
+        {
+            "name": "ci/gha_overall_status_windows",
+            "conclusion": "failure",
+            "symptom": "Overall status check fails because TensorFlow Layer Tests job failed"
+        }
+    ],
+    "key_errors": [
+        "FAILED install\\tests\\layer_tests\\tensorflow2_keras_tests\\test_tf2_keras_lstm.py::TestKerasLSTM::test_keras_lstm_flags_float32[ ie_device:CPU - precision: - params:{'input_names': ['x'], 'input_shapes': [[4, 8, 3]], 'input_type': tf.float32, 'dropouts': (0.1, 0.3), 'units': 3, 'activation': 'relu', 'use_bias': False, 'recurrent_activation': 'tanh', 'flags': True} ]",
+        "AssertionError: Comparing with Framework failed: ie_res={'output_0': array([[ 0., -0., -0.], [-0., 0., 4.098508], [0.89645433, -0., -0.], [-0., 3.0426364, 0.4557428]], dtype=float32)}",
+        "framework_res={'output_0': array([[ 0., -0., -0.], [-0., 0., 4.1049323], [0.77964425, -0., -0.], [-0., 3.0409622, 0.45538616]], dtype=float32)}",
+        "Max diff is 0.11681008338928223",
+        "= 1 failed, 2113 passed, 111 skipped, 6 xfailed, 27 xpassed, 240 warnings in 571.06s ="
+    ],
+    "root_cause": "The TF2 Keras LSTM test 'test_keras_lstm_flags_float32' (params: relu activation, tanh recurrent_activation, dropout=(0.1,0.3), use_bias=False, flags=True, shape [4,8,3], units=3) fails with a max diff of 0.117 against the tolerance of 5e-2 (0.05). This is a confirmed flaky numerical precision issue: the LSTM relu+dropout configuration without bias leads to non-deterministic floating-point accumulation differences between OpenVINO CPU inference and TensorFlow reference. The PR being tested (#36640) adds CI Doctor JSON schema files only and does not touch any LSTM, TF frontend, or CPU plugin code. This is a second investigation of run 28505410481 (first investigation at 2026-07-03T08:25:25Z produced the same findings). Pattern also related to earlier investigation 3c0de9ec520a68d1 (Linux run 28161192347 on 2026-06-29 with max diff 0.052).",
+    "reproduction_steps": "pytest install/tests/layer_tests/tensorflow2_keras_tests/test_tf2_keras_lstm.py::TestKerasLSTM::test_keras_lstm_flags_float32 -v -k \"ie_device:CPU\" (Windows VS2022, Python 3.11, Release build)",
+    "recommended_actions": [
+        "Re-run the merge queue — this is a known flaky test unrelated to the PR changes",
+        "File a tracking issue for LSTM relu+dropout numerical precision flakiness on Windows CPU",
+        "Consider widening the tolerance for this specific LSTM configuration or mark as xfail with a tracking issue",
+        "Investigate whether 'flags=True' inadvertently enables training-mode dropout during inference, causing different numeric paths"
+    ],
+    "prevention_strategies": "Add the specific LSTM relu+dropout configuration to the expected_failures skip config. Track LSTM numerical tolerance failures in a dedicated issue. If the test consistently flakes beyond 5e-2 tolerance, raise the epsilon for non-deterministic LSTM configurations or add an xfail marker with a tracking ticket.",
+    "historical_context": "Prior investigation 3c0de9ec520a68d1 (Linux, run 28161192347, 2026-06-29): same test, max diff 0.052. Prior investigation 2570b2138c2fc4f5 (Windows, run 28505410481, 2026-07-03T08:25:25Z): first investigation of this exact run."
+}
