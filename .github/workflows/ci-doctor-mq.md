@@ -53,6 +53,7 @@ safe-outputs:
   add-comment:
     max: 1              # at most one remediation comment per investigation
     target: "*"         # workflow_run trigger has no PR context; agent supplies the PR number
+    allowed-repos: ["akashchi/openvino"]  # testing: allow commenting on the test PR repo
 
 tools:
   github:
@@ -76,10 +77,10 @@ steps:
       FILTERED_DIR="/tmp/gh-aw/agent/ci-doctor/filtered"
       mkdir -p "$LOG_DIR" "$FILTERED_DIR"
 
-      echo "=== CI Doctor: Pre-downloading logs for run $RUN_ID ==="
+      echo "=== CI Doctor: Pre-downloading logs for run 28505410481 ==="
 
       # Get failed jobs and their failed steps
-      gh api "repos/$REPO/actions/runs/$RUN_ID/jobs" \
+      gh api "repos/openvinotoolkit/openvino/actions/runs/28505410481/jobs" \
         --jq '[.jobs[] | select(.conclusion == "failure" or .conclusion == "cancelled") | {id:.id, name:.name, failed_steps:[.steps[]? | select(.conclusion=="failure") | .name]}]' \
         > "$LOG_DIR/failed-jobs.json"
 
@@ -98,7 +99,7 @@ steps:
       jq -r '.[].id' "$LOG_DIR/failed-jobs.json" | while read -r JOB_ID; do
         LOG_FILE="$LOG_DIR/job-${JOB_ID}.log"
         echo "Downloading log for job $JOB_ID..."
-        gh api "repos/$REPO/actions/jobs/$JOB_ID/logs" > "$LOG_FILE" 2>/dev/null \
+        gh api "repos/openvinotoolkit/openvino/actions/jobs/$JOB_ID/logs" > "$LOG_FILE" 2>/dev/null \
           || echo "(log download failed)" > "$LOG_FILE"
         echo "  -> Saved $(wc -l < "$LOG_FILE") lines to $LOG_FILE"
 
@@ -118,7 +119,7 @@ steps:
       SUMMARY_FILE="/tmp/gh-aw/agent/ci-doctor/summary.txt"
       {
         echo "=== CI Doctor Pre-Analysis ==="
-        echo "Run ID: $RUN_ID"
+        echo "Run ID: 28505410481"
         echo ""
         echo "Failed jobs (details in $LOG_DIR/failed-jobs.json):"
         jq -r '.[] | "  Job \(.id): \(.name)\n    Failed steps: \(.failed_steps | join(", "))"' \
