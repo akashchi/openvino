@@ -28,9 +28,14 @@ safe-outputs:
       steps:
         - name: Re-run failed jobs
           env:
-            GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+            GH_TOKEN: ${{ secrets.CI_DOCTOR_RERUNNER_TOKEN }}
           run: |
             set -euo pipefail
+
+            if [ -z "${GH_TOKEN:-}" ]; then
+              echo "CI_DOCTOR_RERUNNER_TOKEN secret is not configured" >&2
+              exit 1
+            fi
 
             if [ ! -f "${GH_AW_AGENT_OUTPUT:-}" ]; then
               echo "No agent output found at GH_AW_AGENT_OUTPUT" >&2
