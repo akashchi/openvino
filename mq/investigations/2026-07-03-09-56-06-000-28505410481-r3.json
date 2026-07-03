@@ -1,0 +1,39 @@
+{
+  "schema_version": "1.0",
+  "investigation_id": "2026-07-03-09-56-06-000-28505410481-r3",
+  "timestamp": "2026-07-03T09:56:06Z",
+  "run_id": "28505410481",
+  "run_url": "https://github.com/openvinotoolkit/openvino/actions/runs/28505410481",
+  "workflow_name": "Windows (VS 2022, Python 3.11, Release)",
+  "pr_number": "36640",
+  "pr_url": "https://github.com/openvinotoolkit/openvino/pull/36640",
+  "author": "akashchi",
+  "category": "Flaky Test",
+  "title": "Keras LSTM test_keras_lstm_flags_float32 fails on CPU - numerical accuracy mismatch exceeds tolerance",
+  "signature": "AssertionError: Comparing with Framework failed - Keras LSTM numerical accuracy mismatch|Flaky Test",
+  "signature_hash": "2570b2138c2fc4f5",
+  "confidence": "High",
+  "failed_jobs": [
+    {
+      "name": "TensorFlow Layer Tests / TensorFlow Layer Tests",
+      "conclusion": "failure",
+      "symptom": "test_tf2_keras_lstm.py::TestKerasLSTM::test_keras_lstm_flags_float32 fails - OV vs TF max diff 0.117 exceeds tolerance 0.05"
+    }
+  ],
+  "key_errors": [
+    "FAILED install\\tests\\layer_tests\\tensorflow2_keras_tests\\test_tf2_keras_lstm.py::TestKerasLSTM::test_keras_lstm_flags_float32[ ie_device:CPU - precision: - params:{...dropouts: (0.1, 0.3), units: 3, activation: relu, use_bias: False, recurrent_activation: tanh, flags: True} ]",
+    "Max diff is 0.11681008338928223",
+    "AssertionError: Comparing with Framework failed: ie_res vs framework_res mismatch",
+    "= 1 failed, 2113 passed, 111 skipped, 6 xfailed, 27 xpassed, 240 warnings in 571.06s ="
+  ],
+  "root_cause": "A single Keras LSTM test (test_keras_lstm_flags_float32) with dropout=True and flags=True (training mode) fails due to numerical accuracy differences between OpenVINO CPU inference and TensorFlow framework. The max diff of 0.117 exceeds the FP16 tolerance of 0.05. The PR under test (#36640) adds CI Doctor JSON validation schemas and is completely unrelated to LSTM or TF layer behavior. The failure is consistent with known non-determinism in LSTM with dropout, where the ordering of floating-point operations can produce slightly different results across backends. This same pattern has recurred multiple times (3rd occurrence) within hours, confirming it is a pre-existing flaky test.",
+  "reproduction_steps": "Run: pytest install/tests/layer_tests/tensorflow2_keras_tests/test_tf2_keras_lstm.py::TestKerasLSTM::test_keras_lstm_flags_float32 -k 'dropouts=(0.1, 0.3) and units=3 and activation=relu' on Windows CPU - may require multiple attempts to reproduce due to non-determinism.",
+  "recommended_actions": [
+    "Re-run only the failed TensorFlow Layer Tests job - this is a flaky test unrelated to PR #36640 content.",
+    "Consider marking this specific LSTM test configuration with a wider tolerance or as xfail for Windows CPU FP16.",
+    "Investigate whether the LSTM dropout test should be run with inference mode forced (training=False) to reduce numerical variance.",
+    "Track frequency: 3 occurrences in <2 hours on the same run ID suggests retry-trigger loop - verify test is not being re-triggered unnecessarily."
+  ],
+  "prevention_strategies": "Add an xfail or relaxed tolerance for the known-unstable LSTM dropout test configurations on Windows CPU. Consider disabling training mode (flags=False) in precommit LSTM tests to eliminate dropout-induced non-determinism.",
+  "historical_context": "This is the 3rd occurrence of this pattern today (2026-07-03). A similar but distinct LSTM accuracy pattern was also seen on 2026-06-29 (3c0de9ec520a68d1). The test is consistently borderline - max diff ~0.117 vs threshold 0.05 in FP32/FP16 mixed-precision paths."
+}
