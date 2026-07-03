@@ -1,0 +1,19 @@
+{
+  "schema_version": "1.0",
+  "signature": "AssertionError: Comparing with Framework failed - Keras LSTM numerical accuracy mismatch|Flaky Test",
+  "signature_hash": "2570b2138c2fc4f5",
+  "title": "Keras LSTM test_keras_lstm_flags_float32 fails on CPU - numerical accuracy mismatch exceeds tolerance",
+  "category": "Flaky Test",
+  "count": 1,
+  "first_seen": "2026-07-03T08:25:25Z",
+  "last_seen": "2026-07-03T08:25:25Z",
+  "recent_run_urls": [
+    "https://github.com/openvinotoolkit/openvino/actions/runs/28505410481"
+  ],
+  "affected_prs": [
+    "https://github.com/openvinotoolkit/openvino/pull/36640"
+  ],
+  "recent_timestamps": [
+    "2026-07-03T08:25:25Z"
+  ]
+}

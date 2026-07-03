@@ -1,0 +1,41 @@
+{
+  "schema_version": "1.0",
+  "investigation_id": "2026-07-03-08-25-25-000-28505410481",
+  "timestamp": "2026-07-03T08:25:25Z",
+  "run_id": "28505410481",
+  "run_url": "https://github.com/openvinotoolkit/openvino/actions/runs/28505410481",
+  "workflow_name": "Windows (VS 2022, Python 3.11, Release)",
+  "pr_number": "36640",
+  "pr_url": "https://github.com/openvinotoolkit/openvino/pull/36640",
+  "author": "akashchi",
+  "category": "Flaky Test",
+  "title": "Keras LSTM test_keras_lstm_flags_float32 fails on CPU - numerical accuracy mismatch exceeds tolerance",
+  "signature": "AssertionError: Comparing with Framework failed - Keras LSTM numerical accuracy mismatch|Flaky Test",
+  "signature_hash": "2570b2138c2fc4f5",
+  "confidence": "High",
+  "failed_jobs": [
+    {
+      "name": "TensorFlow Layer Tests / TensorFlow Layer Tests",
+      "conclusion": "failure",
+      "symptom": "test_tf2_keras_lstm.py::TestKerasLSTM::test_keras_lstm_flags_float32 fails — OV vs TF max diff 0.117 exceeds tolerance 0.05"
+    }
+  ],
+  "key_errors": [
+    "FAILED install\\tests\\layer_tests\\tensorflow2_keras_tests\\test_tf2_keras_lstm.py::TestKerasLSTM::test_keras_lstm_flags_float32[ ie_device:CPU - precision: - params:{'input_names': ['x'], 'input_shapes': [[4, 8, 3]], 'input_type': tf.float32, 'dropouts': (0.1, 0.3), 'units': 3, 'activation': 'relu', 'use_bias': False, 'recurrent_activation': 'tanh', 'flags': True} ]",
+    "Max diff is 0.11681008338928223",
+    "ie_res={'output_0': array([[0., -0., -0.], [-0., 0., 4.098508], [0.89645433, -0., -0.], [-0., 3.0426364, 0.4557428]], dtype=float32)}",
+    "framework_res={'output_0': array([[0., -0., -0.], [-0., 0., 4.1049323], [0.77964425, -0., -0.], [-0., 3.0409622, 0.45538616]], dtype=float32)}",
+    "AssertionError: Comparing with Framework failed (file: install\\tests\\layer_tests\\common\\layer_test_class.py:111)",
+    "= 1 failed, 2113 passed, 111 skipped, 6 xfailed, 27 xpassed, 240 warnings in 571.06s ="
+  ],
+  "root_cause": "The TF2 Keras LSTM test 'test_keras_lstm_flags_float32' fails with a max diff of 0.117 against the default tolerance of 5e-2 (0.05). The test exercises LSTM with relu activation, tanh recurrent_activation, dropout=(0.1, 0.3), use_bias=False, and 'flags=True'. With dropout enabled in inference mode ('flags=True'), slight weight/gate interactions lead to floating-point accumulation differences between OpenVINO CPU inference and the TF reference. The same test with the same parameters also failed on 2026-06-29 (max diff 0.052) in a Linux run (investigation 2026-06-29-12-11-47-000-28161192347.json), confirming this is a pre-existing flaky numerical behaviour. The PR being tested (#36640) adds CI Doctor JSON schema files only and does not touch any LSTM, TF frontend, or CPU plugin code.",
+  "reproduction_steps": "pytest install/tests/layer_tests/tensorflow2_keras_tests/test_tf2_keras_lstm.py::TestKerasLSTM::test_keras_lstm_flags_float32 -v -k 'ie_device:CPU' (Windows VS2022, Python 3.11)",
+  "recommended_actions": [
+    "Re-run the merge queue to confirm flakiness — the same test failed on 2026-06-29 with a smaller diff (0.052) on Linux",
+    "Investigate LSTM relu+dropout CPU implementation for non-deterministic numerical precision accumulation",
+    "Consider widening the tolerance for this specific LSTM configuration (relu + dropout + no bias) from 5e-2 to 1.5e-1 or mark as xfail with a tracking issue",
+    "Review whether 'flags=True' inadvertently enables training-mode dropout during inference, causing different numeric paths"
+  ],
+  "prevention_strategies": "Track LSTM numerical tolerance failures in a dedicated test skip config. If the test consistently flakes beyond 5e-2 tolerance, raise the epsilon for non-deterministic LSTM configurations or add an xfail marker with a tracking ticket.",
+  "historical_context": "Prior occurrence on 2026-06-29 (investigation 2026-06-29-12-11-47-000-28161192347.json): Linux run 28161192347, same test/params, max diff 0.052, marked Medium confidence. PR #36640 does not modify LSTM/TF-related code."
+}
