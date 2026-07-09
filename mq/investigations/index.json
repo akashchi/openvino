@@ -1,6 +1,15 @@
 {
-  "total": 30,
+  "total": 32,
   "entries": [
+    {
+      "investigation_id": "2026-07-08-16-38-48-734-28957097935",
+      "run_id": "28957097935",
+      "timestamp": "2026-07-08T16:38:48Z",
+      "title": "smoke_ConvertCPULayerTest primType is unexpected: unknown_i32 Expected acl_i32 on ARM64",
+      "category": "Flaky Test",
+      "signature_hash": "cb7d14bccc236de4",
+      "pr_number": "36202"
+    },
     {
       "investigation_id": "2026-07-07-19-17-19-000-28887792739",
       "run_id": "28887792739",
@@ -280,6 +289,27 @@
       "category": "Network",
       "title": "iGPU RoPE Tests checkout fails with curl 16 Error in the HTTP2 framing layer",
       "signature_hash": "a34cf8b1555a33e4"
+    },
+    {
+      "investigation_id": "2026-07-08-17-03-47-000-28955688136",
+      "timestamp": "2026-07-08T17:03:47Z",
+      "run_id": "28955688136",
+      "run_url": "https://github.com/openvinotoolkit/openvino/actions/runs/28955688136",
+      "workflow_name": "Windows (VS 2022, Python 3.11, Release)",
+      "pr_number": "36638",
+      "title": "CoreThreadingTests.ReadModel crashes with exit code 1 on Windows C++ unit tests",
+      "category": "Flaky Test",
+      "signature_hash": "9a33a1bb95efe59d"
+    },
+    {
+      "investigation_id": "2026-07-09-07-11-08-000-29000379233",
+      "timestamp": "2026-07-09T07:11:08Z",
+      "run_id": "29000379233",
+      "workflow_name": "Linux RISC-V (Ubuntu 22.04, Python 3.10)",
+      "category": "Dependencies",
+      "title": "Smart CI fails: fastcore 2.0.1 breaks ghapi 1.0.4 - L.starmap AttributeError",
+      "signature_hash": "7862e85dd17a5df8",
+      "pr_number": "36780"
     }
   ]
 }
