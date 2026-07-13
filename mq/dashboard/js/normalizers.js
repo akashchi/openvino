@@ -16,11 +16,11 @@ import { asList } from "./utils.js";
 //   by the investigation schema version.
 // - Legacy investigations (no _meta, no signature_hash): "signature" held
 //   the hash directly.
-export const invSig = i => i.signature_hash || (i._meta && i._meta.signature) || i.signature;
+export const invSig = i => i.signature_hash || (i._meta && (i._meta.signature_hash || i._meta.signature)) || i.signature;
 
 export const invTime = i => i.timestamp || i.timestamp_utc || (i._meta && i._meta.timestamp);
 export const invCat = i => i.category || (i._meta && i._meta.category) || "Other";
-export const invWf = i => i.workflow_name || i.workflow || (i._meta && i._meta.workflow) || "";
+export const invWf = i => i.workflow_name || i.workflow || (i._meta && (i._meta.workflow_name || i._meta.workflow)) || "";
 
 export function invTitle(i, patterns) {
     const pattern = patterns[invSig(i)];

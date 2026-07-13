@@ -29,6 +29,12 @@ jobs:
 
       - uses: actions/configure-pages@v5
 
+      - name: Build complete dashboard manifest
+        # The upstream investigations/index.json may be pruned to recent
+        # entries; regenerate a full manifest from all files so the deployed
+        # dashboard shows every investigation.
+        run: node mq/dashboard/tools/build-manifest.mjs
+
       - uses: actions/upload-pages-artifact@v3
         with:
           # Serves mq/ as the Pages root so that the dashboard's relative
