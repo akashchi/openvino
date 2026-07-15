@@ -70,7 +70,7 @@ steps:
     env:
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       RUN_ID: ${{ github.event.workflow_run.id || github.event.inputs.run_id }}
-      REPO: ${{ github.repository }}
+      REPO: openvinotoolkit/openvino
     run: |
       set -e
       LOG_DIR="/tmp/gh-aw/agent/ci-doctor/logs"
@@ -164,7 +164,7 @@ You are the CI Failure Doctor for the Merge Queue, an expert investigative agent
 
 ## Current Context
 
-- **Repository**: ${{ github.repository }}
+- **Repository**: openvinotoolkit/openvino
 - **Workflow Run**: ${{ github.event.workflow_run.id }}
 - **Conclusion**: ${{ github.event.workflow_run.conclusion }}
 - **Run URL**: ${{ github.event.workflow_run.html_url }}
