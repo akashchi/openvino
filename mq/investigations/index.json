@@ -1,6 +1,6 @@
 {
   "schema_version": "1.0",
-  "total": 15,
+  "total": 23,
   "entries": [
     {
       "investigation_id": "2026-07-09-13-58-10-000-29022024794",
@@ -79,7 +79,8 @@
       "category": "Flaky Test",
       "title": "CachingTest LoadMultiWithConfig_race import_model call count mismatch on Windows",
       "pr_number": "36488",
-      "signature_hash": "43e136cf67333978"
+      "signature_hash": "43e136cf67333978",
+      "investigation_id": "2026-07-13-10-41-15-000-29234771303"
     },
     {
       "investigation_id": "2026-07-13-13-40-20-000-29245921214",
@@ -146,6 +147,84 @@
       "category": "Flaky Test",
       "signature_hash": "c9863a2404e8c8cc",
       "pr_number": "36798"
+    },
+    {
+      "investigation_id": "2026-07-15-08-59-25-000-29395509871",
+      "run_id": "29395509871",
+      "timestamp": "2026-07-15T08:59:25Z",
+      "title": "PyTorch Models tests fail with ECONNREFUSED downloading openvino_tokenizers_wheel artifact",
+      "category": "Network",
+      "signature_hash": "c903843ea6da862b",
+      "pr_number": "36840"
+    },
+    {
+      "investigation_id": "2026-07-15-11-23-05-000-29410904250",
+      "run_id": "29410904250",
+      "run_url": "https://github.com/openvinotoolkit/openvino/actions/runs/29410904250",
+      "workflow_name": "Linux (Ubuntu 22.04, Python 3.11)",
+      "timestamp": "2026-07-15T11:23:05Z",
+      "title": "Docker build fails - Azure Container Registry OAuth token fetch refused",
+      "category": "External Service",
+      "signature_hash": "2831f4ffa148d7b6",
+      "pr_number": "36892"
+    },
+    {
+      "investigation_id": "2026-07-15-11-39-22-000-29410904372",
+      "run_id": "29410904372",
+      "timestamp": "2026-07-15T11:39:22Z",
+      "title": "Docker buildx builder boot fails - buildkit image not found in Azure Container Registry",
+      "category": "Infrastructure",
+      "signature_hash": "966a1b79fea18174",
+      "pr_number": "36892"
+    },
+    {
+      "investigation_id": "2026-07-15-12-22-41-000-29410904372b",
+      "run_id": "29410904372",
+      "timestamp": "2026-07-15T12:22:41Z",
+      "title": "smoke_ConvertCPULayerTest primType is unexpected : unknown_f32 Expected : ref_f32",
+      "category": "Code Issue",
+      "signature_hash": "f7a6dd5a16071269",
+      "pr_number": "36892"
+    },
+    {
+      "investigation_id": "2026-07-15-16-32-28-000-29426291440",
+      "run_id": "29426291440",
+      "run_url": "https://github.com/openvinotoolkit/openvino/actions/runs/29426291440",
+      "workflow_name": "Linux (Ubuntu 22.04, Python 3.11)",
+      "timestamp": "2026-07-15T16:32:28Z",
+      "title": "Artifact download fails with ECONNREFUSED on self-hosted runner",
+      "category": "Network",
+      "signature_hash": "1808e665f1f70825",
+      "pr_number": "36880"
+    },
+    {
+      "investigation_id": "2026-07-15-22-23-23-000-29450212856",
+      "run_id": "29450212856",
+      "run_url": "https://github.com/openvinotoolkit/openvino/actions/runs/29450212856",
+      "workflow_name": "Windows (VS 2022, Python 3.11, Release)",
+      "timestamp": "2026-07-15T22:23:23Z",
+      "title": "JS API E2E Electron cleanup fails on Windows - Permission denied removing locked electron.exe/dll",
+      "category": "Flaky Test",
+      "signature_hash": "85df26485ff568d8",
+      "pr_number": "36887"
+    },
+    {
+      "investigation_id": "2026-07-16-01-44-02-000-29461222151",
+      "run_id": "29461222151",
+      "timestamp": "2026-07-16T01:44:02Z",
+      "title": "JS API E2E Electron cleanup fails on Windows - Permission denied removing locked electron.exe/dll",
+      "category": "Flaky Test",
+      "signature_hash": "85df26485ff568d8",
+      "pr_number": "36888"
+    },
+    {
+      "investigation_id": "2026-07-16-02-28-32-000-29465509080",
+      "run_id": "29465509080",
+      "timestamp": "2026-07-16T02:28:32Z",
+      "title": "smoke_ConvertCPULayerTest - primType is unexpected : unknown_i32 Expected : acl_i32",
+      "category": "Code Issue",
+      "signature_hash": "75ebbbb77b09e3b0",
+      "pr_number": "36888"
     }
   ]
 }
