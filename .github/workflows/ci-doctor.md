@@ -25,6 +25,10 @@ engine:
 
 network: defaults
 
+# This workflow is log-driven and does not need the PR working tree. Disabling checkout
+# also avoids "Refusing PR checkout in forked repository runtime context" on fork PRs.
+checkout: false
+
 safe-outputs:
   add-comment:
     max: 1
@@ -216,7 +220,10 @@ The CI Doctor (Merge Queue) workflow maintains a persistent, cross-PR knowledge 
 3. **Source Code Inspection Safeguards**:
    The investigation must stay narrowly scoped. Do **not** attempt to analyze the
    whole codebase or browse files unrelated to the failure signal extracted from
-   the logs. Apply the following hard limits:
+   the logs. This workflow runs **without a local checkout** of the pull request,
+   so read any source files or PR diffs through the GitHub tools (fetch file
+   contents, list PR files) rather than from a local working tree. Apply the
+   following hard limits:
 
    - **Log-first, code-second**: Only inspect source files after you have
      extracted concrete file paths, symbols, or component names from the failed
@@ -236,7 +243,7 @@ The CI Doctor (Merge Queue) workflow maintains a persistent, cross-PR knowledge 
      contents of test directories, suite folders, or component trees. Do not
      attempt to "read every test file" to understand a failure — use the failing
      test name from the logs to jump directly to the one relevant file.
-   - **Repository search discipline**: Use repository search (grep/code search)
+   - **Repository search discipline**: Use GitHub code search
      with **specific** error strings, symbol names, or file fragments taken from
      the logs. Do not run broad searches (e.g., single common words, wildcards
      across the whole repo). Cap searches at **5 queries** per investigation.
