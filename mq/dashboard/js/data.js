@@ -13,10 +13,32 @@ function entryFile(meta) {
     return null;
 }
 
-// Prefer the dashboard-generated manifest (complete). Fall back to the upstream
-// investigations index.json, which may be a bare array or { investigations: [] }
-// and may be pruned to only recent entries.
+// Try to read a directory's JSON files from an autoindex/listing page.
+// Works with `python -m http.server` (and most static dev servers), so the
+// dashboard always reflects the actual files locally with no manual rebuild.
+// GitHub Pages has no directory listing, so this returns null there.
+async function listDir(dir) {
+    try {
+        const res = await fetch(`${dir}/`, { cache: "no-cache" });
+        if (!res.ok) return null;
+        const html = await res.text();
+        const files = [...html.matchAll(/href="([^"?#]+\.json)"/gi)]
+            .map(m => decodeURIComponent(m[1].split("/").pop()))
+            .filter(f => f && f !== "index.json");
+        return [...new Set(files)];
+    } catch {
+        return null;
+    }
+}
+
+// Determine the full list of investigation entries. Priority:
+//   1. Live directory listing (always current — local dev servers).
+//   2. Dashboard manifest.json (generated at deploy — GitHub Pages).
+//   3. Upstream investigations/index.json (may be pruned).
 async function loadIndex() {
+    const listed = await listDir(INV_DIR);
+    if (listed && listed.length) return listed.map(file => ({ file }));
+
     try {
         const res = await fetch(MANIFEST, { cache: "no-cache" });
         if (res.ok) {
@@ -27,6 +49,7 @@ async function loadIndex() {
     } catch {
         /* no manifest — fall back to the upstream index */
     }
+
     const index = await (await fetch(`${INV_DIR}/index.json`)).json();
     return Array.isArray(index) ? index : (index.investigations || []);
 }
