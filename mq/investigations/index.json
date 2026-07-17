@@ -1,6 +1,6 @@
 {
   "schema_version": "1.0",
-  "total": 23,
+  "total": 33,
   "entries": [
     {
       "investigation_id": "2026-07-09-13-58-10-000-29022024794",
@@ -225,6 +225,104 @@
       "category": "Code Issue",
       "signature_hash": "75ebbbb77b09e3b0",
       "pr_number": "36888"
+    },
+    {
+      "investigation_id": "2026-07-16-09-38-34-000-29484368562",
+      "run_id": "29484368562",
+      "timestamp": "2026-07-16T09:38:34Z",
+      "title": "Windows Debug build fails - LNK1116 cannot grow ilk file for ov_lp_transformations_tests",
+      "category": "Infrastructure",
+      "signature_hash": "559341a4d792fa91",
+      "pr_number": "36859"
+    },
+    {
+      "investigation_id": "2026-07-16-11-11-27-000-29488629158",
+      "run_id": "29488629158",
+      "timestamp": "2026-07-16T11:11:27Z",
+      "title": "JS API E2E Electron cleanup fails on Windows - Permission denied removing locked electron.exe/dll",
+      "category": "Flaky Test",
+      "signature_hash": "85df26485ff568d8",
+      "pr_number": "36806"
+    },
+    {
+      "investigation_id": "2026-07-16-12-13-52-000-29495320624",
+      "run_id": "29495320624",
+      "timestamp": "2026-07-16T12:13:52Z",
+      "title": "smoke_ConvertCPULayerTest - primType is unexpected : unknown_i8 Expected : acl_i8",
+      "category": "Code Issue",
+      "signature_hash": "a5dbac5de6377592",
+      "pr_number": "36902"
+    },
+    {
+      "investigation_id": "2026-07-16-13-00-12-000-29495320592",
+      "run_id": "29495320592",
+      "timestamp": "2026-07-16T13:00:12Z",
+      "title": "JAX Layer Tests artifact upload fails with FinalizeArtifact ECONNREFUSED",
+      "category": "Network",
+      "signature_hash": "0c33a04c2cbe783c",
+      "pr_number": "36902"
+    },
+    {
+      "investigation_id": "2026-07-16-14-23-42-000-29499356725",
+      "run_id": "29499356725",
+      "run_url": "https://github.com/openvinotoolkit/openvino/actions/runs/29499356725",
+      "workflow_name": "Linux (Ubuntu 22.04, Python 3.11)",
+      "timestamp": "2026-07-16T14:23:42Z",
+      "title": "ONNX Python backend tests fail: XPASS(strict) on Cast/CastLike and QLinearMatMul with onnx 1.22",
+      "category": "Code Issue",
+      "signature_hash": "dfef425ba2a21c05",
+      "pr_number": "36919"
+    },
+    {
+      "investigation_id": "2026-07-16-14-47-43-000-29498230226",
+      "run_id": "29498230226",
+      "run_url": "https://github.com/openvinotoolkit/openvino/actions/runs/29498230226",
+      "workflow_name": "Windows (VS 2022, Python 3.11, Release)",
+      "timestamp": "2026-07-16T14:47:43Z",
+      "title": "JS API E2E Electron cleanup fails on Windows - Permission denied removing locked electron.exe/dll",
+      "category": "Flaky Test",
+      "signature_hash": "85df26485ff568d8",
+      "pr_number": "36807"
+    },
+    {
+      "investigation_id": "2026-07-16-15-54-12-000-29502462489",
+      "run_id": "29502462489",
+      "run_url": "https://github.com/openvinotoolkit/openvino/actions/runs/29502462489",
+      "workflow_name": "Windows (VS 2022, Python 3.11, Release)",
+      "timestamp": "2026-07-16T15:54:12Z",
+      "title": "JS API E2E Electron cleanup fails on Windows - Permission denied removing locked electron.exe/dll",
+      "category": "Flaky Test",
+      "signature_hash": "85df26485ff568d8",
+      "pr_number": "36917"
+    },
+    {
+      "investigation_id": "2026-07-16-19-58-36-000-29522352360",
+      "run_id": "29522352360",
+      "run_url": "https://github.com/openvinotoolkit/openvino/actions/runs/29522352360",
+      "workflow_name": "Windows (VS 2022, Python 3.11, Release)",
+      "timestamp": "2026-07-16T19:58:36Z",
+      "title": "Windows Python API Tests fail to download artifacts due to ECONNREFUSED",
+      "category": "Network",
+      "signature_hash": "1808e665f1f70825",
+      "pr_number": "36925"
+    },
+    {
+      "investigation_id": "2026-07-17-03-59-16-000-29552016907",
+      "run_id": "29552016907",
+      "timestamp": "2026-07-17T03:59:16Z",
+      "title": "smoke_ConvertCPULayerTest - primType is unexpected unknown_f32 Expected ref_f32 on ARM64/ACL",
+      "category": "Code Issue",
+      "signature_hash": "8664b9fc6e97654f",
+      "pr_number": "36929"
+    },
+    {
+      "investigation_id": "2026-07-17-04-10-31-000-29552704755",
+      "run_id": "29552704755",
+      "timestamp": "2026-07-17T04:10:31Z",
+      "title": "smoke_ConvertCPULayerTest - Value of: primTypeCheck(primType) is unexpected",
+      "category": "Flaky Test",
+      "signature_hash": "76751669c7a78fcd",
+      "pr_number": "36890"
     }
   ]
 }
