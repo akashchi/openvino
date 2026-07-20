@@ -13,5 +13,8 @@
     "2026-06-16T09:13:42Z"
   ],
   "signature": "Cannot get dims for non static shape|PyTorch Layer Tests / PyTorch Layer Tests|Code Issue",
-  "title": "CPU repacking path asserts on dynamic shapes"
+  "title": "CPU repacking path asserts on dynamic shapes",
+  "rerun_search_string": null,
+  "schema_version": "1.0",
+  "signature_hash": "6eb2d4bbde24a8ec"
 }

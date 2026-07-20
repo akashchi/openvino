@@ -1,0 +1,14 @@
+{
+  "schema_version": "1.0",
+  "signature": "compiler is out of heap space|Infrastructure",
+  "signature_hash": "1d3632f4b071755b",
+  "title": "Windows CC build fails with MSVC C1060 compiler out of heap space",
+  "category": "Infrastructure",
+  "count": 1,
+  "first_seen": "2026-07-20T12:25:35Z",
+  "last_seen": "2026-07-20T12:25:35Z",
+  "recent_run_urls": ["https://github.com/akashchi/openvino/actions/runs/29736062377"],
+  "affected_prs": [],
+  "recent_timestamps": ["2026-07-20T12:25:35Z"],
+  "rerun_search_string": "compiler is out of heap space"
+}

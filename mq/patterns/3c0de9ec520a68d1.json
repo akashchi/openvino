@@ -5,7 +5,14 @@
   "count": 1,
   "first_seen": "2026-06-29T12:11:47Z",
   "last_seen": "2026-06-29T12:11:47Z",
-  "recent_run_urls": ["https://github.com/openvinotoolkit/openvino/actions/runs/28161192347"],
+  "recent_run_urls": [
+    "https://github.com/openvinotoolkit/openvino/actions/runs/28161192347"
+  ],
   "affected_prs": [],
-  "recent_timestamps": ["2026-06-29T12:11:47Z"]
+  "recent_timestamps": [
+    "2026-06-29T12:11:47Z"
+  ],
+  "rerun_search_string": "AssertionError Comparing with Framework failed|TensorFlow Layer Tests / TensorFlow Layer Tests",
+  "schema_version": "1.0",
+  "signature_hash": "3c0de9ec520a68d1"
 }

@@ -5,7 +5,14 @@
   "count": 1,
   "first_seen": "2026-06-29T10:52:33Z",
   "last_seen": "2026-06-29T10:52:33Z",
-  "recent_run_urls": ["https://github.com/openvinotoolkit/openvino/actions/runs/28260319677"],
+  "recent_run_urls": [
+    "https://github.com/openvinotoolkit/openvino/actions/runs/28260319677"
+  ],
   "affected_prs": [],
-  "recent_timestamps": ["2026-06-29T10:52:33Z"]
+  "recent_timestamps": [
+    "2026-06-29T10:52:33Z"
+  ],
+  "rerun_search_string": null,
+  "schema_version": "1.0",
+  "signature_hash": "47343d37385888bd"
 }

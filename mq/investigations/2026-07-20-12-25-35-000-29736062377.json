@@ -1,0 +1,37 @@
+{
+  "schema_version": "1.0",
+  "investigation_id": "2026-07-20-12-25-35-000-29736062377",
+  "timestamp": "2026-07-20T12:25:35Z",
+  "run_id": "29736062377",
+  "run_url": "https://github.com/akashchi/openvino/actions/runs/29736062377",
+  "workflow_name": "Conditional Compilation",
+  "pr_number": null,
+  "pr_url": null,
+  "author": null,
+  "category": "Infrastructure",
+  "title": "Windows CC build fails with MSVC C1060 compiler out of heap space",
+  "signature": "compiler is out of heap space|Infrastructure",
+  "signature_hash": "1d3632f4b071755b",
+  "confidence": "High",
+  "failed_jobs": [
+    {
+      "name": "Conditional Compilation",
+      "conclusion": "failure",
+      "symptom": "MSVC C1060 error: compiler is out of heap space in oneDNN and openvino_reference targets"
+    }
+  ],
+  "key_errors": [
+    "C:\\BuildTools\\VC\\Tools\\MSVC\\14.42.34433\\include\\xmemory(1500,1): error C1060: compiler is out of heap space [openvino_reference.vcxproj]",
+    "memory_desc_wrapper.hpp(733,5): error C1060: compiler is out of heap space [dnnl_cpu_x64.vcxproj]",
+    "primitive_attr.hpp(108,1): error C1060: compiler is out of heap space [dnnl_cpu_x64.vcxproj]"
+  ],
+  "root_cause": "The Windows CI runner ran out of compiler heap memory (MSVC error C1060) while building multiple targets in parallel — openvino_reference.vcxproj and several oneDNN vcxproj targets all hit the heap limit simultaneously. This is a transient infrastructure-level constraint: too many parallel MSBuild compilations competing for process heap on the shared runner.",
+  "reproduction_steps": "N/A",
+  "recommended_actions": [
+    "Re-run the failed jobs — the failure is transient and typically resolves on retry",
+    "Consider reducing the MSBuild /maxcpucount parallelism for the Conditional Compilation job to lower peak memory pressure",
+    "Consider adding /Zm flag to increase compiler heap size in the MSVC build options"
+  ],
+  "prevention_strategies": "Reduce parallel compilation processes in the Windows CC CI job or increase runner memory allocation. Setting /maxcpucount:4 or lower in the MSBuild invocation can help avoid simultaneous heap exhaustion.",
+  "historical_context": "No prior occurrence of this exact pattern found in repo-memory."
+}

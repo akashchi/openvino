@@ -1,70 +1,24 @@
 {
-  "investigations": [
+  "schema_version": "1.0",
+  "total": 2,
+  "entries": [
     {
-      "timestamp": "2026-06-29T10:13:59Z",
+      "investigation_id": "",
       "run_id": "28266230900",
-      "file": "2026-06-29-10-13-59-000-28266230900.json",
-      "workflow": "Windows (VS 2022, Python 3.11, Release)",
-      "conclusion": "failure",
-      "pr_number": 36539,
-      "pattern_hash": "3545bc843559a7d9",
+      "timestamp": "2026-06-29T10:13:59Z",
+      "title": "PyTorch Layer Tests artifact upload fails silently",
       "category": "Infrastructure",
-      "title": "PyTorch Layer Tests artifact upload fails silently"
+      "signature_hash": "3545bc843559a7d9",
+      "pr_number": "36539"
     },
     {
-      "created_at": "2026-06-29T10:52:33Z",
-      "path": "/tmp/gh-aw/repo-memory/default/mq/investigations/2026-06-29-10-52-33-000-28260319677.json",
-      "run_id": "28260319677",
-      "run_url": "https://github.com/openvinotoolkit/openvino/actions/runs/28260319677",
-      "signature_hash": "47343d37385888bd",
-      "title": "benchmark_app Python async mode crashes with STATUS_ACCESS_VIOLATION (0xC0000005) on Windows"
-    },
-    {
-      "created_at": "2026-06-29T12:11:47Z",
-      "path": "/tmp/gh-aw/repo-memory/default/mq/investigations/2026-06-29-12-11-47-000-28161192347.json",
-      "run_id": "28161192347",
-      "run_url": "https://github.com/openvinotoolkit/openvino/actions/runs/28161192347",
-      "signature_hash": "3c0de9ec520a68d1",
-      "title": "TF2 Keras LSTM layer test fails with borderline numerical accuracy deviation"
-    },
-    {
-      "created_at": "2026-06-30T11:11:15Z",
-      "path": "/tmp/gh-aw/repo-memory/default/mq/investigations/2026-06-30-11-11-15-000-27948895651.json",
-      "run_id": "27948895651",
-      "run_url": "https://github.com/openvinotoolkit/openvino/actions/runs/27948895651",
-      "signature_hash": "7c27d216995debbf",
-      "title": "classification_sample_async Python sample times out with AUTO device"
-    },
-    {
-      "timestamp": "2026-07-03T08:25:25Z",
-      "run_id": "28505410481",
-      "file": "2026-07-03-08-25-25-000-28505410481.json",
-      "workflow": "Windows (VS 2022, Python 3.11, Release)",
-      "conclusion": "failure",
-      "pr_number": 36640,
-      "pattern_hash": "2570b2138c2fc4f5",
-      "category": "Flaky Test",
-      "title": "Keras LSTM test_keras_lstm_flags_float32 fails on CPU - numerical accuracy mismatch exceeds tolerance"
-    },
-    {
-      "timestamp": "2026-07-03T08:45:36Z",
-      "run_id": "28505410481",
-      "file": "2026-07-03-08-45-36-000-28505410481-r2.json",
-      "workflow": "Windows (VS 2022, Python 3.11, Release)",
-      "conclusion": "failure",
-      "pr_number": 36640,
-      "pattern_hash": "2570b2138c2fc4f5",
-      "category": "Flaky Test",
-      "title": "Keras LSTM test_keras_lstm_flags_float32 fails on CPU - numerical accuracy mismatch exceeds tolerance"
-    },
-    {
-      "created_at": "2026-07-03T09:56:06Z",
-      "path": "/tmp/gh-aw/repo-memory/default/mq/investigations/2026-07-03-09-56-06-000-28505410481-r3.json",
-      "run_id": "28505410481",
-      "run_url": "https://github.com/openvinotoolkit/openvino/actions/runs/28505410481",
-      "signature_hash": "2570b2138c2fc4f5",
-      "title": "Keras LSTM test_keras_lstm_flags_float32 fails on CPU - numerical accuracy mismatch exceeds tolerance",
-      "category": "Flaky Test"
+      "investigation_id": "2026-07-20-12-25-35-000-29736062377",
+      "run_id": "29736062377",
+      "timestamp": "2026-07-20T12:25:35Z",
+      "title": "Windows CC build fails with MSVC C1060 compiler out of heap space",
+      "category": "Infrastructure",
+      "signature_hash": "1d3632f4b071755b",
+      "pr_number": null
     }
   ]
 }
