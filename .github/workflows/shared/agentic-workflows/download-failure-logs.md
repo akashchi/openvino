@@ -27,7 +27,7 @@ steps:
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       REPO: ${{ github.repository }}
       PR_NUMBER: ${{ github.event.issue.number }}
-      RUN_ID: ${{ github.event.workflow_run.id || github.event.inputs.run_id }}
+      RUN_ID: "29736062377"
     run: |
       import glob
       import json
@@ -48,7 +48,7 @@ steps:
           r"(error[: ]|ERROR|FAIL|panic:|fatal[: ]|undefined[: ]|exception|exit status [^0])"
       )
 
-      repo_name = os.environ.get("REPO", "")
+      repo_name = os.environ.get('openvinotoolkit/openvino')
       run_id = (os.environ.get("RUN_ID") or "").strip()
       pr_number = (os.environ.get("PR_NUMBER") or "").strip()
       token = os.environ.get("GH_TOKEN", "")
