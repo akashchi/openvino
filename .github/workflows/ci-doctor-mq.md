@@ -46,10 +46,11 @@ engine:
 network: defaults
 
 imports:
-  - shared/ci-doctor-mq/notify-teams.md
-  - shared/ci-doctor-mq/notify-teams-recurring.md
-  - shared/ci-doctor-mq/rerun-failed-jobs.md
-  - shared/ci-doctor-mq/readd-to-merge-queue.md
+  - shared/agentic-workflows/download-failure-logs.md
+  - shared/agentic-workflows/notify-teams.md
+  - shared/agentic-workflows/notify-teams-recurring.md
+  - shared/agentic-workflows/rerun-failed-jobs.md
+  - shared/agentic-workflows/readd-to-merge-queue.md
 
 safe-outputs:
   add-comment:
@@ -66,83 +67,6 @@ tools:
     max-file-size: 1048576 # 1MB max
     max-patch-size: 1048576 # 1MB max
     max-file-count: 500
-
-steps:
-  - name: Download CI failure logs
-    env:
-      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      RUN_ID: ${{ github.event.workflow_run.id || github.event.inputs.run_id }}
-      REPO: ${{ github.repository }}
-    run: |
-      set -e
-      LOG_DIR="/tmp/gh-aw/agent/ci-doctor/logs"
-      FILTERED_DIR="/tmp/gh-aw/agent/ci-doctor/filtered"
-      mkdir -p "$LOG_DIR" "$FILTERED_DIR"
-
-      echo "=== CI Doctor: Pre-downloading logs for run 28505410481 ==="
-
-      # Get failed jobs and their failed steps
-      gh api "repos/openvinotoolkit/openvino/actions/runs/28505410481/jobs" \
-        --jq '[.jobs[] | select(.conclusion == "failure" or .conclusion == "cancelled") | {id:.id, name:.name, failed_steps:[.steps[]? | select(.conclusion=="failure") | .name]}]' \
-        > "$LOG_DIR/failed-jobs.json"
-
-      FAILED_COUNT=$(jq 'length' "$LOG_DIR/failed-jobs.json")
-      echo "Found $FAILED_COUNT failed job(s)"
-
-      if [ "$FAILED_COUNT" -eq 0 ]; then
-        echo "No failed jobs found, skipping log download"
-        exit 0
-      fi
-
-      echo "Failed jobs:"
-      cat "$LOG_DIR/failed-jobs.json"
-
-      # Download logs for each failed job and apply generic error heuristics
-      jq -r '.[].id' "$LOG_DIR/failed-jobs.json" | while read -r JOB_ID; do
-        LOG_FILE="$LOG_DIR/job-${JOB_ID}.log"
-        echo "Downloading log for job $JOB_ID..."
-        gh api "repos/openvinotoolkit/openvino/actions/jobs/$JOB_ID/logs" > "$LOG_FILE" 2>/dev/null \
-          || echo "(log download failed)" > "$LOG_FILE"
-        echo "  -> Saved $(wc -l < "$LOG_FILE") lines to $LOG_FILE"
-
-        # Apply generic heuristics: find lines with common error indicators
-        HINTS_FILE="$FILTERED_DIR/job-${JOB_ID}-hints.txt"
-        grep -n -m 30 -iE "(error[: ]|ERROR|FAIL|panic:|fatal[: ]|undefined[: ]|exception|exit status [^0])" \
-          "$LOG_FILE" > "$HINTS_FILE" 2>/dev/null || true
-
-        if [ -s "$HINTS_FILE" ]; then
-          echo "  -> Pre-located $(wc -l < "$HINTS_FILE") hint line(s) in $HINTS_FILE"
-        else
-          echo "  -> No error hints found in $LOG_FILE"
-        fi
-      done
-
-      # Write summary for the agent
-      SUMMARY_FILE="/tmp/gh-aw/agent/ci-doctor/summary.txt"
-      {
-        echo "=== CI Doctor Pre-Analysis ==="
-        echo "Run ID: 28505410481"
-        echo ""
-        echo "Failed jobs (details in $LOG_DIR/failed-jobs.json):"
-        jq -r '.[] | "  Job \(.id): \(.name)\n    Failed steps: \(.failed_steps | join(", "))"' \
-          "$LOG_DIR/failed-jobs.json"
-        echo ""
-        echo "Downloaded log files ($LOG_DIR):"
-        for LOG_FILE in "$LOG_DIR"/job-*.log; do
-          [ -f "$LOG_FILE" ] || continue
-          echo "  $LOG_FILE ($(wc -l < "$LOG_FILE") lines)"
-        done
-        echo ""
-        echo "Filtered hint files ($FILTERED_DIR):"
-        for HINTS_FILE in "$FILTERED_DIR"/*-hints.txt; do
-          [ -s "$HINTS_FILE" ] || continue
-          echo "  $HINTS_FILE ($(wc -l < "$HINTS_FILE") matches)"
-          head -3 "$HINTS_FILE" | sed 's/^/    /'
-        done
-      } | tee "$SUMMARY_FILE"
-
-      echo ""
-      echo "✅ Pre-analysis complete. Agent should start with $SUMMARY_FILE"
 
 post-steps:
   - name: Upload CI Doctor MQ investigations and patterns
@@ -526,7 +450,7 @@ ELSE:
 2. **Actionable Deliverables**:
    - Send a Microsoft Teams notification with the investigation results (see Output Requirements below)
    - When the failure is associated with a PR in the merge queue, post a remediation comment on that PR with the failed pipeline name/link, a short failure description, and a short possible remedy (see `add_comment` field guidance below)
-   - When the investigation concludes the failure is transient, decide between two mutually exclusive remedies based on whether the PR is still in the merge queue: if the PR is **still in the queue**, request a re-run of only the failed jobs (see `rerun_failed_jobs` decision guidance below); if the PR has been **dropped from the queue**, a re-run would not help it merge, so request that the PR be re-added to the merge queue instead (see `readd_to_merge_queue` decision guidance below)
+   - When the investigation concludes the failure is transient, decide between two mutually exclusive remedies based on whether the PR is still in the merge queue: if the PR is **still in the queue** (or there is no associated PR), request a re-run of only the failed jobs (see `rerun_failed_jobs` decision guidance below); if the PR has been **dropped from the queue**, a re-run would not help it merge, so request that the PR be re-added to the merge queue instead (see `readd_to_merge_queue` decision guidance below)
    - Provide specific file locations and line numbers for fixes
    - Suggest code changes or configuration updates
 
@@ -603,6 +527,7 @@ Post a concise, actionable remediation comment on the affected merge-queue PR so
 **Pipeline**: [<failed_workflow name>](<pipeline_url>)
 **Failure**: <one-line summary, same as notify_teams.title>
 **Automatic restart**: <one of: `✅ Re-run of failed jobs requested (reason: <reason>)` when you called `rerun_failed_jobs`; `❌ Not triggered — <short reason, e.g. deterministic code failure>` otherwise>
+**Merge queue re-add**: <one of: `✅ Re-added PR to the merge queue (reason: <reason>)` when you called `readd_to_merge_queue`; `❌ Not triggered — <short reason, e.g. PR still in queue / deterministic failure>` otherwise>
 
 #### Possible remedy
 
@@ -680,7 +605,13 @@ Provide all required fields and include the optional PR-related fields whenever 
 
 State whether an automatic re-run of the failed jobs was triggered:
 - If you called `rerun_failed_jobs`: `✅ Re-run of failed jobs requested` followed by the one-line `reason` you passed.
-- Otherwise: `❌ Not triggered` followed by a short justification (e.g. deterministic code failure that a restart cannot fix).
+- Otherwise: `❌ Not triggered` followed by a short justification (e.g. deterministic code failure that a restart cannot fix, or the PR was no longer in the merge queue).
+
+### Automatic Merge Queue Re-add
+
+State whether the affected PR was automatically re-added to the merge queue:
+- If you called `readd_to_merge_queue`: `✅ PR re-added to the merge queue` followed by the one-line `reason` you passed.
+- Otherwise: `❌ Not triggered` followed by a short justification (e.g. the PR was still in the queue and `rerun_failed_jobs` was used instead, no PR was identified, or the failure was deterministic).
 
 ### Root Cause Analysis
 
@@ -754,7 +685,7 @@ Call the `rerun_failed_jobs` safe-output tool **only** when your Root Cause Anal
 **Do NOT** request a re-run for deterministic failures a restart cannot fix — `Code Issue`, `Dependencies`, or `Configuration` categories (compilation errors, assertion failures, missing symbols, bad workflow config). When in doubt, do not re-run.
 
 **Merge-queue branch (mutually exclusive with `readd_to_merge_queue`):** A re-run only helps the PR merge if the PR is **still in the merge queue**. Before calling `rerun_failed_jobs`, determine the PR's current queue membership (query the associated PR and check whether it is still in the merge queue). Then:
-- **PR still in the queue** → call `rerun_failed_jobs`.
+- **PR still in the queue**, or **no PR is associated** with the run → call `rerun_failed_jobs`.
 - **PR no longer in the queue** (GitHub dropped it on the failure) → do **NOT** call `rerun_failed_jobs`; a re-run would not re-enter it into the queue. Call `readd_to_merge_queue` instead (see its guidance below).
 
 Never call both `rerun_failed_jobs` and `readd_to_merge_queue` in the same investigation.
@@ -791,6 +722,8 @@ Provide:
 
 This tool is independent of the notifications: still call `notify_teams` (and `add_comment` / `notify_teams_recurring` when applicable) as usual. It is **mutually exclusive** with `rerun_failed_jobs` — call at most one of the two per investigation (re-run when the PR is still queued, re-add when it was dropped). A re-add request does not replace the investigation report.
 
+Whenever you decide about a re-add (whether or not you trigger one), you MUST record the outcome in both the Teams message (the `### Automatic Merge Queue Re-add` section of `notify_teams.description`) and, when a PR comment is posted, the `**Merge queue re-add**` line of the `add_comment` body. Keep both consistent with the actual `readd_to_merge_queue` call.
+
 ## Important Guidelines
 
 - **Be Thorough**: Don't just report the error - investigate the underlying cause
@@ -823,7 +756,7 @@ You **MUST** always call at least one safe output tool before finishing:
 - `notify_teams` alone — standard investigation with no identifiable PR, fewer than 3 occurrences in the last 12 hours.
 - `notify_teams` + `add_comment` — standard investigation where the failure is tied to a PR in the merge queue, **or** any `workflow_dispatch` test run (comment on PR akashchi/openvino#157 per the testing override).
 - `notify_teams` + `notify_teams_recurring` (+ `add_comment` when a PR is identified) — standard investigation AND 3+ occurrences in the last 12 hours.
-- Any of the `notify_teams` combinations above **+ `rerun_failed_jobs`** — transient failure where the PR is still in the merge queue.
+- Any of the `notify_teams` combinations above **+ `rerun_failed_jobs`** — transient failure where the PR is still in the merge queue (or no PR is associated).
 - Any of the `notify_teams` combinations above **+ `readd_to_merge_queue`** — transient failure that dropped an identifiable PR from the merge queue. Do not combine with `rerun_failed_jobs`; the two are mutually exclusive.
 - `noop` alone — no investigation needed.
 - `missing_data` alone — investigation blocked by missing data.
