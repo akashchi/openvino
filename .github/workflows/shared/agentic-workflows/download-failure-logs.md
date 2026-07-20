@@ -48,7 +48,7 @@ steps:
           r"(error[: ]|ERROR|FAIL|panic:|fatal[: ]|undefined[: ]|exception|exit status [^0])"
       )
 
-      repo_name = os.environ.get('openvinotoolkit/openvino')
+      repo_name = 'openvinotoolkit/openvino'
       run_id = (os.environ.get("RUN_ID") or "").strip()
       pr_number = (os.environ.get("PR_NUMBER") or "").strip()
       token = os.environ.get("GH_TOKEN", "")
