@@ -1,6 +1,6 @@
 {
   "schema_version": "1.0",
-  "total": 48,
+  "total": 70,
   "entries": [
     {
       "investigation_id": "2026-07-09-13-58-10-000-29022024794",
@@ -472,6 +472,216 @@
       "category": "Infrastructure",
       "signature_hash": "cc822c07e113be0a",
       "pr_number": "36931"
+    },
+    {
+      "investigation_id": "2026-07-27-12-33-21-000-30261291251",
+      "run_id": "30261291251",
+      "timestamp": "2026-07-27T12:33:21Z",
+      "title": "test_export_model_precommit fails accuracy validation for opt_gptq katuni4ka/opt-125m-gptq",
+      "category": "Code Issue",
+      "signature_hash": "671a331e9a60933e",
+      "pr_number": "37029"
+    },
+    {
+      "investigation_id": "2026-07-27-13-20-37-000-30264014436",
+      "run_id": "30264014436",
+      "run_url": "https://github.com/openvinotoolkit/openvino/actions/runs/30264014436",
+      "workflow_name": "PyTorch Models tests",
+      "timestamp": "2026-07-27T13:20:37Z",
+      "title": "test_export_model_precommit fails accuracy validation for opt_gptq katuni4ka/opt-125m-gptq",
+      "category": "Code Issue",
+      "signature_hash": "671a331e9a60933e",
+      "pr_number": "36860"
+    },
+    {
+      "investigation_id": "2026-07-27-14-02-12-000-30266971603",
+      "run_id": "30266971603",
+      "timestamp": "2026-07-27T14:02:12Z",
+      "title": "test_export_model_precommit opt_gptq fails with accuracy validation failed",
+      "category": "Code Issue",
+      "signature_hash": "671a331e9a60933e",
+      "pr_number": null
+    },
+    {
+      "investigation_id": "2026-07-27-14-34-56-000-30269464343",
+      "run_id": "30269464343",
+      "timestamp": "2026-07-27T14:34:56Z",
+      "title": "test_export_model_precommit fails accuracy validation for opt_gptq katuni4ka/opt-125m-gptq",
+      "category": "Code Issue",
+      "signature_hash": "671a331e9a60933e",
+      "pr_number": null
+    },
+    {
+      "investigation_id": "2026-07-27-14-52-39-000-30270418164",
+      "run_id": "30270418164",
+      "run_url": "https://github.com/openvinotoolkit/openvino/actions/runs/30270418164",
+      "workflow_name": "PyTorch Models tests / PyTorch Models tests",
+      "timestamp": "2026-07-27T14:52:39Z",
+      "title": "test_export_model_precommit fails accuracy validation for opt_gptq katuni4ka/opt-125m-gptq",
+      "category": "Code Issue",
+      "signature_hash": "671a331e9a60933e",
+      "pr_number": "37029"
+    },
+    {
+      "investigation_id": "2026-07-27-15-12-50-000-30275600133",
+      "run_id": "30275600133",
+      "timestamp": "2026-07-27T15:12:50Z",
+      "title": "RISC-V clang-tidy build fails - artifact upload FinalizeArtifact returns 403 Forbidden",
+      "category": "Infrastructure",
+      "signature_hash": "602c52a223d7ebfe",
+      "pr_number": "37029"
+    },
+    {
+      "investigation_id": "2026-07-27-17-13-43-000-30282134416",
+      "run_id": "30282134416",
+      "run_url": "https://github.com/openvinotoolkit/openvino/actions/runs/30282134416",
+      "workflow_name": "PyTorch Models tests",
+      "timestamp": "2026-07-27T17:13:43Z",
+      "title": "test_export_model_precommit fails accuracy validation for opt_gptq katuni4ka/opt-125m-gptq",
+      "category": "Code Issue",
+      "signature_hash": "671a331e9a60933e",
+      "pr_number": "36957"
+    },
+    {
+      "investigation_id": "2026-07-27-18-32-37-000-30287927832",
+      "run_id": "30287927832",
+      "run_url": "https://github.com/openvinotoolkit/openvino/actions/runs/30287927832",
+      "workflow_name": "PyTorch Models tests",
+      "timestamp": "2026-07-27T18:32:37Z",
+      "title": "test_export_model_precommit fails accuracy validation for opt_gptq katuni4ka/opt-125m-gptq",
+      "category": "Code Issue",
+      "signature_hash": "671a331e9a60933e",
+      "pr_number": "36957"
+    },
+    {
+      "investigation_id": "2026-07-27-19-02-00-000-30294958202",
+      "run_id": "30294958202",
+      "timestamp": "2026-07-27T19:02:00Z",
+      "title": "Windows (VS 2022, Python 3.11, Debug) failed - logs unavailable (attempt 2 already in progress)",
+      "category": "Infrastructure",
+      "signature_hash": "cc822c07e113be0a",
+      "pr_number": "35116"
+    },
+    {
+      "investigation_id": "2026-07-27-20-02-37-000-30294875333",
+      "run_id": "30294875333",
+      "timestamp": "2026-07-27T20:02:37Z",
+      "title": "test_export_model_precommit[CPU-opt_gptq] accuracy validation failed for katuni4ka/opt-125m-gptq",
+      "category": "Code Issue",
+      "signature_hash": "671a331e9a60933e",
+      "pr_number": "36957"
+    },
+    {
+      "investigation_id": "2026-07-27-21-09-54-000-30294062597",
+      "run_id": "30294062597",
+      "timestamp": "2026-07-27T21:09:54Z",
+      "title": "OPT GPTQ model export accuracy validation fails - max diff 0.069 exceeds tolerance",
+      "category": "Code Issue",
+      "signature_hash": "671a331e9a60933e",
+      "pr_number": "37029"
+    },
+    {
+      "investigation_id": "2026-07-27-21-35-29-000-30301836970",
+      "run_id": "30301836970",
+      "timestamp": "2026-07-27T21:35:29Z",
+      "title": "test_export_model_precommit opt_gptq accuracy validation failed - max diff 0.069",
+      "category": "Code Issue",
+      "signature_hash": "671a331e9a60933e",
+      "pr_number": "36957"
+    },
+    {
+      "investigation_id": "2026-07-27-22-50-38-000-30307050013",
+      "run_id": "30307050013",
+      "timestamp": "2026-07-27T22:50:38Z",
+      "title": "PyTorch LLM Model Tests step fails in PyTorch Models tests job",
+      "category": "Flaky Test",
+      "signature_hash": "e9f14463b6d39bf8",
+      "pr_number": "35116"
+    },
+    {
+      "investigation_id": "2026-07-27-23-50-30-000-30311997797",
+      "run_id": "30311997797",
+      "timestamp": "2026-07-27T23:50:30Z",
+      "title": "Linux ARM64 CPU functional tests conclude failure - job logs inaccessible (403)",
+      "category": "Infrastructure",
+      "signature_hash": "724272b6bb94e4b5",
+      "pr_number": "37040"
+    },
+    {
+      "investigation_id": "2026-07-28-00-13-15-000-30311996736",
+      "run_id": "30311996736",
+      "timestamp": "2026-07-28T00:13:15Z",
+      "title": "Windows VS2022 merge-queue run failed on attempt 1 - logs inaccessible (403)",
+      "category": "Infrastructure",
+      "signature_hash": "cc822c07e113be0a",
+      "pr_number": "37029"
+    },
+    {
+      "investigation_id": "2026-07-28-00-48-53-000-30312759752",
+      "run_id": "30312759752",
+      "timestamp": "2026-07-28T00:48:53Z",
+      "title": "Windows VS 2022 workflow failed on attempt 1 - logs inaccessible (403 secrecy policy)",
+      "category": "Infrastructure",
+      "signature_hash": "cc822c07e113be0a",
+      "pr_number": "35116"
+    },
+    {
+      "investigation_id": "2026-07-28-02-13-41-000-30320203467",
+      "run_id": "30320203467",
+      "timestamp": "2026-07-28T02:13:41Z",
+      "title": "throughput_benchmark sample crashes with ld.so DFS assertion failure",
+      "category": "Infrastructure",
+      "signature_hash": "feb1e4843edafb48",
+      "pr_number": null
+    },
+    {
+      "investigation_id": "2026-07-28-02-47-53-000-30320203454",
+      "run_id": "30320203454",
+      "timestamp": "2026-07-28T02:47:53Z",
+      "title": "PyTorch LLM Model Tests step fails in PyTorch Models tests job",
+      "category": "Flaky Test",
+      "signature_hash": "e9f14463b6d39bf8",
+      "pr_number": "35116"
+    },
+    {
+      "investigation_id": "2026-07-28-03-14-57-000-30320204236",
+      "run_id": "30320204236",
+      "timestamp": "2026-07-28T03:14:57Z",
+      "title": "JS API E2E openvino-node package (cmd) step fails on Windows",
+      "category": "Flaky Test",
+      "signature_hash": "2c5337624cd0205d",
+      "pr_number": "37029"
+    },
+    {
+      "investigation_id": "2026-07-28-03-31-54-000-30320204200",
+      "run_id": "30320204200",
+      "run_url": "https://github.com/openvinotoolkit/openvino/actions/runs/30320204200",
+      "workflow_name": "PyTorch Models tests",
+      "timestamp": "2026-07-28T03:31:54Z",
+      "title": "test_export_model_precommit fails accuracy validation for opt_gptq katuni4ka/opt-125m-gptq",
+      "category": "Code Issue",
+      "signature_hash": "671a331e9a60933e",
+      "pr_number": "37029"
+    },
+    {
+      "investigation_id": "2026-07-28-04-33-14-000-30325352936",
+      "run_id": "30325352936",
+      "run_url": "https://github.com/openvinotoolkit/openvino/actions/runs/30325352936",
+      "workflow_name": "PyTorch Models tests / PyTorch Models tests",
+      "timestamp": "2026-07-28T04:33:14Z",
+      "title": "test_export_model_precommit fails accuracy validation for opt_gptq katuni4ka/opt-125m-gptq",
+      "category": "Code Issue",
+      "signature_hash": "671a331e9a60933e",
+      "pr_number": null
+    },
+    {
+      "investigation_id": "2026-07-28-04-50-13-000-30326123523",
+      "run_id": "30326123523",
+      "timestamp": "2026-07-28T04:50:13Z",
+      "title": "test_export_model_precommit fails accuracy validation for opt_gptq katuni4ka/opt-125m-gptq",
+      "category": "Code Issue",
+      "signature_hash": "671a331e9a60933e",
+      "pr_number": "37029"
     }
   ]
 }
