@@ -24,7 +24,7 @@ steps:
   - name: Download CI failure logs
     env:
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      REPO: ${{ github.repository }}
+      REPO: 'openvinotoolkit/openvino'
       PR_NUMBER: ${{ github.event.issue.number }}
       RUN_ID: "30430242754"
     run: |
