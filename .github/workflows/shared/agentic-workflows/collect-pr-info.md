@@ -17,8 +17,8 @@ steps:
   - name: Collect PR info
     env:
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      REPO: ${{ github.repository }}
-      RUN_ID: ${{ github.event.workflow_run.id || github.event.inputs.run_id }}
+      REPO: 'openvinotoolkit/openvino'
+      RUN_ID: '30430242754'
     run: |
       export PYTHONPATH=.github/scripts/agentic-workflows/:${PYTHONPATH}
       python .github/scripts/agentic-workflows/collect_pr_info.py
