@@ -26,7 +26,7 @@ steps:
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       REPO: ${{ github.repository }}
       PR_NUMBER: ${{ github.event.issue.number }}
-      RUN_ID: "29736062377"
+      RUN_ID: "30430242754"
     run: |
       export PYTHONPATH=.github/scripts/agentic-workflows/:${PYTHONPATH}
       python .github/scripts/agentic-workflows/download_failure_logs.py
