@@ -1,0 +1,33 @@
+{
+  "schema_version": "1.0",
+  "investigation_id": "2026-07-29-07-18-34-331-30430242754",
+  "timestamp": "2026-07-29T07:18:34Z",
+  "run_id": "30430242754",
+  "run_url": "https://github.com/akashchi/openvino/actions/runs/30430242754",
+  "workflow_name": "github_actions_workflows_scan",
+  "pr_number": null,
+  "pr_url": null,
+  "author": null,
+  "category": "Configuration",
+  "title": "Semgrep detects unsafe-add-mask workflow command in 14 GitHub Actions workflow files",
+  "signature": "unsafe add mask workflow command detected in github actions workflows|Configuration",
+  "signature_hash": "f512a2eb3932d5c0",
+  "confidence": "High",
+  "failed_jobs": [
+    "github_actions_workflows_scan/semgrep"
+  ],
+  "key_errors": [
+    "Ran 11 rules on 66 files: 14 findings.",
+    "yaml.github-actions.security.audit.unsafe-add-mask-workflow-command: echo '::add-mask::${SCCACHE_AZURE_CONNECTION_STRING}' and echo '::add-mask::${MCP_GATEWAY_API_KEY}'"
+  ],
+  "root_cause": "Semgrep rule 'yaml.github-actions.security.audit.unsafe-add-mask-workflow-command' flagged 14 occurrences of 'echo ::add-mask::' usage across 13 workflow files. The rule detects that if a workflow command stop marker is injected, the add-mask command can be bypassed, leaking secrets into logs. All findings relate to SCCACHE_AZURE_CONNECTION_STRING (12 files) and MCP_GATEWAY_API_KEY (2 files - ci-doctor-mq.lock.yml and ci-doctor.lock.yml). This is a deterministic configuration/security finding that requires replacing bare echo-based masking with a more secure mechanism.",
+  "reproduction_steps": "Run: docker run --rm -v $(pwd):/src semgrep/semgrep semgrep scan --error -j 8 --config 'p/github-actions' .github/workflows/*",
+  "recommended_actions": [
+    "Replace 'echo ::add-mask::${SECRET}' with a GitHub Actions environment file approach: add the secret to $GITHUB_ENV with masking, or use the actions/core::setSecret API",
+    "For SCCACHE_AZURE_CONNECTION_STRING: replace bare echo masking with a run step that uses 'echo ::add-mask::' wrapped in stop-commands protection or migrate to a dedicated secret masking step",
+    "For MCP_GATEWAY_API_KEY in ci-doctor workflows: apply the same fix",
+    "Reference: https://docs.github.com/en/actions/using-workflows/workflow-commands-for-github-actions#masking-a-value-in-a-log"
+  ],
+  "prevention_strategies": "Add semgrep to pre-commit or PR CI checks so new workflow files with unsafe add-mask patterns are caught before merge. Document the correct masking pattern in workflow authoring guidelines.",
+  "historical_context": "No prior occurrence of this exact pattern in the CI Doctor MQ database. This is the first recorded semgrep security scan failure."
+}
