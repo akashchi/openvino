@@ -1,6 +1,6 @@
 {
   "schema_version": "1.0",
-  "total": 3,
+  "total": 4,
   "entries": [
     {
       "investigation_id": "",
@@ -24,6 +24,15 @@
       "investigation_id": "2026-07-29-07-18-34-331-30430242754",
       "run_id": "30430242754",
       "timestamp": "2026-07-29T07:18:34Z",
+      "title": "Semgrep detects unsafe-add-mask workflow command in 14 GitHub Actions workflow files",
+      "category": "Configuration",
+      "signature_hash": "f512a2eb3932d5c0",
+      "pr_number": null
+    },
+    {
+      "investigation_id": "2026-07-29-08-24-14-035-30430242754",
+      "run_id": "30430242754",
+      "timestamp": "2026-07-29T08:24:14Z",
       "title": "Semgrep detects unsafe-add-mask workflow command in 14 GitHub Actions workflow files",
       "category": "Configuration",
       "signature_hash": "f512a2eb3932d5c0",

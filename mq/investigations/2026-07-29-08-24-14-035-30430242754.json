@@ -1,0 +1,36 @@
+{
+  "schema_version": "1.0",
+  "investigation_id": "2026-07-29-08-24-14-035-30430242754",
+  "timestamp": "2026-07-29T08:24:14Z",
+  "run_id": "30430242754",
+  "run_url": "https://github.com/akashchi/openvino/actions/runs/30430242754",
+  "workflow_name": "github_actions_workflows_scan",
+  "pr_number": null,
+  "pr_url": null,
+  "author": null,
+  "category": "Configuration",
+  "title": "Semgrep detects unsafe-add-mask workflow command in 14 GitHub Actions workflow files",
+  "signature": "unsafe add mask workflow command detected in github actions workflows|Configuration",
+  "signature_hash": "f512a2eb3932d5c0",
+  "confidence": "High",
+  "failed_jobs": [
+    {
+      "name": "github_actions_workflows_scan/semgrep",
+      "conclusion": "failure",
+      "symptom": "Semgrep found 14 blocking findings (unsafe-add-mask-workflow-command) across 13 workflow files"
+    }
+  ],
+  "key_errors": [
+    "yaml.github-actions.security.audit.unsafe-add-mask-workflow-command: echo '::add-mask::${SCCACHE_AZURE_CONNECTION_STRING}' flagged in android.yml:146, build_doc.yml:131, ubuntu_22.yml:534, manylinux_2_28.yml:137, webassembly.yml:118 and others",
+    "Ran 11 rules on 66 files: 14 findings. Process completed with exit code 1."
+  ],
+  "root_cause": "Semgrep rule 'yaml.github-actions.security.audit.unsafe-add-mask-workflow-command' flagged 14 occurrences of bare 'echo ::add-mask::' usage across 13 workflow files. The masking can be bypassed by injecting 'echo ::stop-commands::' before the add-mask line, leaking secrets (SCCACHE_AZURE_CONNECTION_STRING and MCP_GATEWAY_API_KEY) into logs. This is a deterministic configuration/security finding — no rerun will fix it.",
+  "reproduction_steps": "docker run --rm -v $(pwd):/src semgrep/semgrep semgrep scan --error -j 8 --config 'p/github-actions' .github/workflows/*",
+  "recommended_actions": [
+    "Replace bare 'echo ::add-mask::${SECRET}' with a stop-commands-protected wrapper: echo '::stop-commands::end_add_mask' / echo '::add-mask::${SECRET}' / echo '::end_add_mask::'",
+    "Apply fix to all 13 affected workflow files (android.yml, build_doc.yml, ubuntu_22.yml, manylinux_2_28.yml, webassembly.yml, ci-doctor-mq.lock.yml, ci-doctor.lock.yml and others)",
+    "Reference: https://docs.github.com/en/actions/using-workflows/workflow-commands-for-github-actions#masking-a-value-in-a-log"
+  ],
+  "prevention_strategies": "Add semgrep pre-commit check to catch unsafe masking patterns in new workflow files before merge.",
+  "historical_context": "First recorded in investigation 2026-07-29-07-18-34-331-30430242754. Same run, same 14 findings. Pattern count now 2."
+}

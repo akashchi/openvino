@@ -4,11 +4,11 @@
   "signature_hash": "f512a2eb3932d5c0",
   "title": "Semgrep detects unsafe-add-mask workflow command in 14 GitHub Actions workflow files",
   "category": "Configuration",
-  "count": 1,
+  "count": 2,
   "first_seen": "2026-07-29T07:18:34Z",
-  "last_seen": "2026-07-29T07:18:34Z",
+  "last_seen": "2026-07-29T08:24:14Z",
   "recent_run_urls": ["https://github.com/akashchi/openvino/actions/runs/30430242754"],
   "affected_prs": [],
-  "recent_timestamps": ["2026-07-29T07:18:34Z"],
+  "recent_timestamps": ["2026-07-29T08:24:14Z", "2026-07-29T07:18:34Z"],
   "rerun_search_string": null
 }
