@@ -1,6 +1,6 @@
 {
   "schema_version": "1.0",
-  "total": 70,
+  "total": 87,
   "entries": [
     {
       "investigation_id": "2026-07-09-13-58-10-000-29022024794",
@@ -682,6 +682,173 @@
       "category": "Code Issue",
       "signature_hash": "671a331e9a60933e",
       "pr_number": "37029"
+    },
+    {
+      "investigation_id": "2026-07-28-06-11-25-000-30329778351",
+      "run_id": "30329778351",
+      "timestamp": "2026-07-28T06:11:25Z",
+      "title": "PyTorch LLM model accuracy validation fails for katuni4ka/opt-125m-gptq on CPU",
+      "category": "Code Issue",
+      "signature_hash": "671a331e9a60933e",
+      "pr_number": "36894"
+    },
+    {
+      "investigation_id": "2026-07-28-06-48-38-000-30331659250",
+      "run_id": "30331659250",
+      "run_url": "https://github.com/openvinotoolkit/openvino/actions/runs/30331659250",
+      "workflow_name": "Linux (Ubuntu 22.04, Python 3.11)",
+      "timestamp": "2026-07-28T06:48:38Z",
+      "title": "PyTorch LLM Model Tests step fails in PyTorch Models tests job",
+      "category": "Flaky Test",
+      "signature_hash": "e9f14463b6d39bf8",
+      "pr_number": null
+    },
+    {
+      "investigation_id": "2026-07-28-07-32-00-000-30331659250b",
+      "run_id": "30331659250",
+      "run_url": "https://github.com/openvinotoolkit/openvino/actions/runs/30331659250",
+      "workflow_name": "Linux (Ubuntu 22.04, Python 3.11)",
+      "timestamp": "2026-07-28T07:32:00Z",
+      "title": "OPT GPTQ model export accuracy validation failed in PyTorch LLM tests",
+      "category": "Code Issue",
+      "signature_hash": "671a331e9a60933e",
+      "pr_number": null
+    },
+    {
+      "investigation_id": "2026-07-28-07-48-23-000-30334713492",
+      "run_id": "30334713492",
+      "run_url": "https://github.com/openvinotoolkit/openvino/actions/runs/30334713492",
+      "workflow_name": "PyTorch Models tests",
+      "timestamp": "2026-07-28T07:48:23Z",
+      "title": "test_export_model_precommit fails accuracy validation for opt_gptq katuni4ka/opt-125m-gptq",
+      "category": "Code Issue",
+      "signature_hash": "671a331e9a60933e",
+      "pr_number": "37020"
+    },
+    {
+      "investigation_id": "2026-07-28-08-12-20-000-30336408463",
+      "run_id": "30336408463",
+      "timestamp": "2026-07-28T08:12:20Z",
+      "title": "test_export_model_precommit fails accuracy validation for opt_gptq katuni4ka/opt-125m-gptq",
+      "category": "Code Issue",
+      "signature_hash": "671a331e9a60933e",
+      "pr_number": "35116"
+    },
+    {
+      "investigation_id": "2026-07-28-09-30-41-000-30340994709",
+      "run_id": "30340994709",
+      "run_url": "https://github.com/openvinotoolkit/openvino/actions/runs/30340994709",
+      "workflow_name": "Linux (Ubuntu 22.04, Python 3.11)",
+      "timestamp": "2026-07-28T09:30:41Z",
+      "title": "test_export_model_precommit[CPU-opt_gptq-katuni4ka/opt-125m-gptq] accuracy validation failed",
+      "category": "Code Issue",
+      "signature_hash": "671a331e9a60933e",
+      "pr_number": "37020"
+    },
+    {
+      "investigation_id": "2026-07-28-11-01-06-000-30346547405",
+      "run_id": "30346547405",
+      "timestamp": "2026-07-28T11:01:06Z",
+      "title": "test_export_model_precommit fails accuracy validation for opt_gptq katuni4ka/opt-125m-gptq",
+      "category": "Code Issue",
+      "signature_hash": "671a331e9a60933e",
+      "pr_number": null
+    },
+    {
+      "investigation_id": "2026-07-28-11-15-51-175-30351149892",
+      "run_id": "30351149892",
+      "timestamp": "2026-07-28T11:15:51Z",
+      "title": "Linux ARM64 workflow logs unavailable for attempt 1 - re-run already completed on attempt 2",
+      "category": "Infrastructure",
+      "signature_hash": "44dec04115b12f89",
+      "pr_number": "36955"
+    },
+    {
+      "investigation_id": "2026-07-28-11-54-01-000-30350620904",
+      "run_id": "30350620904",
+      "timestamp": "2026-07-28T11:54:01Z",
+      "title": "OPT-GPTQ model export accuracy validation fails - max diff 0.069 exceeds threshold",
+      "category": "Code Issue",
+      "signature_hash": "671a331e9a60933e",
+      "pr_number": "37071"
+    },
+    {
+      "investigation_id": "2026-07-28-12-10-56-000-30356506123",
+      "run_id": "30356506123",
+      "timestamp": "2026-07-28T12:10:56Z",
+      "title": "RISC-V Build (RVV 1.0) CMake configure step fails - logs inaccessible, likely transient runner failure",
+      "category": "Infrastructure",
+      "signature_hash": "eb524e8027ac9d8f",
+      "pr_number": "36955"
+    },
+    {
+      "investigation_id": "2026-07-28-12-39-00-000-30353712127",
+      "run_id": "30353712127",
+      "timestamp": "2026-07-28T12:39:00Z",
+      "title": "JS API E2E Electron cleanup fails on Windows - Permission denied removing locked electron.exe/dll",
+      "category": "Flaky Test",
+      "signature_hash": "85df26485ff568d8",
+      "pr_number": "36937"
+    },
+    {
+      "investigation_id": "2026-07-28-13-28-07-000-30357349840",
+      "run_id": "30357349840",
+      "timestamp": "2026-07-28T13:28:07Z",
+      "title": "Windows VS 2022 workflow logs unavailable - run re-queued automatically on attempt 2",
+      "category": "Infrastructure",
+      "signature_hash": "cc822c07e113be0a",
+      "pr_number": "36860"
+    },
+    {
+      "investigation_id": "2026-07-28-14-11-02-332-30356512752",
+      "run_id": "30356512752",
+      "run_url": "https://github.com/openvinotoolkit/openvino/actions/runs/30356512752",
+      "workflow_name": "Conformance (OP)",
+      "timestamp": "2026-07-28T14:11:02Z",
+      "title": "Conformance (OP) Pack Artifacts fails - tar file changed as we read it",
+      "category": "Configuration",
+      "signature_hash": "c0643d23262bbd29",
+      "pr_number": null
+    },
+    {
+      "investigation_id": "2026-07-28-14-49-03-000-30366211388",
+      "run_id": "30366211388",
+      "timestamp": "2026-07-28T14:49:03Z",
+      "title": "Linux ARM64 workflow logs unavailable for attempt 1 - re-run already completed on attempt 2",
+      "category": "Infrastructure",
+      "signature_hash": "44dec04115b12f89",
+      "pr_number": "37071"
+    },
+    {
+      "investigation_id": "2026-07-28-15-21-49-000-30366218837",
+      "run_id": "30366218837",
+      "run_url": "https://github.com/openvinotoolkit/openvino/actions/runs/30366218837",
+      "workflow_name": "Windows (VS 2022, Python 3.11, Release)",
+      "timestamp": "2026-07-28T15:21:49Z",
+      "title": "benchmark_app crashes with STATUS_ACCESS_VIOLATION on Windows in test_benchmark_app_no_warmup_with_api_modes[async-CPU-Python]",
+      "category": "Flaky Test",
+      "signature_hash": "d94e7bf016670e8e",
+      "pr_number": "36949"
+    },
+    {
+      "investigation_id": "2026-07-28-18-19-23-000-30383729028",
+      "run_id": "30383729028",
+      "timestamp": "2026-07-28T18:19:23Z",
+      "title": "Linux ARM64 CPU functional tests job fails - logs inaccessible (exit code 255)",
+      "category": "Infrastructure",
+      "signature_hash": "724272b6bb94e4b5",
+      "pr_number": "35116"
+    },
+    {
+      "investigation_id": "2026-07-29-05-16-02-000-30423049570",
+      "run_id": "30423049570",
+      "run_url": "https://github.com/openvinotoolkit/openvino/actions/runs/30423049570",
+      "workflow_name": "Linux (Ubuntu 24.04, Python 3.12)",
+      "timestamp": "2026-07-29T05:16:02Z",
+      "title": "Build job fails on Upload OpenVINO developer and tests package artifact upload steps",
+      "category": "Infrastructure",
+      "signature_hash": "589cf8a9d8ff0cf3",
+      "pr_number": null
     }
   ]
 }
