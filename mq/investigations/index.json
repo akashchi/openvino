@@ -1,6 +1,6 @@
 {
   "schema_version": "1.0",
-  "total": 87,
+  "total": 91,
   "entries": [
     {
       "investigation_id": "2026-07-09-13-58-10-000-29022024794",
@@ -849,6 +849,46 @@
       "category": "Infrastructure",
       "signature_hash": "589cf8a9d8ff0cf3",
       "pr_number": null
+    },
+    {
+      "investigation_id": "2026-07-29-07-16-54-000-30428294996",
+      "run_id": "30428294996",
+      "timestamp": "2026-07-29T07:16:54Z",
+      "title": "Windows VS 2022 workflow logs unavailable - run re-queued automatically on attempt 2",
+      "category": "Infrastructure",
+      "signature_hash": "cc822c07e113be0a",
+      "pr_number": "37067"
+    },
+    {
+      "investigation_id": "2026-07-29-08-28-05-000-30430085622",
+      "run_id": "30430085622",
+      "run_url": "https://github.com/openvinotoolkit/openvino/actions/runs/30430085622",
+      "workflow_name": "Linux (Ubuntu 22.04, Python 3.11)",
+      "timestamp": "2026-07-29T08:28:05Z",
+      "title": "test_export_model_precommit fails accuracy validation for opt_gptq katuni4ka/opt-125m-gptq",
+      "category": "Code Issue",
+      "signature_hash": "671a331e9a60933e",
+      "pr_number": "37079"
+    },
+    {
+      "investigation_id": "2026-07-29-09-30-40-000-30435558411",
+      "run_id": "30435558411",
+      "timestamp": "2026-07-29T09:30:40Z",
+      "title": "Linux ARM64 cross-compilation workflow logs unavailable - attempt 1 failed, attempt 2 in progress",
+      "category": "Infrastructure",
+      "signature_hash": "44dec04115b12f89",
+      "pr_number": "36970"
+    },
+    {
+      "investigation_id": "2026-07-29-15-33-49-000-30459307602",
+      "run_id": "30459307602",
+      "run_url": "https://github.com/openvinotoolkit/openvino/actions/runs/30459307602",
+      "workflow_name": "Linux (Ubuntu 22.04, Python 3.11)",
+      "timestamp": "2026-07-29T15:33:49Z",
+      "title": "PyTorch LLM export test fails accuracy validation for katuni4ka/opt-125m-gptq on CPU",
+      "category": "Code Issue",
+      "signature_hash": "671a331e9a60933e",
+      "pr_number": "37079"
     }
   ]
 }
