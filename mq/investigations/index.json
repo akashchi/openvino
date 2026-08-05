@@ -1,6 +1,6 @@
 {
   "schema_version": "1.0",
-  "total": 97,
+  "total": 103,
   "entries": [
     {
       "investigation_id": "2026-07-09-13-58-10-000-29022024794",
@@ -951,6 +951,68 @@
       "category": "Flaky Test",
       "signature_hash": "85df26485ff568d8",
       "pr_number": "37035"
+    },
+    {
+      "investigation_id": "2026-08-04-10-07-00-000-30891410624",
+      "run_id": "30891410624",
+      "run_url": "https://github.com/openvinotoolkit/openvino/actions/runs/30891410624",
+      "workflow_name": "Windows (VS 2022, Python 3.11, Release)",
+      "timestamp": "2026-08-04T10:07:00Z",
+      "title": "CachingTest.LoadMultiWithConfig_race import_model called 4 times instead of expected 5",
+      "category": "Flaky Test",
+      "signature_hash": "43e136cf67333978",
+      "pr_number": "37187"
+    },
+    {
+      "investigation_id": "2026-08-04-10-56-58-000-30897513327",
+      "run_id": "30897513327",
+      "run_url": "https://github.com/openvinotoolkit/openvino/actions/runs/30897513327",
+      "workflow_name": "Windows (VS 2022, Python 3.11, Release)",
+      "timestamp": "2026-08-04T10:56:58Z",
+      "title": "JS API E2E Electron cleanup fails on Windows - Permission denied removing d3dcompiler_47.dll",
+      "category": "Flaky Test",
+      "signature_hash": "85df26485ff568d8",
+      "pr_number": "37218"
+    },
+    {
+      "investigation_id": "2026-08-04-13-10-23-000-30904967401",
+      "run_id": "30904967401",
+      "run_url": "https://github.com/openvinotoolkit/openvino/actions/runs/30904967401",
+      "workflow_name": "Windows (VS 2022, Python 3.11, Release)",
+      "timestamp": "2026-08-04T13:10:23Z",
+      "title": "CachingTest LoadMultiWithConfig_race import_model call count mismatch on Windows",
+      "category": "Flaky Test",
+      "signature_hash": "43e136cf67333978",
+      "pr_number": "36684"
+    },
+    {
+      "investigation_id": "2026-08-04-16-43-22-000-30929282397",
+      "run_id": "30929282397",
+      "run_url": "https://github.com/openvinotoolkit/openvino/actions/runs/30929282397",
+      "workflow_name": "Windows (VS 2022, Python 3.11, Release)",
+      "timestamp": "2026-08-04T16:43:22Z",
+      "title": "Windows VS 2022 CMake configure step fails transiently on AKS runner",
+      "category": "Infrastructure",
+      "signature_hash": "e96b5a03078ae1df",
+      "pr_number": "35941"
+    },
+    {
+      "investigation_id": "2026-08-04-17-46-16-000-30928353875",
+      "run_id": "30928353875",
+      "timestamp": "2026-08-04T17:46:16Z",
+      "title": "CachingTest LoadMultiWithConfig_race import_model call count mismatch",
+      "category": "Flaky Test",
+      "signature_hash": "43e136cf67333978",
+      "pr_number": "37197"
+    },
+    {
+      "investigation_id": "2026-08-05-01-22-56-000-30960246250",
+      "run_id": "30960246250",
+      "timestamp": "2026-08-05T01:22:56Z",
+      "title": "CachingTest TearDown fails - file locked by another process on Windows runner",
+      "category": "Flaky Test",
+      "signature_hash": "1bf590cbb88911b2",
+      "pr_number": "37209"
     }
   ]
 }
