@@ -126,6 +126,9 @@ them — see below):
   only `ci-doctor-mq` writes to it.
 - **Secrets** — new Teams/queue-style behavior may need dedicated secrets (e.g. `TEAMS_WEBHOOK_URL`,
   `MERGE_QUEUE_TOKEN`); the default `GITHUB_TOKEN` cannot re-trigger `merge_group` runs.
+- **Metrics DB access** (`ci-doctor-mq`) — a safe-output job that writes to the Grafana metrics Postgres
+  DB (e.g. `record-investigation-db`) must set `runs-on: aks-linux-small` (only that runner can reach
+  the DB) and use the `METRICS_DATABASE_*` secrets mapped to `PG*` env, matching `workflow_rerunner`.
 
 ## Skill self-improvement
 

@@ -223,6 +223,7 @@ inputs, permissions, or step wiring, edit the shared `.md` and recompile.
 | [`notify-teams-recurring.md`](../../../../.github/workflows/shared/agentic-workflows/notify-teams-recurring.md) | Safe-output job | MQ | Send a recurring-failure escalation alert to Teams. |
 | [`rerun-failed-jobs.md`](../../../../.github/workflows/shared/agentic-workflows/rerun-failed-jobs.md) | Safe-output job | MQ | Re-run only the failed jobs of the analysed run (transient failures). |
 | [`readd-to-merge-queue.md`](../../../../.github/workflows/shared/agentic-workflows/readd-to-merge-queue.md) | Safe-output job | MQ | Re-add a dropped PR to the merge queue (transient failures). |
+| [`record-investigation-db.md`](../../../../.github/workflows/shared/agentic-workflows/record-investigation-db.md) | Safe-output job | MQ | Record an investigation summary row to the Grafana metrics database (runs on `aks-linux-small`). |
 
 **`download-failure-logs.md`** is a *step* fragment (it has no `on:` trigger). It auto-detects its mode
 from the environment: **run mode** (`RUN_ID` set) analyses a single run; **PR mode** (`PR_NUMBER` set)
@@ -247,6 +248,15 @@ that already has more than one attempt.
 queue via `gh pr merge` using the `MERGE_QUEUE_TOKEN` secret (the default `GITHUB_TOKEN` cannot
 re-trigger `merge_group` check runs). It is idempotent and loop-safe: it skips PRs that are merged,
 closed, draft, or already carry the CI Doctor re-add marker comment.
+
+**`record-investigation-db.md`** defines the `record-investigation-db` job, which runs on the
+`aks-linux-small` runner (the only runner with access to the metrics database). It reads the agent's
+`record_investigation_db` item and inserts one row into the `ci_doctor_mq_investigations` table of the
+Grafana-connected metrics Postgres database (the same database the `workflow_rerunner` writes to), so
+investigations can be dashboarded. The table is created on demand via `CREATE TABLE IF NOT EXISTS`. The
+CI Doctor run URL and the links to the persisted investigation/pattern files are derived by the job from
+the workflow context, so the agent only supplies the failure `signature`, `investigation_id`, and
+`signature_hash`.
 
 ## Setup and infrastructure
 
@@ -328,6 +338,7 @@ only the narrow permission it needs. The workflows rely on the following secrets
 | `TEAMS_WEBHOOK_URL` | `notify-teams`, `notify-teams-recurring` | Microsoft Teams incoming webhook. |
 | `MERGE_QUEUE_TOKEN` | `readd-to-merge-queue` | PAT / App token with `contents: write` + `pull_requests: write` to re-queue a PR (the default token cannot re-trigger `merge_group` runs). |
 | `GITHUB_TOKEN` | log download, `rerun-failed-jobs` | Standard GitHub API access. |
+| `METRICS_DATABASE_HOST` / `METRICS_DATABASE_USERNAME` / `METRICS_DATABASE_PASSWORD` / `METRICS_DATABASE_NAME` | `record-investigation-db` | Connection details for the Grafana metrics Postgres database (shared with `workflow_rerunner`). |
 
 ## Maintaining the workflows
 

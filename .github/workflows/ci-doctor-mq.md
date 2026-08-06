@@ -51,6 +51,7 @@ imports:
   - shared/agentic-workflows/notify-teams-recurring.md
   - shared/agentic-workflows/rerun-failed-jobs.md
   - shared/agentic-workflows/readd-to-merge-queue.md
+  - shared/agentic-workflows/record-investigation-db.md
 
 safe-outputs:
   add-comment:
@@ -451,13 +452,14 @@ ELSE:
    - Send a Microsoft Teams notification with the investigation results (see Output Requirements below)
    - When the failure is associated with a PR in the merge queue, post a remediation comment on that PR with the failed pipeline name/link, a short failure description, and a short possible remedy (see `add_comment` field guidance below)
    - When the investigation concludes the failure is transient, decide between two mutually exclusive remedies based on whether the PR is still in the merge queue: if the PR is **still in the queue** (or there is no associated PR), request a re-run of only the failed jobs (see `rerun_failed_jobs` decision guidance below); if the PR has been **dropped from the queue**, a re-run would not help it merge, so request that the PR be re-added to the merge queue instead (see `readd_to_merge_queue` decision guidance below)
+   - Record a summary of the investigation to the CI Doctor MQ metrics database by calling `record_investigation_db` exactly once (see `record_investigation_db` field guidance below)
    - Provide specific file locations and line numbers for fixes
    - Suggest code changes or configuration updates
 
 ### Phase 7: Output Format Validation (MANDATORY before any safe-output call)
 
 You MUST validate and normalise the payload
-before calling `notify_teams` or `notify_teams_recurring`.
+before calling `notify_teams`, `notify_teams_recurring`, or `record_investigation_db`.
 
 **Every numeric-looking field in these tools is declared as `type: string` and
 MUST be passed as a JSON string, not a JSON number.** Wrap the value in quotes.
@@ -487,6 +489,14 @@ MUST be passed as a JSON string, not a JSON number.** Wrap the value in quotes.
    - `title`, `failed_workflow`, `pipeline_url`, `description`,
      `affected_prs`, `recent_run_urls` — non-empty strings
    - `recent_count` — string-encoded positive integer, e.g. `"3"` (NOT `3`)
+
+   For `record_investigation_db`:
+   - `run_id` — string-encoded integer, e.g. `"12345"` (NOT `12345`)
+   - `restarted`, `readded_to_merge_queue`, `comment_created` —
+     string-encoded booleans, exactly `"true"` or `"false"` (NOT `true`/`false`)
+   - `pipeline_url`, `workflow_name`, `failed_job_names`, `category`,
+     `signature`, `investigation_id`, `signature_hash` — non-empty strings
+   - `pr_url` — when provided, string
 
 3. **Normalization rule**: if you computed any of the numeric fields as an
    integer (e.g., `count` read from a pattern file, a file count, or a PR number
@@ -722,7 +732,27 @@ This tool is independent of the notifications: still call `notify_teams` (and `a
 
 Whenever you decide about a re-add (whether or not you trigger one), you MUST record the outcome in both the Teams message (the `### Automatic Merge Queue Re-add` section of `notify_teams.description`) and, when a PR comment is posted, the `**Merge queue re-add**` line of the `add_comment` body. Keep both consistent with the actual `readd_to_merge_queue` call.
 
-## Important Guidelines
+### `record_investigation_db` field guidance
+
+Call the `record_investigation_db` safe-output tool **exactly once** at the very end of every actionable investigation — i.e. whenever you wrote an investigation record and pattern file in Phase 5. It inserts one row summarising the investigation into the CI Doctor MQ metrics database so investigations can be dashboarded in Grafana. Do **NOT** call it on the `noop` / `missing_data` paths (there is no investigation to record). It is independent of the notifications: still call `notify_teams` (and the other safe outputs when applicable) as usual.
+
+Populate the fields from the investigation you already produced. The `ci_doctor_run_url` and the links to the investigation/pattern files are derived by the job itself, so you do not pass them.
+
+- **`run_id`** (required) — Numeric ID of the analysed failed run (`${{ github.event.workflow_run.id }}` for merge-queue triggers, or the `run_id` input for `workflow_dispatch`). Numeric string.
+- **`repository`** (optional) — `owner/repo` of the analysed run. Omit to default to the current repository.
+- **`pipeline_url`** (required) — Same value as `notify_teams.pipeline_url` (URL of the failed run analysed).
+- **`workflow_name`** (required) — Same value as `notify_teams.failed_workflow`.
+- **`failed_job_names`** (required) — Comma-separated list of every failed job in the analysed run (e.g. `Build, Python unit tests`).
+- **`pr_url`** (optional) — Same value as `notify_teams.pr_url`. Omit when no PR is associated.
+- **`restarted`** (required) — `"true"` if you called `rerun_failed_jobs`, otherwise `"false"`. String-encoded boolean.
+- **`readded_to_merge_queue`** (required) — `"true"` if you called `readd_to_merge_queue`, otherwise `"false"`. String-encoded boolean.
+- **`comment_created`** (required) — `"true"` if you called `add_comment`, otherwise `"false"`. String-encoded boolean.
+- **`category`** (required) — The failure category (one of the seven categories), same as the investigation record.
+- **`signature`** (required) — The `<normalized-error>|<category>` signature string from Phase 5 step 2.
+- **`investigation_id`** (required) — The investigation file name without extension (`<timestamp>-<run-id>`), same as written under `investigations/`.
+- **`signature_hash`** (required) — The pattern file name without extension (`<signature-hash>`), same as written under `patterns/`.
+
+
 
 - **Be Thorough**: Don't just report the error - investigate the underlying cause
 - **Use Memory**: Always check for similar past failures and learn from them
@@ -738,7 +768,9 @@ Whenever you decide about a re-add (whether or not you trigger one), you MUST re
 
 **Before calling any safe output tool, run the Phase 7 Output Format Validation
 checklist.** All numeric-looking fields (`pr_number`, `db_entries`,
-`occurrence_count`, `recent_count`) MUST be passed as JSON strings, not numbers.
+`occurrence_count`, `recent_count`, `run_id`) MUST be passed as JSON strings, not
+numbers, and the `record_investigation_db` boolean fields (`restarted`,
+`readded_to_merge_queue`, `comment_created`) MUST be the strings `"true"`/`"false"`.
 
 You **MUST** always call at least one safe output tool before finishing:
 
@@ -747,15 +779,18 @@ You **MUST** always call at least one safe output tool before finishing:
 - **`add_comment`**: Post a remediation comment on the affected merge-queue PR. Call this **only** when the failure is associated with a PR (provide `item_number` and `body`). Call at most once per run.
 - **`rerun_failed_jobs`**: Re-run only the failed jobs of the analysed run. Call this **only** when the failure is transient AND the PR is still in the merge queue (or no PR is associated). Mutually exclusive with `readd_to_merge_queue` (see `rerun_failed_jobs` decision guidance). Call at most once per run.
 - **`readd_to_merge_queue`**: Re-add the affected PR to the merge queue. Call this **only** when the failure is transient AND the PR was dropped from the queue. Mutually exclusive with `rerun_failed_jobs` (see `readd_to_merge_queue` decision guidance). Call at most once per run.
+- **`record_investigation_db`**: Record a summary of the investigation to the CI Doctor MQ metrics database. Call this **exactly once** on every actionable investigation (whenever an investigation record and pattern were produced in Phase 5). Do NOT call it on `noop` / `missing_data` paths.
 - **`noop`**: When no action is needed (e.g., CI was successful, not a merge-queue run, no failure to investigate).
 - **`missing_data`**: When you cannot gather the information needed to complete the investigation.
 
 **Valid call combinations:**
+- Every actionable investigation calls `record_investigation_db` exactly once, in addition to the notification combinations below. It is only omitted on the `noop` / `missing_data` paths.
 - `notify_teams` alone — standard investigation with no identifiable PR, fewer than 3 occurrences in the last 12 hours.
 - `notify_teams` + `add_comment` — standard investigation where the failure is tied to a PR in the merge queue.
 - `notify_teams` + `notify_teams_recurring` (+ `add_comment` when a PR is identified) — standard investigation AND 3+ occurrences in the last 12 hours.
 - Any of the `notify_teams` combinations above **+ `rerun_failed_jobs`** — transient failure where the PR is still in the merge queue (or no PR is associated).
 - Any of the `notify_teams` combinations above **+ `readd_to_merge_queue`** — transient failure that dropped an identifiable PR from the merge queue. Do not combine with `rerun_failed_jobs`; the two are mutually exclusive.
+- Every combination above **+ `record_investigation_db`** — always recorded once per actionable investigation.
 - `noop` alone — no investigation needed.
 - `missing_data` alone — investigation blocked by missing data.
 
