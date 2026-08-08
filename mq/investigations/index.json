@@ -1,6 +1,6 @@
 {
   "schema_version": "1.0",
-  "total": 111,
+  "total": 117,
   "entries": [
     {
       "investigation_id": "2026-07-09-13-58-10-000-29022024794",
@@ -1089,6 +1089,62 @@
       "category": "Infrastructure",
       "signature_hash": "e96b5a03078ae1df",
       "pr_number": "37181"
+    },
+    {
+      "investigation_id": "2026-08-07-11-59-02-000-31174378977",
+      "run_id": "31174378977",
+      "timestamp": "2026-08-07T11:59:02Z",
+      "title": "smoke_Conv1x1WeightCompressedToMatmul CPU functional test fails with comparison failure",
+      "category": "Code Issue",
+      "signature_hash": "4975bf8755e5f7c4",
+      "pr_number": "37141"
+    },
+    {
+      "investigation_id": "2026-08-07-12-34-58-000-31176442700",
+      "run_id": "31176442700",
+      "timestamp": "2026-08-07T12:34:58Z",
+      "title": "smoke_Conv1x1WeightCompressedToMatmul CPU functional test fails with comparison failure",
+      "category": "Code Issue",
+      "signature_hash": "4975bf8755e5f7c4",
+      "pr_number": "36921"
+    },
+    {
+      "investigation_id": "2026-08-07-14-19-30-000-31183760448",
+      "run_id": "31183760448",
+      "timestamp": "2026-08-07T14:19:30Z",
+      "title": "smoke_Conv1x1WeightCompressedToMatmul fails with numerical mismatch on ARM64 CPU",
+      "category": "Code Issue",
+      "signature_hash": "c35119874bc44dbb",
+      "pr_number": "36745"
+    },
+    {
+      "investigation_id": "2026-08-07-14-34-08-545-31180798488",
+      "run_id": "31180798488",
+      "run_url": "https://github.com/openvinotoolkit/openvino/actions/runs/31180798488",
+      "workflow_name": "Windows (VS 2022, Python 3.11, Release)",
+      "timestamp": "2026-08-07T14:34:08Z",
+      "title": "JS API E2E of openvino-node package fails on Windows (Node 26)",
+      "category": "Flaky Test",
+      "signature_hash": "4d65f509ca436814",
+      "pr_number": "37225"
+    },
+    {
+      "investigation_id": "2026-08-07-15-20-05-000-31187877559",
+      "run_id": "31187877559",
+      "timestamp": "2026-08-07T15:20:05Z",
+      "title": "smoke_Conv1x1WeightCompressedToMatmul and Samples tests fail on ARM64 (unrelated to PR)",
+      "category": "Code Issue",
+      "signature_hash": "4975bf8755e5f7c4",
+      "pr_number": "36189"
+    },
+    {
+      "investigation_id": "2026-08-08-01-04-42-000-31231244014",
+      "run_id": "31231244014",
+      "timestamp": "2026-08-08T01:04:42Z",
+      "title": "Android CMake configure fails: MODULE_LIBRARY plugins cannot be linked via ov_generate_plugins_hpp",
+      "category": "Code Issue",
+      "signature_hash": "9ff022172665aa06",
+      "pr_number": "37304"
     }
   ]
 }
