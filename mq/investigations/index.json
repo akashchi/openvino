@@ -1,6 +1,6 @@
 {
   "schema_version": "1.0",
-  "total": 123,
+  "total": 130,
   "entries": [
     {
       "investigation_id": "2026-07-09-13-58-10-000-29022024794",
@@ -1207,6 +1207,71 @@
       "category": "Infrastructure",
       "signature_hash": "522aa4df96cd506a",
       "pr_number": "37211"
+    },
+    {
+      "investigation_id": "2026-08-09-15-59-20-000-31321996989",
+      "run_id": "31321996989",
+      "timestamp": "2026-08-09T15:59:20Z",
+      "title": "Android CMake configure fails: MODULE_LIBRARY plugins cannot be linked as targets",
+      "category": "Code Issue",
+      "signature_hash": "9ff022172665aa06",
+      "pr_number": "37211"
+    },
+    {
+      "investigation_id": "2026-08-10-01-27-59-000-31346588247",
+      "run_id": "31346588247",
+      "timestamp": "2026-08-10T01:27:59Z",
+      "title": "Android CMake configure fails: MODULE_LIBRARY plugins cannot be linked via ov_generate_plugins_hpp",
+      "category": "Code Issue",
+      "signature_hash": "9ff022172665aa06",
+      "pr_number": "37056"
+    },
+    {
+      "investigation_id": "2026-08-10-02-35-09-000-31349537161",
+      "run_id": "31349537161",
+      "timestamp": "2026-08-10T02:35:09Z",
+      "title": "Android CMake configure fails: plugin MODULE_LIBRARY targets cannot be linked",
+      "category": "Code Issue",
+      "signature_hash": "9ff022172665aa06",
+      "pr_number": "37064"
+    },
+    {
+      "investigation_id": "2026-08-10-03-04-06-000-31349537487",
+      "run_id": "31349537487",
+      "timestamp": "2026-08-10T03:04:06Z",
+      "title": "CPU functional tests on ARM64 interrupted - suite count mismatch in parallel runner",
+      "category": "Flaky Test",
+      "signature_hash": "16d4ac149e87a952",
+      "pr_number": "37064"
+    },
+    {
+      "investigation_id": "2026-08-10-03-29-48-000-31352073292",
+      "run_id": "31352073292",
+      "run_url": "https://github.com/openvinotoolkit/openvino/actions/runs/31352073292",
+      "workflow_name": "Android",
+      "timestamp": "2026-08-10T03:29:48Z",
+      "title": "Android CMake configure fails: MODULE_LIBRARY plugins cannot be linked via ov_generate_plugins_hpp",
+      "category": "Code Issue",
+      "signature_hash": "9ff022172665aa06",
+      "pr_number": "37064"
+    },
+    {
+      "investigation_id": "2026-08-10-03-44-31-000-31352885426",
+      "run_id": "31352885426",
+      "timestamp": "2026-08-10T03:44:31Z",
+      "title": "Android CMake configure fails: MODULE_LIBRARY plugins cannot be linked via ov_generate_plugins_hpp",
+      "category": "Code Issue",
+      "signature_hash": "9ff022172665aa06",
+      "pr_number": "37056"
+    },
+    {
+      "investigation_id": "2026-08-10-05-04-19-000-31352885581",
+      "run_id": "31352885581",
+      "timestamp": "2026-08-10T05:04:19Z",
+      "title": "JS API E2E of openvino-node package (cmd) fails on Windows runner",
+      "category": "Flaky Test",
+      "signature_hash": "2a7c090f9c6175e0",
+      "pr_number": "37056"
     }
   ]
 }
