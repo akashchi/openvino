@@ -1,6 +1,6 @@
 {
   "schema_version": "1.0",
-  "total": 144,
+  "total": 150,
   "entries": [
     {
       "investigation_id": "2026-07-09-13-58-10-000-29022024794",
@@ -1408,6 +1408,66 @@
       "category": "Configuration",
       "signature_hash": "c0643d23262bbd29",
       "pr_number": "37080"
+    },
+    {
+      "investigation_id": "2026-08-11-10-15-36-000-31478842603",
+      "run_id": "31478842603",
+      "run_url": "https://github.com/openvinotoolkit/openvino/actions/runs/31478842603",
+      "workflow_name": "Linux (Ubuntu 22.04, ARM64 cross-compilation, Python 3.11)",
+      "timestamp": "2026-08-11T10:15:36Z",
+      "title": "ARM64 cross-compilation CPU functional tests fail on attempt 1 - logs inaccessible, re-run already in progress on attempt 2",
+      "category": "Infrastructure",
+      "signature_hash": "44dec04115b12f89",
+      "pr_number": "37301"
+    },
+    {
+      "investigation_id": "2026-08-11-12-46-17-000-31490892444",
+      "run_id": "31490892444",
+      "run_url": "https://github.com/openvinotoolkit/openvino/actions/runs/31490892444",
+      "workflow_name": "Android",
+      "timestamp": "2026-08-11T12:46:17Z",
+      "title": "Android CXX_Unit_Tests fails at Download CPU unit test binary step",
+      "category": "Infrastructure",
+      "signature_hash": "b9bb8c1499335214",
+      "pr_number": "37317"
+    },
+    {
+      "investigation_id": "2026-08-11-16-45-46-000-31512034471",
+      "run_id": "31512034471",
+      "run_url": "https://github.com/openvinotoolkit/openvino/actions/runs/31512034471",
+      "workflow_name": "Linux (Ubuntu 22.04, ARM64 cross-compilation, Python 3.11)",
+      "timestamp": "2026-08-11T16:45:46Z",
+      "title": "Linux ARM64 workflow logs unavailable for attempt 1 - re-run already in progress on attempt 2",
+      "category": "Infrastructure",
+      "signature_hash": "44dec04115b12f89",
+      "pr_number": "36980"
+    },
+    {
+      "investigation_id": "2026-08-12-01-48-12-000-31554475604",
+      "run_id": "31554475604",
+      "timestamp": "2026-08-12T01:48:12Z",
+      "title": "Smart CI fails with SSL certificate verify failed self-signed certificate",
+      "category": "Network",
+      "signature_hash": "d27ae006a3ab2b1f",
+      "pr_number": "37364"
+    },
+    {
+      "investigation_id": "2026-08-12-03-12-01-000-31554450015",
+      "run_id": "31554450015",
+      "timestamp": "2026-08-12T03:12:01Z",
+      "title": "CachingTest/CachingTest.Load_threads crashes mid-run on Windows with exit code 1",
+      "category": "Flaky Test",
+      "signature_hash": "2e3de08c0433e88f",
+      "pr_number": "37357"
+    },
+    {
+      "investigation_id": "2026-08-12-04-50-09-000-31562604779",
+      "run_id": "31562604779",
+      "timestamp": "2026-08-12T04:50:09Z",
+      "title": "Clang-tidy x86_64 build fails - compile_commands artifact upload step fails",
+      "category": "Infrastructure",
+      "signature_hash": "3e34a1c82fa46ad5",
+      "pr_number": "37340"
     }
   ]
 }
