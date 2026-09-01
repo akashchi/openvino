@@ -1,6 +1,6 @@
 {
   "schema_version": "1.0",
-  "total": 206,
+  "total": 211,
   "entries": [
     {
       "investigation_id": "2026-07-09-13-58-10-000-29022024794",
@@ -2022,6 +2022,59 @@
       "category": "Flaky Test",
       "signature_hash": "43e136cf67333978",
       "pr_number": "37653"
+    },
+    {
+      "investigation_id": "2026-08-31-11-19-01-000-33383714649",
+      "run_id": "33383714649",
+      "timestamp": "2026-08-31T11:19:01Z",
+      "title": "NodeJS API tests fail - npm command not found after setup-node Node.js 26 install",
+      "category": "Infrastructure",
+      "signature_hash": "be56bc7e2d2f8799",
+      "pr_number": "37751"
+    },
+    {
+      "investigation_id": "2026-08-31-12-03-47-000-33383714609",
+      "run_id": "33383714609",
+      "run_url": "https://github.com/openvinotoolkit/openvino/actions/runs/33383714609",
+      "workflow_name": "Linux ARM64 (Ubuntu 22.04, Python 3.11)",
+      "timestamp": "2026-08-31T12:03:47Z",
+      "title": "Samples test_nireq timeout downloading test data from storage.openvinotoolkit.org",
+      "category": "Network",
+      "signature_hash": "ef7ff8098ad21c2c",
+      "pr_number": "37751"
+    },
+    {
+      "investigation_id": "2026-08-31-13-48-25-000-33390302363",
+      "run_id": "33390302363",
+      "run_url": "https://github.com/openvinotoolkit/openvino/actions/runs/33390302363",
+      "workflow_name": "Windows (VS 2022, Python 3.11, Release)",
+      "timestamp": "2026-08-31T13:48:25Z",
+      "title": "NPU Models Tests fail - KeyError aten.upsample_nearest2d/bilinear2d not found in decomp table",
+      "category": "Code Issue",
+      "signature_hash": "e39a267736dcc0bd",
+      "pr_number": "37751"
+    },
+    {
+      "investigation_id": "2026-08-31-16-59-57-000-33407864560",
+      "run_id": "33407864560",
+      "run_url": "https://github.com/openvinotoolkit/openvino/actions/runs/33407864560",
+      "workflow_name": "Windows (VS 2022, Python 3.11, Release)",
+      "timestamp": "2026-08-31T16:59:57Z",
+      "title": "NPU Models Tests artifact upload fails with ENOTFOUND on Windows runner",
+      "category": "Infrastructure",
+      "signature_hash": "3d87043683964a28",
+      "pr_number": "37704"
+    },
+    {
+      "investigation_id": "2026-08-31-21-50-43-000-33434480826",
+      "run_id": "33434480826",
+      "run_url": "https://github.com/openvinotoolkit/openvino/actions/runs/33434480826",
+      "workflow_name": "Windows (VS 2022, Python 3.11, Release)",
+      "timestamp": "2026-08-31T21:50:43Z",
+      "title": "CPU functional tests artifact upload fails with ENOTFOUND on Windows runner",
+      "category": "Network",
+      "signature_hash": "669fb8e126e09420",
+      "pr_number": "37743"
     }
   ]
 }
