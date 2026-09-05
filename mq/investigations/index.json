@@ -1,6 +1,6 @@
 {
   "schema_version": "1.0",
-  "total": 216,
+  "total": 219,
   "entries": [
     {
       "investigation_id": "2026-07-09-13-58-10-000-29022024794",
@@ -2128,6 +2128,33 @@
       "category": "Flaky Test",
       "signature_hash": "47caedf70a4041f8",
       "pr_number": "37799"
+    },
+    {
+      "investigation_id": "2026-09-04-08-38-10-000-33844291174",
+      "run_id": "33844291174",
+      "timestamp": "2026-09-04T08:38:10Z",
+      "title": "NPU Models Tests fail installing TF Models tests requirements, unrelated to NPU mutex fix PR",
+      "category": "Infrastructure",
+      "signature_hash": "6e384cf2944ada58",
+      "pr_number": "37898"
+    },
+    {
+      "investigation_id": "2026-09-04-09-54-54-329-33854130288",
+      "run_id": "33854130288",
+      "timestamp": "2026-09-04T09:54:54Z",
+      "title": "LLM accuracy iGPU tests fail uploading test results - artifact blob storage returns HTML error page",
+      "category": "Infrastructure",
+      "signature_hash": "841a57c639e28d01",
+      "pr_number": "37898"
+    },
+    {
+      "investigation_id": "2026-09-04-11-16-56-439-33859120806",
+      "run_id": "33859120806",
+      "timestamp": "2026-09-04T11:16:56Z",
+      "title": "Debian Packages job fails - runner OutOfMemoryException during apt-get install inside Docker container",
+      "category": "Infrastructure",
+      "signature_hash": "8a0208e5b90ba6bd",
+      "pr_number": "37274"
     }
   ]
 }
