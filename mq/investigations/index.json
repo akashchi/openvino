@@ -1,6 +1,6 @@
 {
   "schema_version": "1.0",
-  "total": 229,
+  "total": 234,
   "entries": [
     {
       "investigation_id": "2026-07-09-13-58-10-000-29022024794",
@@ -90,8 +90,7 @@
       "pr_number": "36413",
       "category": "Flaky Test",
       "title": "Windows CI: CachingTest LoadMulti_race mock call count mismatch and Electron cleanup permission error",
-      "signature_hash": "18324e8563a426a9",
-      "confidence": "High"
+      "signature_hash": "18324e8563a426a9"
     },
     {
       "investigation_id": "2026-07-13-16-41-56-000-29257338803",
@@ -2251,6 +2250,57 @@
       "category": "Infrastructure",
       "signature_hash": "f976d98a24b8000d",
       "pr_number": "37290"
+    },
+    {
+      "investigation_id": "2026-09-10-08-56-00-492-34450412645",
+      "run_id": "34450412645",
+      "run_url": "https://github.com/openvinotoolkit/openvino/actions/runs/34450412645",
+      "workflow_name": "Linux (Ubuntu 22.04, Python 3.11)",
+      "timestamp": "2026-09-10T08:56:00Z",
+      "title": "iGPU RoPE Tests fail \u2014 runner exposes only CPU, no GPU device available",
+      "category": "Infrastructure",
+      "signature_hash": "d6f1d63540a711ef",
+      "pr_number": "37983"
+    },
+    {
+      "investigation_id": "2026-09-10-09-14-32-000-34454632400",
+      "run_id": "34454632400",
+      "run_url": "https://github.com/openvinotoolkit/openvino/actions/runs/34454632400",
+      "workflow_name": "Linux ARM64 (Ubuntu 22.04, Python 3.11)",
+      "timestamp": "2026-09-10T09:14:32Z",
+      "title": "smoke_Snippets_Softmax tests fail on comparison",
+      "category": "Flaky Test",
+      "signature_hash": "2330f1abe60fbda7",
+      "pr_number": "38056"
+    },
+    {
+      "investigation_id": "2026-09-10-11-17-07-000-34463046270",
+      "run_id": "34463046270",
+      "timestamp": "2026-09-10T11:17:07Z",
+      "title": "NPU Models Tests - TensorFlow compile-only convert_model step fails on Windows runner",
+      "category": "Flaky Test",
+      "signature_hash": "2abe56c58c994e45",
+      "pr_number": "38043"
+    },
+    {
+      "investigation_id": "2026-09-11-00-58-17-427-34541186983",
+      "run_id": "34541186983",
+      "timestamp": "2026-09-11T00:58:17Z",
+      "title": "NPU Models Tests fail installing TF Models tests requirements, unrelated to NPUW SWA runtime utils PR",
+      "category": "Infrastructure",
+      "signature_hash": "6e384cf2944ada58",
+      "pr_number": "37788"
+    },
+    {
+      "investigation_id": "2026-09-11-02-31-36-157-34549097886",
+      "run_id": "34549097886",
+      "run_url": "https://github.com/openvinotoolkit/openvino/actions/runs/34549097886",
+      "workflow_name": "iGPU Tests (func) / GPU",
+      "timestamp": "2026-09-11T02:31:36Z",
+      "title": "iGPU func tests fail \u2014 runner exposes no OpenCL/GPU device (clinfo reports 0 platforms)",
+      "category": "Infrastructure",
+      "signature_hash": "bf326e8abc84a5b2",
+      "pr_number": "37540"
     }
   ]
 }
