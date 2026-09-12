@@ -1,6 +1,6 @@
 {
   "schema_version": "1.0",
-  "total": 234,
+  "total": 237,
   "entries": [
     {
       "investigation_id": "2026-07-09-13-58-10-000-29022024794",
@@ -2301,6 +2301,33 @@
       "category": "Infrastructure",
       "signature_hash": "bf326e8abc84a5b2",
       "pr_number": "37540"
+    },
+    {
+      "investigation_id": "2026-09-11-09-29-09-000-34575146676",
+      "run_id": "34575146676",
+      "timestamp": "2026-09-11T09:29:09Z",
+      "title": "LLM accuracy iGPU tests checkout fails with curl 56 Connection died",
+      "category": "Network",
+      "signature_hash": "2b01e13eb8c2761f",
+      "pr_number": "37985"
+    },
+    {
+      "investigation_id": "2026-09-11-10-27-48-000-34586539583",
+      "run_id": "34586539583",
+      "timestamp": "2026-09-11T10:27:48Z",
+      "title": "smoke_MaxPoolV8_CPU_4D primTypeCheck(primType) is unexpected (undef_f32 vs acl_f32)",
+      "category": "Flaky Test",
+      "signature_hash": "eb0b94c864ee1a85",
+      "pr_number": "37783"
+    },
+    {
+      "investigation_id": "2026-09-11-17-43-20-000-34620952707",
+      "run_id": "34620952707",
+      "timestamp": "2026-09-11T17:43:20Z",
+      "title": "LLM accuracy GPU test fails \u2014 Qwen2-0.5B-Instruct-INT8 metric drop exceeds threshold",
+      "category": "Flaky Test",
+      "signature_hash": "47caedf70a4041f8",
+      "pr_number": "37178"
     }
   ]
 }
