@@ -1,6 +1,6 @@
 {
   "schema_version": "1.0",
-  "total": 242,
+  "total": 246,
   "entries": [
     {
       "investigation_id": "2026-07-09-13-58-10-000-29022024794",
@@ -2373,6 +2373,46 @@
       "category": "Flaky Test",
       "signature_hash": "47caedf70a4041f8",
       "pr_number": "37637"
+    },
+    {
+      "investigation_id": "2026-09-16-09-28-46-000-35077397634",
+      "run_id": "35077397634",
+      "timestamp": "2026-09-16T09:28:46Z",
+      "title": "Setup Android SDK fails - sdkmanager cannot find deprecated 'tools' package",
+      "category": "Configuration",
+      "signature_hash": "973fc34b4fbdfed5",
+      "pr_number": "38156"
+    },
+    {
+      "investigation_id": "2026-09-16-09-44-39-000-35079443292",
+      "run_id": "35079443292",
+      "timestamp": "2026-09-16T09:44:39Z",
+      "title": "Setup Android SDK fails - sdkmanager cannot find deprecated 'tools' package",
+      "category": "Configuration",
+      "signature_hash": "973fc34b4fbdfed5",
+      "pr_number": "37279"
+    },
+    {
+      "investigation_id": "2026-09-16-16-21-17-000-35116998343",
+      "run_id": "35116998343",
+      "run_url": "https://github.com/openvinotoolkit/openvino/actions/runs/35116998343",
+      "workflow_name": "Linux ARM64 (Ubuntu 22.04, Python 3.11)",
+      "timestamp": "2026-09-16T16:21:17Z",
+      "title": "smoke_FC_3D_FP32/MatMulDecompressConvertTest primTypeCheck(primType) is unexpected (undef_f32 vs acl_f32)",
+      "category": "Flaky Test",
+      "signature_hash": "eb0b94c864ee1a85",
+      "pr_number": "37885"
+    },
+    {
+      "investigation_id": "2026-09-17-08-43-38-000-35192554362",
+      "run_id": "35192554362",
+      "run_url": "https://github.com/openvinotoolkit/openvino/actions/runs/35192554362",
+      "workflow_name": "Windows (VS 2022, Python 3.11, Release)",
+      "timestamp": "2026-09-17T08:43:38Z",
+      "title": "EasyOCR detector model test killed with signal on NPU Model Hub tests (Windows)",
+      "category": "Flaky Test",
+      "signature_hash": "00df33024e43569d",
+      "pr_number": "38209"
     }
   ]
 }
