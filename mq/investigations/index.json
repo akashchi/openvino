@@ -1,6 +1,6 @@
 {
   "schema_version": "1.0",
-  "total": 283,
+  "total": 289,
   "entries": [
     {
       "investigation_id": "2026-07-09-13-58-10-000-29022024794",
@@ -2772,6 +2772,60 @@
       "category": "Infrastructure",
       "signature_hash": "5b4b1e6917a69856",
       "pr_number": "37908"
+    },
+    {
+      "investigation_id": "2026-10-06-11-31-16-250-37453488195",
+      "run_id": "37453488195",
+      "timestamp": "2026-10-06T11:31:16Z",
+      "title": "ARM64 cross-compilation build fails with cc1plus: not a PCH file (invalid-pch) in openvino_reference",
+      "category": "Infrastructure",
+      "signature_hash": "5b4b1e6917a69856",
+      "pr_number": "38261"
+    },
+    {
+      "investigation_id": "2026-10-06-12-10-34-000-37457680616",
+      "run_id": "37457680616",
+      "timestamp": "2026-10-06T12:10:34Z",
+      "title": "ARM64 cross-compilation build fails with cc1plus: not a PCH file (invalid-pch) in openvino_reference",
+      "category": "Infrastructure",
+      "signature_hash": "5b4b1e6917a69856",
+      "pr_number": "37717"
+    },
+    {
+      "investigation_id": "2026-10-06-13-57-17-200-37470596140",
+      "run_id": "37470596140",
+      "timestamp": "2026-10-06T13:57:17Z",
+      "title": "ARM64 cross-compilation build fails with cc1plus: not a PCH file (invalid-pch) in openvino_reference",
+      "category": "Infrastructure",
+      "signature_hash": "5b4b1e6917a69856",
+      "pr_number": "38559"
+    },
+    {
+      "investigation_id": "2026-10-06-14-40-00-000-37476784927",
+      "run_id": "37476784927",
+      "timestamp": "2026-10-06T14:40:00Z",
+      "title": "ARM64 cross-compilation build fails with cc1plus: not a PCH file (invalid-pch) in openvino_reference",
+      "category": "Infrastructure",
+      "signature_hash": "5b4b1e6917a69856",
+      "pr_number": "38601"
+    },
+    {
+      "investigation_id": "2026-10-06-14-58-37-000-37479314236",
+      "run_id": "37479314236",
+      "timestamp": "2026-10-06T14:58:37Z",
+      "title": "ARM64 cross-compilation build fails with cc1plus: not a PCH file (invalid-pch) in openvino_reference",
+      "category": "Infrastructure",
+      "signature_hash": "5b4b1e6917a69856",
+      "pr_number": "38407"
+    },
+    {
+      "investigation_id": "2026-10-07-09-34-46-000-37598300093",
+      "run_id": "37598300093",
+      "timestamp": "2026-10-07T09:34:46Z",
+      "title": "ARM64 cross-compilation build fails with cc1plus: not a PCH file (invalid-pch) in openvino_reference",
+      "category": "Infrastructure",
+      "signature_hash": "5b4b1e6917a69856",
+      "pr_number": "38645"
     }
   ]
 }
