@@ -1,0 +1,26 @@
+{
+    "schema_version": "1.0",
+    "signature": "conflicting return type specified for virtual hint_prefetch_async override|Code Issue",
+    "signature_hash": "4178da568a100f35",
+    "title": "Windows build fails: MockMappedMemory::hint_prefetch_async overriding virtual function return type differs and is not covariant",
+    "category": "Code Issue",
+    "count": 4,
+    "first_seen": "2026-10-30T17:21:15Z",
+    "last_seen": "2026-10-30T18:30:54Z",
+    "recent_run_urls": [
+        "https://github.com/openvinotoolkit/openvino/actions/runs/41095714229",
+        "https://github.com/openvinotoolkit/openvino/actions/runs/41095713943",
+        "https://github.com/openvinotoolkit/openvino/actions/runs/41095713937",
+        "https://github.com/openvinotoolkit/openvino/actions/runs/41095713725"
+    ],
+    "affected_prs": [
+        "https://github.com/openvinotoolkit/openvino/pull/38993"
+    ],
+    "recent_timestamps": [
+        "2026-10-30T18:30:54Z",
+        "2026-10-30T18:06:11Z",
+        "2026-10-30T17:37:50Z",
+        "2026-10-30T17:21:15Z"
+    ],
+    "rerun_search_string": null
+}

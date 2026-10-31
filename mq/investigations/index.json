@@ -1,6 +1,6 @@
 {
   "schema_version": "1.0",
-  "total": 303,
+  "total": 312,
   "entries": [
     {
       "investigation_id": "2026-07-09-13-58-10-000-29022024794",
@@ -2962,6 +2962,95 @@
       "category": "Network",
       "signature_hash": "197368415f8ae13d",
       "pr_number": "39318"
+    },
+    {
+      "investigation_id": "2026-10-30-12-12-48-123-41050129111",
+      "run_id": "41050129111",
+      "timestamp": "2026-10-30T12:12:48Z",
+      "title": "ARM64 cross-compile Build job fails uploading openvino_package artifact due to Azure blob storage DNS resolution failure",
+      "category": "Network",
+      "signature_hash": "8a9dfcece16ecc76",
+      "pr_number": "39290"
+    },
+    {
+      "investigation_id": "2026-10-30-12-57-17-715-41045325507",
+      "run_id": "41045325507",
+      "timestamp": "2026-10-30T12:57:17Z",
+      "title": "C++ unit tests job fails to download openvino_package artifact after 5 retries",
+      "category": "Infrastructure",
+      "signature_hash": "f976d98a24b8000d",
+      "pr_number": "39348"
+    },
+    {
+      "investigation_id": "2026-10-30-14-20-46-591-41057277285",
+      "run_id": "41057277285",
+      "run_url": "https://github.com/openvinotoolkit/openvino/actions/runs/41057277285",
+      "workflow_name": "OpenVINO JS API (24) / OpenVINO JS API",
+      "timestamp": "2026-10-30T14:20:46Z",
+      "title": "OpenVINO JS API tests fail to download test model from raw.githubusercontent.com (request timed out)",
+      "category": "Network",
+      "signature_hash": "197368415f8ae13d",
+      "pr_number": "39357"
+    },
+    {
+      "investigation_id": "2026-10-30-17-21-15-000-41095713725",
+      "run_id": "41095713725",
+      "run_url": "https://github.com/openvinotoolkit/openvino/actions/runs/41095713725",
+      "workflow_name": "Linux RISC-V (Ubuntu 22.04, Python 3.10)",
+      "timestamp": "2026-10-30T17:21:15Z",
+      "title": "RISC-V build fails: MockMappedMemory::hint_prefetch_async conflicting return type",
+      "category": "Code Issue",
+      "signature_hash": "4178da568a100f35",
+      "pr_number": "38993"
+    },
+    {
+      "investigation_id": "2026-10-30-17-37-50-000-41095713937",
+      "run_id": "41095713937",
+      "timestamp": "2026-10-30T17:37:50Z",
+      "title": "Windows Debug build fails: MockMappedMemory::hint_prefetch_async conflicting return type",
+      "category": "Code Issue",
+      "signature_hash": "4178da568a100f35",
+      "pr_number": "38993"
+    },
+    {
+      "investigation_id": "2026-10-30-18-06-11-042-41095713943",
+      "run_id": "41095713943",
+      "run_url": "https://github.com/openvinotoolkit/openvino/actions/runs/41095713943",
+      "workflow_name": "Linux (Ubuntu 22.04, ARM64 cross-compilation, Python 3.11)",
+      "timestamp": "2026-10-30T18:06:11Z",
+      "title": "ARM64 cross-compilation build fails: MockMappedMemory::hint_prefetch_async conflicting return type",
+      "category": "Code Issue",
+      "signature_hash": "4178da568a100f35",
+      "pr_number": "38993"
+    },
+    {
+      "investigation_id": "2026-10-30-18-30-54-000-41095714229",
+      "run_id": "41095714229",
+      "timestamp": "2026-10-30T18:30:54Z",
+      "title": "Windows build fails: MockMappedMemory::hint_prefetch_async overriding virtual function return type differs and is not covariant",
+      "category": "Code Issue",
+      "signature_hash": "4178da568a100f35",
+      "pr_number": "38993"
+    },
+    {
+      "investigation_id": "2026-10-30-21-28-05-000-41127941891",
+      "run_id": "41127941891",
+      "run_url": "https://github.com/openvinotoolkit/openvino/actions/runs/41127941891",
+      "workflow_name": "Android",
+      "timestamp": "2026-10-30T21:28:05Z",
+      "title": "Android Build x64 fails uploading unit test artifact due to Azure blob storage DNS resolution failure",
+      "category": "Network",
+      "signature_hash": "8a9dfcece16ecc76",
+      "pr_number": "39293"
+    },
+    {
+      "investigation_id": "2026-10-31-01-54-47-000-41145194349",
+      "run_id": "41145194349",
+      "timestamp": "2026-10-31T01:54:47Z",
+      "title": "Windows self-hosted Build job fails with no error logged after Build additional Python wheels step starts",
+      "category": "Infrastructure",
+      "signature_hash": "b78186403f39634d",
+      "pr_number": "38993"
     }
   ]
 }
