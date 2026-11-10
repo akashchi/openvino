@@ -1,6 +1,6 @@
 {
   "schema_version": "1.0",
-  "total": 346,
+  "total": 360,
   "entries": [
     {
       "investigation_id": "2026-07-09-13-58-10-000-29022024794",
@@ -3375,6 +3375,140 @@
       "category": "Network",
       "signature_hash": "8c8192df2f508443",
       "pr_number": "36945"
+    },
+    {
+      "investigation_id": "2026-11-09-16-59-01-275-42647164506",
+      "run_id": "42647164506",
+      "timestamp": "2026-11-09T16:59:01Z",
+      "title": "LLM accuracy tests fail with TypeError: genai_gen_text() got an unexpected keyword argument 'context'",
+      "category": "Dependencies",
+      "signature_hash": "6cf9cf0d8f5c0a43",
+      "pr_number": "39512"
+    },
+    {
+      "investigation_id": "2026-11-09-17-09-09-701-42647164675",
+      "run_id": "42647164675",
+      "timestamp": "2026-11-09T17:09:09Z",
+      "title": "PyTorch Models tests fail with pyarrow/NumPy ABI mismatch (ImportError: pyarrow requires NumPy 2.0)",
+      "category": "Dependencies",
+      "signature_hash": "90d42369fa7c1efb",
+      "pr_number": "39512"
+    },
+    {
+      "investigation_id": "2026-11-09-17-40-08-000-42647164508",
+      "run_id": "42647164508",
+      "timestamp": "2026-11-09T17:40:08Z",
+      "title": "PyTorch Models tests fail with pyarrow/NumPy ABI mismatch (ImportError: pyarrow requires NumPy 2.0)",
+      "category": "Dependencies",
+      "signature_hash": "90d42369fa7c1efb",
+      "pr_number": "39512"
+    },
+    {
+      "investigation_id": "2026-11-09-18-52-27-000-42668697693",
+      "run_id": "42668697693",
+      "timestamp": "2026-11-09T18:52:27Z",
+      "title": "Linux Ubuntu 24.04 merge-queue run reports failure though every job succeeded or was skipped",
+      "category": "Infrastructure",
+      "signature_hash": "94b5b33ae193e46a",
+      "pr_number": "39444"
+    },
+    {
+      "investigation_id": "2026-11-09-19-06-46-000-42662261631",
+      "run_id": "42662261631",
+      "run_url": "https://github.com/openvinotoolkit/openvino/actions/runs/42662261631",
+      "workflow_name": "Windows (VS 2022, Python 3.11, Release)",
+      "timestamp": "2026-11-09T19:06:46Z",
+      "title": "GPU unit tests fail to extract OpenVINO package - tbb12.dll locked (Access denied) on Windows self-hosted runner",
+      "category": "Infrastructure",
+      "signature_hash": "95bb23aa2ed8a84d",
+      "pr_number": "39034"
+    },
+    {
+      "investigation_id": "2026-11-09-19-42-03-000-42668697675",
+      "run_id": "42668697675",
+      "run_url": "https://github.com/openvinotoolkit/openvino/actions/runs/42668697675",
+      "workflow_name": "Windows (VS 2022, Python 3.11, Release)",
+      "timestamp": "2026-11-09T19:42:03Z",
+      "title": "GPU unit tests fail to extract OpenVINO package - tbb12.dll locked (Access denied) on Windows self-hosted runner",
+      "category": "Infrastructure",
+      "signature_hash": "95bb23aa2ed8a84d",
+      "pr_number": "39444"
+    },
+    {
+      "investigation_id": "2026-11-09-20-13-04-521-42681233252",
+      "run_id": "42681233252",
+      "run_url": "https://github.com/openvinotoolkit/openvino/actions/runs/42681233252",
+      "workflow_name": "Linux (Ubuntu 24.04, Python 3.12)",
+      "timestamp": "2026-11-09T20:13:04Z",
+      "title": "OpenVINO GenAI job fails because sccache Azure connection string is not trailing-slash-sanitized",
+      "category": "Configuration",
+      "signature_hash": "08b993dbdc18ccac",
+      "pr_number": "39034"
+    },
+    {
+      "investigation_id": "2026-11-09-20-50-58-000-42680170472",
+      "run_id": "42680170472",
+      "timestamp": "2026-11-09T20:50:58Z",
+      "title": "GPU unit tests fail to extract OpenVINO package - tbb12.dll locked (Access denied) on Windows self-hosted runner",
+      "category": "Infrastructure",
+      "signature_hash": "95bb23aa2ed8a84d",
+      "pr_number": "39444"
+    },
+    {
+      "investigation_id": "2026-11-09-21-02-32-000-42681233404",
+      "run_id": "42681233404",
+      "timestamp": "2026-11-09T21:02:32Z",
+      "title": "GPU unit tests fail to extract OpenVINO package - tbb12.dll locked (Access denied) on Windows self-hosted runner",
+      "category": "Infrastructure",
+      "signature_hash": "95bb23aa2ed8a84d",
+      "pr_number": "39034"
+    },
+    {
+      "investigation_id": "2026-11-10-08-35-09-000-42770964527",
+      "run_id": "42770964527",
+      "timestamp": "2026-11-10T08:35:09Z",
+      "title": "GPU unit tests fail to extract OpenVINO package - tbb12.dll locked (Access denied) on Windows self-hosted runner",
+      "category": "Infrastructure",
+      "signature_hash": "95bb23aa2ed8a84d",
+      "pr_number": "39668"
+    },
+    {
+      "investigation_id": "2026-11-10-10-45-50-000-42789868134",
+      "run_id": "42789868134",
+      "run_url": "https://github.com/openvinotoolkit/openvino/actions/runs/42789868134",
+      "workflow_name": "Windows (VS 2022, Python 3.11, Release)",
+      "timestamp": "2026-11-10T10:45:50Z",
+      "title": "GPU unit tests fail to extract OpenVINO package - tbb12.dll locked (Access denied) on Windows self-hosted runner",
+      "category": "Infrastructure",
+      "signature_hash": "95bb23aa2ed8a84d",
+      "pr_number": "39577"
+    },
+    {
+      "investigation_id": "2026-11-10-11-05-08-042-42789867873",
+      "run_id": "42789867873",
+      "timestamp": "2026-11-10T11:05:08Z",
+      "title": "PyTorch Layer Tests fail - builtin cannot be used as a value in reflection_pad TorchScript",
+      "category": "Code Issue",
+      "signature_hash": "98cbf832e7e217cf",
+      "pr_number": "39577"
+    },
+    {
+      "investigation_id": "2026-11-10-11-32-00-000-42789868150",
+      "run_id": "42789868150",
+      "timestamp": "2026-11-10T11:32:00Z",
+      "title": "Debian Packages job fails - 404 Not Found fetching perl packages from Ubuntu archive mirror",
+      "category": "External Service",
+      "signature_hash": "a1c52b5f4185576e",
+      "pr_number": "39577"
+    },
+    {
+      "investigation_id": "2026-11-10-11-45-13-000-42798063954",
+      "run_id": "42798063954",
+      "timestamp": "2026-11-10T11:45:13Z",
+      "title": "GPU unit tests fail to extract OpenVINO package - tbb12.dll locked (Access denied) on Windows self-hosted runner",
+      "category": "Infrastructure",
+      "signature_hash": "95bb23aa2ed8a84d",
+      "pr_number": "37406"
     }
   ]
 }
