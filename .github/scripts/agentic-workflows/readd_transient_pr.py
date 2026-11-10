@@ -25,6 +25,8 @@ Sub-commands (the pull request is taken from ``$PR_NUMBER``):
       to the failure that caused the latest dequeue), and nothing was pushed to the PR
       since: the newest of its queue-entry, pushed-commit and force-push timeline items
       is that queue entry. Commit dates are not consulted, because the pusher sets them;
+    * the latest queue event is a removal with reason ``CI_FAILURE``; manual removals
+      and missing or unknown reasons block both dequeue-triggered and dispatched runs;
     * no other ``merge_group`` pipeline of the same merge-group commit failed, because
       those failures were not investigated and might not be transient.
 
@@ -87,6 +89,12 @@ query($owner: String!, $repo: String!, $number: Int!) {
       }
       latest: timelineItems(last: 1, itemTypes: [ADDED_TO_MERGE_QUEUE_EVENT, PULL_REQUEST_COMMIT, HEAD_REF_FORCE_PUSHED_EVENT]) {
         nodes { __typename }
+      }
+      queueState: timelineItems(last: 1, itemTypes: [ADDED_TO_MERGE_QUEUE_EVENT, REMOVED_FROM_MERGE_QUEUE_EVENT]) {
+        nodes {
+          __typename
+          ... on RemovedFromMergeQueueEvent { reason }
+        }
       }
     }
   }
@@ -174,6 +182,13 @@ def pull_request_history(gh: "Github", repository: str, number: int) -> PullRequ
     latest = _latest_type(pull.get("latest"))
     if latest is None:
         raise SystemExit(f"PR #{number} has no queue-entry, commit or force-push item in its timeline; cannot tell whether it changed.")
+    queue_nodes = (pull.get("queueState") or {}).get("nodes") or []
+    queue_event = (queue_nodes[-1] or {}) if queue_nodes else {}
+    if queue_event.get("__typename") != "RemovedFromMergeQueueEvent":
+        raise Skip(f"PR #{number}'s latest merge-queue event is not a removal; not re-adding it.")
+    reason = queue_event.get("reason")
+    if reason != "CI_FAILURE":
+        raise Skip(f"PR #{number}'s latest merge-queue removal reason is {reason!r}, not CI_FAILURE; not re-adding it.")
     return PullRequestHistory(last_queued=queued, latest_item=latest)
 
 

@@ -191,6 +191,9 @@ them — see below):
   and events created with `GITHUB_TOKEN` start no workflows except `workflow_dispatch` /
   `repository_dispatch`, so the safe-output job dispatches the workflow explicitly after posting the
   marker. When it re-ran the failed jobs instead (PR still queued), it leaves no marker.
+  Both entry points must verify the latest queue-entry/removal event through GraphQL: only a
+  `RemovedFromMergeQueueEvent` with reason `CI_FAILURE` permits re-adding. A manual removal or
+  missing/unknown reason must fail closed; never rely only on the dequeue webhook's reason filter.
   `pull_request_target` runs from the default branch with secrets: never check out or run PR code there,
   and follow [security.md](../../../docs/dev/ci/github_actions/security.md). The script tests
   (`python3 -m unittest discover -s .github/scripts/agentic-workflows -p 'test_*.py'`) run in no CI job,

@@ -71,12 +71,18 @@ def make_pull(comments, **overrides):
     return pull
 
 
-def pull_request_history(queued=(ADDED_TO_QUEUE,), latest=job.QUEUE_ENTRY):
+def pull_request_history(
+    queued=(ADDED_TO_QUEUE,), latest=job.QUEUE_ENTRY,
+    queue_state="RemovedFromMergeQueueEvent", removal_reason="CI_FAILURE",
+):
     """A GraphQL response with the PR's latest ADDED_TO_MERGE_QUEUE item and the type of its newest
     queue-entry, pushed-commit or force-push timeline item (``None``: the timeline returned nothing)."""
     pull = {
         "queued": {"nodes": [{"createdAt": value} for value in queued]},
         "latest": {"nodes": [{"__typename": latest}] if latest else []},
+        "queueState": {
+            "nodes": [{"__typename": queue_state, "reason": removal_reason}] if queue_state else [],
+        },
     }
     return {}, {"data": {"repository": {"pullRequest": pull}}}
 
@@ -177,6 +183,58 @@ class EvaluateMarkerTest(EvaluateTestCase):
         forged = bot_comment(build_marker(READDED_MARKER, run_url=RUN_URL), login="some-contributor")
         self.pull.get_issue_comments.return_value = [transient_comment(), forged]
         self.assertIs(self.evaluate(), self.run)
+
+
+class EvaluateRemovalReasonTest(EvaluateTestCase):
+    def test_manual_removal_blocks_both_entry_points_despite_a_transient_marker(self):
+        self.gh.requester.requestJsonAndCheck.return_value = pull_request_history(removal_reason="MANUAL")
+        for event_name in ("pull_request_target", "workflow_dispatch"):
+            with self.subTest(event_name), mock.patch.dict(os.environ, {"GITHUB_EVENT_NAME": event_name}):
+                self.assert_skipped("MANUAL")
+        self.pull.create_issue_comment.assert_not_called()
+        self.queue_status.assert_not_called()
+
+    def test_only_explicit_ci_failure_allows_a_readd(self):
+        for reason in (
+            "UNKNOWN_REMOVAL_REASON", "MERGE", "MERGE_CONFLICT", "CI_TIMEOUT", "ALREADY_MERGED",
+            "QUEUE_CLEARED", "ROLL_BACK", "BRANCH_PROTECTIONS", "GIT_TREE_INVALID",
+            "INVALID_MERGE_COMMIT", None, "", "ci_failure", "unrecognized reason",
+        ):
+            with self.subTest(reason=reason):
+                self.gh.requester.requestJsonAndCheck.return_value = pull_request_history(removal_reason=reason)
+                self.assert_skipped("not CI_FAILURE")
+
+    def test_latest_queue_event_must_be_a_removal(self):
+        for queue_state in (None, job.QUEUE_ENTRY, "UnknownEvent"):
+            with self.subTest(queue_state=queue_state):
+                self.gh.requester.requestJsonAndCheck.return_value = pull_request_history(queue_state=queue_state)
+                self.assert_skipped("latest merge-queue event is not a removal")
+
+    def test_missing_removal_reason_fails_closed(self):
+        response = pull_request_history()
+        del response[1]["data"]["repository"]["pullRequest"]["queueState"]["nodes"][0]["reason"]
+        self.gh.requester.requestJsonAndCheck.return_value = response
+        self.assert_skipped("not CI_FAILURE")
+
+    def test_missing_queue_state_fails_closed(self):
+        response = pull_request_history()
+        del response[1]["data"]["repository"]["pullRequest"]["queueState"]
+        self.gh.requester.requestJsonAndCheck.return_value = response
+        self.assert_skipped("latest merge-queue event is not a removal")
+
+    def test_manual_removal_publishes_false_without_touching_the_pr(self):
+        self.gh.requester.requestJsonAndCheck.return_value = pull_request_history(removal_reason="MANUAL")
+        with tempfile.TemporaryDirectory() as directory:
+            output = os.path.join(directory, "output")
+            summary = os.path.join(directory, "summary")
+            with mock.patch.dict(os.environ, {"GITHUB_OUTPUT": output, "GITHUB_STEP_SUMMARY": summary}):
+                with contextlib.redirect_stdout(io.StringIO()):
+                    job.run_evaluate(self.gh, self.repo, REPOSITORY, self.pull)
+            with open(output, encoding="utf-8") as handle:
+                self.assertEqual(handle.read(), "readd=false\n")
+            with open(summary, encoding="utf-8") as handle:
+                self.assertIn("MANUAL", handle.read())
+        self.pull.create_issue_comment.assert_not_called()
 
 
 class EvaluateInvestigatedRunTest(EvaluateTestCase):
@@ -282,8 +340,10 @@ class EvaluateFreshnessTest(EvaluateTestCase):
             {
                 "queued": {"ADDED_TO_MERGE_QUEUE_EVENT"},
                 "latest": {"ADDED_TO_MERGE_QUEUE_EVENT", "PULL_REQUEST_COMMIT", "HEAD_REF_FORCE_PUSHED_EVENT"},
+                "queueState": {"ADDED_TO_MERGE_QUEUE_EVENT", "REMOVED_FROM_MERGE_QUEUE_EVENT"},
             },
         )
+        self.assertIn("... on RemovedFromMergeQueueEvent { reason }", query)
 
 
 class EvaluateOtherFailuresTest(EvaluateTestCase):

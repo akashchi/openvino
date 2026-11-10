@@ -282,7 +282,12 @@ touching the PR** and writes its reason to the job summary:
    (the marker describes the failure that caused the latest dequeue), and the newest of the PR's
    queue-entry, pushed-commit, and force-push timeline items is that queue entry, so nothing was pushed or
    force-pushed after it. The order comes from GitHub's PR timeline; commit dates are not used because the
-   pusher controls them.
+   pusher controls them. The latest queue-entry/removal item must also be a
+   [`RemovedFromMergeQueueEvent`](https://docs.github.com/en/graphql/reference/pulls#removedfrommergequeueevent)
+   with `reason == CI_FAILURE`. This is checked through GraphQL on **both** entry points, so a later
+   manual removal overrides an earlier CI failure even when CI Doctor dispatches the workflow after
+   posting its marker. Manual removals, other reasons, missing reasons, and unavailable queue state
+   never authorize a re-add.
 6. The investigated pipeline is the **only failed one**: no other `merge_group` run of the same merge-group
    commit ended in `failure`, `timed_out`, or `startup_failure`. Those failures were not investigated and
    might not be transient; cancelled, skipped, and still-running pipelines do not count.
@@ -310,9 +315,6 @@ Unexpected API errors fail the run (red) instead of being reported as a skip.
 
 **Known limitations**
 
-* A dispatched run cannot see why the PR was dequeued, so the `CI_FAILURE` filter applies only to the
-  `dequeued` trigger. A PR that someone removed manually right before CI Doctor posts its marker can still
-  be re-added once.
 * The once-per-PR guard is the `ci-doctor-mq-readded` comment. If it cannot be posted after the enqueue
   succeeded, the freshness check (check 5) still rejects the old marker, so only a new marker for a later
   failure can trigger another re-add.
