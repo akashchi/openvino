@@ -33,6 +33,9 @@ _REPOSITORY_RE = re.compile(r"[A-Za-z0-9._-]+/[A-Za-z0-9._-]+")
 
 # Merge-queue branches look like: gh-readonly-queue/<base_branch>/pr-<number>-<sha>
 MERGE_QUEUE_PR_RE = re.compile(r"/pr-(\d+)-[0-9a-f]+$")
+# The base branch may contain slashes (e.g. releases/2026/1), so it is everything up to the final /pr-<number>-<sha>.
+# The branch is accepted both as a short name and as a full ref.
+MERGE_QUEUE_BASE_RE = re.compile(r"^(?:refs/heads/)?gh-readonly-queue/(.+)/pr-\d+-[0-9a-f]+$")
 
 # Live merge-queue membership for a base branch. `mergeQueue` is null when the
 # branch has no queue configured, which we treat as indeterminate.
@@ -175,6 +178,12 @@ def merge_queue_status(gh: "Github", repo: "Repository", pull: "PullRequest") ->
 def pr_number_from_merge_queue_branch(head_branch: str) -> str:
     """Extract the PR number from a ``gh-readonly-queue/...`` head branch, or ''."""
     match = MERGE_QUEUE_PR_RE.search(head_branch or "")
+    return match.group(1) if match else ""
+
+
+def base_branch_from_merge_queue_branch(head_branch: str) -> str:
+    """Extract the base branch from a ``gh-readonly-queue/<base>/pr-...`` head branch, or ''."""
+    match = MERGE_QUEUE_BASE_RE.match(head_branch or "")
     return match.group(1) if match else ""
 
 

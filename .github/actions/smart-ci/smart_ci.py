@@ -27,6 +27,7 @@ ALWAYS_SKIPPABLE_FILE_PATTERNS = (
     '.github/scripts/workflow_rerun/*',              # rerunner code, tests and reviewed error list
     '.github/workflows/workflow_rerunner.yml',
     '.github/workflows/agentic_workflows_check.yml',
+    '.github/workflows/ci-doctor-mq-readd.yml',       # re-adds PRs to the merge queue after a transient failure
     '.claude/skills/ov-agentic-workflows/*',          # agentic workflow guidance
     '.agents/skills/ov-agentic-workflows/*',
 )

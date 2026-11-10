@@ -36,14 +36,18 @@ keys, `imports`, `safe-outputs`, tools, and the `gh aw compile` workflow.
     `${{ github.aw.import-inputs.<key> }}` is substituted at compile time in both frontmatter and body.
     They may also carry flavour-dependent frontmatter (`tools.repo-memory`, `post-steps`).
 * **Known examples today**: `ci-doctor.md` (on-demand PR investigator), `ci-doctor-mq.md` (automatic
-  merge-queue investigator), `ci-doctor-post-commit.md` (automatic post-commit investigator,
-  report-only — never re-runs/re-queues), and `ci-doctor-remediation.md` (weekly/`workflow_dispatch`
-  maintenance job that consumes the two doctors' knowledge base read-only and opens up to 3 draft
-  remediation PRs plus a Markdown report artifact). The two automatic investigators share their whole
-  protocol via the `ci-doctor-investigation-protocol.md` / `ci-doctor-knowledge-base.md` /
+  merge-queue investigator; re-runs the failed jobs of a still-queued PR, otherwise leaves a hidden
+  transient marker on the PR — it never re-adds a PR itself), `ci-doctor-post-commit.md` (automatic
+  post-commit investigator, report-only — never re-runs/re-queues), and `ci-doctor-remediation.md`
+  (weekly/`workflow_dispatch` maintenance job that consumes the two doctors' knowledge base read-only and
+  opens up to 3 draft remediation PRs plus a Markdown report artifact). The two automatic investigators
+  share their whole protocol via the `ci-doctor-investigation-protocol.md` / `ci-doctor-knowledge-base.md` /
   `ci-doctor-reporting.md` prompt fragments; their own bodies hold only workflow-specific addenda.
   `ci-doctor-remediation.md` reuses the `collect-ci-doctor-history.md` step fragment
-  (`collect_ci_doctor_history.py`) to pre-download the recent knowledge base. Do not assume this is the
+  (`collect_ci_doctor_history.py`) to pre-download the recent knowledge base. The one **regular**
+  (non-agentic, not compiled) companion is `.github/workflows/ci-doctor-mq-readd.yml`, which re-adds a
+  dropped PR to the merge queue after re-verifying the MQ doctor's marker (logic in
+  `readd_transient_pr.py` / `transient_marker.py`); edit it directly. Do not assume this is the
   complete list — check `.github/workflows/*.md` for the current set of `gh-aw` sources, since more
   will be added over time.
 
@@ -177,6 +181,20 @@ them — see below):
   card shows the right `[MQ]` / `[PC]` badge and uploads the correctly-named statistics artifact.
 - **Secrets** — new Teams/queue-style behavior may need dedicated secrets (e.g. `TEAMS_WEBHOOK_URL`,
   `MERGE_QUEUE_TOKEN`); the default `GITHUB_TOKEN` cannot re-trigger `merge_group` runs.
+- **Merge-queue re-add** (`ci-doctor-mq`, `ci-doctor-mq-readd.yml`) — the agent and its safe-output jobs
+  must never re-add a PR or see `MERGE_QUEUE_TOKEN`; only the `enqueue` step of the regular workflow
+  does. The two sides coordinate through hidden PR-comment markers (`transient_marker.py`): honour only
+  comments authored by `github-actions[bot]`, never use a marker's `reason` in a decision or a shell
+  command, and use its `run_url` only after validating it against the repository. Decide whether the PR
+  changed since the failure from GitHub's timeline order, never from values the pusher controls (commit
+  dates). The queue drops a PR before CI Doctor finishes,
+  and events created with `GITHUB_TOKEN` start no workflows except `workflow_dispatch` /
+  `repository_dispatch`, so the safe-output job dispatches the workflow explicitly after posting the
+  marker. When it re-ran the failed jobs instead (PR still queued), it leaves no marker.
+  `pull_request_target` runs from the default branch with secrets: never check out or run PR code there,
+  and follow [security.md](../../../docs/dev/ci/github_actions/security.md). The script tests
+  (`python3 -m unittest discover -s .github/scripts/agentic-workflows -p 'test_*.py'`) run in no CI job,
+  so run them after touching those scripts.
 - **Import ordering** (`ci-doctor-*.md` fragments) — gh-aw inlines imported bodies *before* the
   workflow's own body, in `imports:` order; workflow-specific text can therefore only follow the shared
   protocol, never interleave with it. Keep the `name:` frontmatter key so the fragment's H1 does not

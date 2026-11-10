@@ -104,7 +104,7 @@ The shared CI Doctor protocol above applies in full. The sections below extend i
 
 - escalates to Microsoft Teams when the same failure pattern recurs **3 or more times within a 12-hour window** (Phase 5.5 / `notify_teams_recurring`),
 - posts a remediation comment on the pull request behind the failed merge-queue run (`add_comment`),
-- requests automated remediation of **transient** failures (`remediate_transient_failure`),
+- requests automated remediation of **transient** failures (`remediate_transient_failure`) — it re-runs the failed jobs while the PR is still queued, otherwise it leaves a hidden marker on the PR for the separate `ci-doctor-mq-readd.yml` workflow; this doctor never re-adds a PR to the merge queue itself,
 - computes a `rerun_search_string` candidate for transient failures and proposes it for **human review** (`propose_rerun_pattern`) — it never publishes rerunner search strings itself.
 
 ## Pre-Analysis Data — Pull Request Context
@@ -208,7 +208,7 @@ For `propose_rerun_pattern`:
 ```markdown
 ### Automatic Remediation
 
-- If you called `remediate_transient_failure`: `✅ Remediation requested` followed by the one-line `reason` you passed. Note that the job itself decides at run time whether to re-run the failed jobs (PR still in the queue) or re-add the PR to the merge queue (PR dropped) — you do not choose or report which.
+- If you called `remediate_transient_failure`: `✅ Remediation requested` followed by the one-line `reason` you passed. Note that the job itself decides at run time whether to re-run the failed jobs (PR still in the queue) or to mark the failure as transient on the PR (PR already dropped), which lets a separate workflow re-add the PR only if that is still safe — you do not choose or report which, and you must never state that the PR was or will be re-added to the merge queue.
 - Otherwise: `❌ Not triggered` followed by a short justification (e.g. deterministic code failure that neither a restart nor a re-queue can fix).
 - Then one line `Rerun pattern:` with either `📝 Proposed for review` followed by the candidate in backticks (when you called `propose_rerun_pattern`), or `— not proposed` followed by a short reason (non-transient, no verified candidate, already approved).
 ```
@@ -230,7 +230,7 @@ Post a concise, actionable remediation comment on the affected merge-queue PR so
 
 **Pipeline**: [<failed_workflow name>](<pipeline_url>)
 **Failure**: <one-line summary, same as notify_teams.title>
-**Automatic remediation**: <one of: `✅ Requested (reason: <reason>)` when you called `remediate_transient_failure` — the job re-runs the failed jobs if the PR is still queued, or re-adds the PR to the merge queue if it was dropped; `❌ Not triggered — <short reason, e.g. deterministic code failure>` otherwise>
+**Automatic remediation**: <one of: `✅ Requested (reason: <reason>)` when you called `remediate_transient_failure` — the job re-runs the failed jobs if the PR is still queued, or, if it was already dropped, marks the failure as transient on the PR so that a separate workflow may re-add it when that is still safe (never claim the PR was re-added); `❌ Not triggered — <short reason, e.g. deterministic code failure>` otherwise>
 
 #### Possible remedy
 
@@ -272,9 +272,9 @@ Call the `remediate_transient_failure` safe-output tool **only** when your Root 
 **Do NOT** call it for deterministic failures a retry cannot fix — `Code Issue`, `Dependencies`, or `Configuration` categories (compilation errors, assertion failures, missing symbols, bad workflow config). When in doubt, do not call it.
 
 When you call `remediate_transient_failure`, the job resolves the PR behind the analysed run, reads its **live** merge-queue status at action time, and picks the remedy itself:
-- **PR still in the queue** (or no PR is associated) → it re-runs only the failed jobs.
-- **PR dropped from the queue** → it re-adds the PR to the merge queue (idempotent: it skips PRs that are already merged, closed, draft, or previously re-added).
-- **PR already merged, or status indeterminate** → it takes no action (fail safe).
+- **PR still in the queue** → it re-runs only the failed jobs. The re-run is the remedy: no marker is left and the PR is not handed to the re-add workflow.
+- **PR dropped from the queue** → nothing can be re-run, so it posts a PR comment with a hidden marker (the investigated run URL and your `reason`) that says the failure is transient, and dispatches the separate `ci-doctor-mq-readd.yml` workflow. That workflow — never this job or you — re-adds the PR to the merge queue, and only after re-checking that this run is still failed and was not re-run, that no other pipeline of the same merge group failed (those failures were not investigated and might not be transient), and that the PR's commits and base branch are unchanged since it was queued. The marker is left once per run and only for an open, non-draft, unmerged PR.
+- **No PR associated, PR already merged, or status indeterminate** → it takes no action (fail safe).
 
 Call it **at most once** per investigation. It re-runs only the **failed** jobs (passing jobs are untouched) and refuses to re-run a run already on its second attempt, to avoid restart loops.
 
@@ -313,14 +313,14 @@ In addition to `notify_teams`, `noop` and `missing_data` from the shared protoco
 
 - **`notify_teams_recurring`**: Send a recurring-failure escalation alert. Call this **only** if Phase 5.5 determines that there are 3+ occurrences in the last 12 hours. Call at most once per run.
 - **`add_comment`**: Post a remediation comment on the affected merge-queue PR. Call this **only** when the failure is associated with a PR (provide `item_number` and `body`). Call at most once per run.
-- **`remediate_transient_failure`**: Remediate a transient merge-queue failure. Call this **only** when the failure is transient (Infrastructure / Flaky Test / Network / External Service). The job resolves the PR's live merge-queue status and decides whether to re-run the failed jobs or re-add the PR to the queue — you do not choose. Call at most once per run.
+- **`remediate_transient_failure`**: Remediate a transient merge-queue failure. Call this **only** when the failure is transient (Infrastructure / Flaky Test / Network / External Service). The job resolves the PR's live merge-queue status and decides whether to re-run the failed jobs or to mark the failure as transient for the separate re-add workflow — you do not choose, and it never re-adds the PR itself. Call at most once per run.
 - **`propose_rerun_pattern`**: Open a human-review PR against `master` that would add the verified rerun search string candidate to `.github/scripts/workflow_rerun/errors_to_look_for.json`. Call this **only** under the conditions in its decision guidance above. Call at most once per run.
 
 **Valid call combinations:**
 - `notify_teams` alone — standard investigation with no identifiable PR, fewer than 3 occurrences in the last 12 hours.
 - `notify_teams` + `add_comment` — standard investigation where the failure is tied to a PR in the merge queue.
 - `notify_teams` + `notify_teams_recurring` (+ `add_comment` when a PR is identified) — standard investigation AND 3+ occurrences in the last 12 hours.
-- Any of the `notify_teams` combinations above **+ `remediate_transient_failure`** — a transient failure; the job decides at run time whether to re-run the failed jobs or re-add the PR to the merge queue.
+- Any of the `notify_teams` combinations above **+ `remediate_transient_failure`** — a transient failure; the job decides at run time whether to re-run the failed jobs or to mark the failure as transient for the separate re-add workflow.
 - Any of the transient combinations above **+ `propose_rerun_pattern`** — additionally, a verified rerun search string candidate that is not yet approved is submitted for human review.
 - `noop` alone — no investigation needed.
 - `missing_data` alone — investigation blocked by missing data.

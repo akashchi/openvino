@@ -8,25 +8,27 @@ Single custom safe-output job for the CI Doctor MQ workflow
 agent calls it whenever the failure is transient (Infrastructure / Flaky Test /
 Network / External Service).
 
-This job resolves that status live (``common.merge_queue_status``) and picks the
-remedy itself:
-  - PR still ``in_queue``   -> re-run only the failed jobs (a re-run keeps it moving).
-  - PR ``not_in_queue``     -> re-add the PR to the merge queue (it was dropped).
-  - PR ``merged``/``unknown`` or no PR that must be re-added -> no-op.
+This job resolves the PR's merge-queue status live (``common.merge_queue_status``)
+and picks the remedy itself:
+  - PR still ``in_queue``   -> re-run only the failed jobs (a re-run keeps it moving)
+                               and comment on the PR. No marker is left: the re-run
+                               is the remedy.
+  - PR ``not_in_queue``     -> the merge group is gone, so nothing can be re-run. Leave
+                               a PR comment with the hidden transient marker
+                               (``transient_marker.py``) and dispatch
+                               ``ci-doctor-mq-readd.yml``, which decides whether the
+                               PR may be re-added to the merge queue.
+  - PR ``merged``/``unknown`` or no PR -> no-op.
 
-In both the re-run and re-add cases it posts an outcome comment on the PR so the
-author sees what CI Doctor did and why.
-
-Re-running uses the default ``GITHUB_TOKEN`` (needs ``actions: write`` and
-``pull-requests: write`` for the comment); re-adding uses ``MERGE_QUEUE_TOKEN``
-because the default token cannot re-trigger ``merge_group`` check runs.
+This job never re-adds a PR itself and holds no merge-queue token. It only uses the
+default ``GITHUB_TOKEN`` (``actions: write`` to re-run and dispatch,
+``pull-requests: write`` to comment).
 """
 
 from __future__ import annotations
 
 import os
-# Merge-queue remediation: gh called with a fixed argv; PR/repo ids validated in common.py.
-import subprocess  # nosec B404
+from typing import TYPE_CHECKING
 
 from common import (
     github_client,
@@ -37,12 +39,15 @@ from common import (
     require_env,
     resolve_repository,
 )
+from transient_marker import TRANSIENT_MARKER, bot_markers, build_marker, sanitize_reason
 
-from github.PullRequest import PullRequest
-from github.WorkflowRun import WorkflowRun
+if TYPE_CHECKING:
+    from github import Github
+    from github.PullRequest import PullRequest
+    from github.Repository import Repository
+    from github.WorkflowRun import WorkflowRun
 
-
-READD_MARKER = "<!-- ci-doctor-mq-readd -->"
+READD_WORKFLOW_FILE = "ci-doctor-mq-readd.yml"
 
 
 def _rerun_comment(run: "WorkflowRun", reason: str) -> str:
@@ -56,15 +61,20 @@ def _rerun_comment(run: "WorkflowRun", reason: str) -> str:
     )
 
 
-def _readd_comment(run: "WorkflowRun", reason: str) -> str:
-    """Comment body announcing that the PR was re-added to the merge queue."""
+def _transient_comment(run: "WorkflowRun", reason: str) -> str:
+    """Comment body stating that the failure is transient, led by the hidden marker."""
+    reason = sanitize_reason(reason)
+    marker = build_marker(TRANSIENT_MARKER, run_url=run.html_url, reason=reason)
     return (
-        f"{READD_MARKER}\n\n"
-        "### CI Doctor — Merge Queue remediation\n\n"
-        "This PR was dropped from the merge queue by a transient pipeline failure, so CI Doctor "
-        "**re-added it to the merge queue**.\n\n"
-        f"- **Failed run**: {run.html_url}\n"
-        f"- **Reason**: {reason or 'transient failure'}\n"
+        f"{marker}\n\n"
+        "### CI Doctor — Merge Queue: transient failure\n\n"
+        "CI Doctor investigated the failed merge-queue pipeline and concluded that its error is "
+        "**transient / sporadic**, not caused by this pull request.\n\n"
+        f"- **Investigated run**: {run.html_url}\n"
+        f"- **Reason**: `{reason}`\n\n"
+        "The failed jobs could not be re-run because the pull request had already left the merge queue. "
+        f"If no other pipeline failed, the `{READD_WORKFLOW_FILE}` workflow re-adds the pull request "
+        "to the merge queue (once).\n"
     )
 
 
@@ -94,11 +104,6 @@ def rerun_failed_jobs(run: "WorkflowRun", run_id: str, repository: str, pull: "P
     print(f"Recorded re-run comment on PR #{pull.number}.")
 
 
-def _already_readded(pull: "PullRequest") -> bool:
-    """Return True if a previous CI Doctor re-add marker comment is present."""
-    return any(READD_MARKER in (comment.body or "") for comment in pull.get_issue_comments())
-
-
 def _set_github_env(key: str, value: str) -> None:
     """Append ``key=value`` to ``$GITHUB_ENV`` so later workflow steps can react."""
     github_env = os.environ.get("GITHUB_ENV")
@@ -108,49 +113,78 @@ def _set_github_env(key: str, value: str) -> None:
         handle.write(f"{key}={value}\n")
 
 
-def _readd_skip_reason(pull: "PullRequest", pr_number: str) -> str | None:
-    """Return a reason to skip re-adding, or None to proceed."""
+def _marker_skip_reason(run: "WorkflowRun", pull: "PullRequest") -> str | None:
+    """Return why a transient marker is pointless for this run/PR, or None to proceed.
+
+    These mirror the conditions the re-add workflow enforces, so a marker is only
+    left when that workflow could act on it.
+    """
+    if run.event != "merge_group":
+        return f"Run {run.id} is a '{run.event}' run, not a merge-queue run; not leaving a transient marker."
+    if run.conclusion != "failure":
+        return f"Run {run.id} concluded '{run.conclusion}', not 'failure'; not leaving a transient marker."
+    attempt = run.run_attempt or 1
+    if attempt > 1:
+        return f"Run {run.id} already has {attempt} attempts; not leaving a transient marker."
     if pull.merged:
-        return f"PR #{pr_number} is already merged; nothing to re-add."
+        return f"PR #{pull.number} is already merged; not leaving a transient marker."
     if pull.state != "open":
-        return f"PR #{pr_number} is not open (state={pull.state}); not re-adding."
+        return f"PR #{pull.number} is not open (state={pull.state}); not leaving a transient marker."
     if pull.draft:
-        return f"PR #{pr_number} is a draft; not re-adding."
+        return f"PR #{pull.number} is a draft; not leaving a transient marker."
     return None
 
 
-def readd_to_queue(pr_number: str, repository: str, reason: str, merge_queue_token: str, run: "WorkflowRun") -> None:
-    """Re-add a dropped PR to the merge queue via ``gh pr merge`` (idempotent).
+def dispatch_readd(repo: "Repository", pr_number: int) -> None:
+    """Start the re-add workflow for ``pr_number`` (a dequeue that already happened cannot trigger it)."""
+    workflow = repo.get_workflow(READD_WORKFLOW_FILE)
+    workflow.create_dispatch(ref=repo.default_branch, inputs={"pr_number": str(pr_number)}, throw=True)
+    print(f"Dispatched {READD_WORKFLOW_FILE} for PR #{pr_number}.")
 
-    Uses ``MERGE_QUEUE_TOKEN`` for the enqueue and the outcome comment because the
-    default ``GITHUB_TOKEN`` cannot re-trigger ``merge_group`` check runs.
+
+def mark_transient(repo: "Repository", run: "WorkflowRun", pull: "PullRequest", reason: str) -> None:
+    """Comment that ``run`` failed transiently (hidden marker) and hand the PR to the re-add workflow.
+
+    Idempotent: an existing marker for the same run is not duplicated, but the
+    dispatch is still sent so a re-run of this job can complete a failed dispatch.
+    The re-add workflow guards against acting twice.
     """
-    mq_pull = github_client(merge_queue_token).get_repo(repository).get_pull(int(pr_number))
-
-    if _already_readded(mq_pull):
-        print(f"PR #{pr_number} already re-added by CI Doctor (marker comment found); skipping.")
+    skip_reason = _marker_skip_reason(run, pull)
+    if skip_reason:
+        print(skip_reason)
         return
 
-    reason_to_skip = _readd_skip_reason(mq_pull, pr_number)
-    if reason_to_skip:
-        print(reason_to_skip)
+    known_runs = {marker.get("run_url") for marker in bot_markers(pull.get_issue_comments(), TRANSIENT_MARKER)}
+    if run.html_url in known_runs:
+        print(f"PR #{pull.number} already has a transient marker for {run.html_url}; not posting another.")
+    else:
+        pull.create_issue_comment(_transient_comment(run, reason))
+        print(f"Recorded transient-failure comment with marker on PR #{pull.number}.")
+        _set_github_env("TRANSIENT_MARKER_POSTED", "true")
+    dispatch_readd(repo, pull.number)
+
+
+def remediate(gh: "Github", repo: "Repository", run: "WorkflowRun", run_id: str, repository: str, reason: str) -> None:
+    """Pick and perform the remedy for a transient failure of ``run``."""
+    pr_number = resolve_pr_number(run)
+    if not pr_number:
+        print("No pull request associated with this run; cannot remediate.")
         return
 
-    # ``--squash`` keeps the CLI non-interactive; on a merge-queue branch the
-    # server ignores it in favour of the queue's configured method.
-    merge_command = ["gh", "pr", "merge", pr_number, "--repo", repository, "--squash"]
-    if mq_pull.head.sha:
-        merge_command += ["--match-head-commit", mq_pull.head.sha]
-    result = subprocess.run(
-        merge_command, capture_output=True, text=True, env={**os.environ, "GH_TOKEN": merge_queue_token}
-    )
-    if result.returncode != 0:
-        raise SystemExit(f"Merge-queue enqueue failed: {result.stderr.strip()}")
-    print(f"Successfully requested re-add of PR #{pr_number} to the merge queue.")
-    _set_github_env("READDED_TO_MQ", "true")
+    pull = repo.get_pull(int(pr_number))
+    status = merge_queue_status(gh, repo, pull)
+    print(f"Live merge-queue status for PR #{pr_number}: {status}")
 
-    mq_pull.create_issue_comment(_readd_comment(run, reason))
-    print(f"Recorded re-add comment on PR #{pr_number}.")
+    if status == "in_queue":
+        print(f"PR #{pr_number} is still in the merge queue; re-running failed jobs.")
+        rerun_failed_jobs(run, run_id, repository, pull, reason)
+    elif status == "not_in_queue":
+        print(f"PR #{pr_number} already left the merge queue, so nothing can be re-run; recording the transient failure.")
+        mark_transient(repo, run, pull, reason)
+    elif status == "merged":
+        print(f"PR #{pr_number} is already merged; no remediation needed.")
+    else:
+        print(f"PR #{pr_number} merge-queue status is '{status}'; cannot safely remediate. Skipping.")
 
 
 def main() -> None:
@@ -165,29 +199,7 @@ def main() -> None:
     gh = github_client(token)
     repo = gh.get_repo(repository)
     run = repo.get_workflow_run(int(run_id))
-
-    pr_number = resolve_pr_number(run)
-    if not pr_number:
-        print("No pull request associated with this run; cannot remediate.")
-        return
-
-    pull = repo.get_pull(int(pr_number))
-    status = merge_queue_status(gh, repo, pull)
-    print(f"Live merge-queue status for PR #{pr_number}: {status}")
-
-    if status == "in_queue":
-        print(f"PR #{pr_number} is still in the merge queue; re-running failed jobs.")
-        rerun_failed_jobs(run, run_id, repository, pull, reason)
-    elif status == "not_in_queue":
-        print(f"PR #{pr_number} was dropped from the merge queue; re-adding it.")
-        merge_queue_token = require_env(
-            "MERGE_QUEUE_TOKEN", "MERGE_QUEUE_TOKEN secret is not configured; cannot re-add to merge queue."
-        )
-        readd_to_queue(pr_number, repository, reason, merge_queue_token, run)
-    elif status == "merged":
-        print(f"PR #{pr_number} is already merged; no remediation needed.")
-    else:
-        print(f"PR #{pr_number} merge-queue status is '{status}'; cannot safely remediate. Skipping.")
+    remediate(gh, repo, run, run_id, repository, reason)
 
 
 if __name__ == "__main__":

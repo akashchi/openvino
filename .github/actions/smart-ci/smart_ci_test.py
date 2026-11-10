@@ -241,6 +241,7 @@ class TestAutomationOnlyChanges(unittest.TestCase):
         '.github/workflows/shared/agentic-workflows/propose-rerun-pattern.md',
         '.github/workflows/workflow_rerunner.yml',
         '.github/workflows/agentic_workflows_check.yml',
+        '.github/workflows/ci-doctor-mq-readd.yml',
         'docs/dev/ci/github_actions/agentic_workflows.md',
     ]
 

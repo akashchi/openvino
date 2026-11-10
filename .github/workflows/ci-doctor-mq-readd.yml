@@ -1,0 +1,107 @@
+name: CI Doctor MQ Re-add
+
+# Re-adds a pull request to the merge queue after CI Doctor MQ found that the merge-queue
+# failure which dropped it was transient. CI Doctor MQ never re-adds a pull request itself:
+# it only leaves a PR comment with a hidden marker (see transient_marker.py). Whether a
+# re-add is still safe is decided by readd_transient_pr.py, both in
+# .github/scripts/agentic-workflows. Details: docs/dev/ci/github_actions/agentic_workflows.md
+#
+# The workflow runs when
+#  * a pull request is dequeued because of a CI failure, or
+#  * CI Doctor MQ dispatches it right after it left the marker. CI Doctor usually finishes
+#    after the queue dropped the PR, so the dequeue event alone comes too early, and events
+#    created with GITHUB_TOKEN do not start workflows except workflow_dispatch.
+on:
+  # pull_request_target runs the workflow definition from the default branch and gives it
+  # access to secrets, also for pull requests from forks. That is safe here: nothing from
+  # the pull request is checked out or executed, and the scripts trust only what they
+  # re-verify through the API (see docs/dev/ci/github_actions/security.md).
+  pull_request_target:
+    types: [dequeued]
+  workflow_dispatch:
+    inputs:
+      pr_number:
+        description: 'Number of the pull request to re-add to the merge queue'
+        required: true
+        type: string
+
+permissions: read-all
+
+jobs:
+  readd:
+    name: Re-add to merge queue
+    # Other dequeue reasons (MERGE, MANUAL, MERGE_CONFLICT, ...) are never worth a retry.
+    if: >-
+      ${{ github.repository_owner == 'openvinotoolkit' &&
+      (github.event_name == 'workflow_dispatch' || github.event.reason == 'CI_FAILURE') }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    # One run per PR at a time, so a dequeue run and a dispatch run never enqueue the same PR
+    # together. Set on the job so that skipped runs do not wait behind a real one.
+    concurrency:
+      group: ci-doctor-mq-readd-${{ github.event.pull_request.number || inputs.pr_number }}
+      cancel-in-progress: false
+    permissions:
+      actions: read          # inspect the merge-queue runs of the PR
+      contents: read         # check out the scripts
+      pull-requests: write   # comment that the PR was re-added
+    steps:
+      - name: Checkout agentic-workflow scripts
+        uses: ababushk/checkout@dd591a6a2ac25618db4eda86e7e0d938f88cf01b # cherry_pick_retries
+        timeout-minutes: 15
+        with:
+          sparse-checkout: .github/scripts/agentic-workflows
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: '3.13'
+
+      - name: Install PyGithub
+        run: python -m pip install --quiet PyGithub==2.9.1
+
+      - name: Check whether the PR may be re-added
+        id: evaluate
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.pull_request.number || inputs.pr_number }}
+        run: |
+          export PYTHONPATH=.github/scripts/agentic-workflows/:${PYTHONPATH}
+          python .github/scripts/agentic-workflows/readd_transient_pr.py evaluate
+
+      - name: Add the PR back to the merge queue
+        id: enqueue
+        if: ${{ steps.evaluate.outputs.readd == 'true' }}
+        env:
+          # MERGE_QUEUE_TOKEN (a PAT or GitHub App token with contents: write +
+          # pull_requests: write) is needed because the default GITHUB_TOKEN cannot
+          # re-trigger merge_group check runs, so a re-queue performed with it would
+          # stall. Only this step sees it; the scripts use the default token.
+          GH_TOKEN: ${{ secrets.MERGE_QUEUE_TOKEN }}
+          PR_NUMBER: ${{ steps.evaluate.outputs.pr_number }}
+          HEAD_SHA: ${{ steps.evaluate.outputs.head_sha }}
+        run: |
+          if [ -z "${GH_TOKEN}" ]; then
+            echo "::error::MERGE_QUEUE_TOKEN is not configured; cannot re-add PR #${PR_NUMBER} to the merge queue."
+            exit 1
+          fi
+          # --squash keeps the CLI non-interactive; on a merge-queue branch the server
+          # ignores it in favour of the queue's configured method. --match-head-commit
+          # refuses a PR that was updated after it was evaluated.
+          gh pr merge "${PR_NUMBER}" --repo "${GITHUB_REPOSITORY}" --squash --match-head-commit "${HEAD_SHA}"
+
+      # The `echo` step is for collecting and aggregating statistics in Grafana
+      - name: Re-add to merge queue was triggered
+        if: ${{ steps.enqueue.outcome == 'success' }}
+        run: echo "CI Doctor re-added the pull request to the merge queue (it had been dropped)."
+
+      - name: Record the re-add on the PR
+        if: ${{ steps.enqueue.outcome == 'success' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ steps.evaluate.outputs.pr_number }}
+          RUN_URL: ${{ steps.evaluate.outputs.run_url }}
+        run: |
+          export PYTHONPATH=.github/scripts/agentic-workflows/:${PYTHONPATH}
+          python .github/scripts/agentic-workflows/readd_transient_pr.py record
