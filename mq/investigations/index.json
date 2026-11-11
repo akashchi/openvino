@@ -1,6 +1,6 @@
 {
   "schema_version": "1.0",
-  "total": 360,
+  "total": 369,
   "entries": [
     {
       "investigation_id": "2026-07-09-13-58-10-000-29022024794",
@@ -3509,6 +3509,89 @@
       "category": "Infrastructure",
       "signature_hash": "95bb23aa2ed8a84d",
       "pr_number": "37406"
+    },
+    {
+      "investigation_id": "2026-11-10-12-35-30-000-42798063954",
+      "run_id": "42798063954",
+      "timestamp": "2026-11-10T12:35:30Z",
+      "title": "GGUF frontend test_parser.cpp fails to build under C++20 mode (char8_t/std::string mismatch in unicode path concatenation)",
+      "category": "Code Issue",
+      "signature_hash": "60c87e1ef4d6a044",
+      "pr_number": "37406"
+    },
+    {
+      "investigation_id": "2026-11-10-12-51-32-000-42806601643",
+      "run_id": "42806601643",
+      "timestamp": "2026-11-10T12:51:32Z",
+      "title": "GPU unit tests fail to extract OpenVINO package - tbb12.dll locked (Access denied) on Windows self-hosted runner",
+      "category": "Infrastructure",
+      "signature_hash": "95bb23aa2ed8a84d",
+      "pr_number": "39617"
+    },
+    {
+      "investigation_id": "2026-11-10-13-39-30-000-42806601643",
+      "run_id": "42806601643",
+      "timestamp": "2026-11-10T13:39:30Z",
+      "title": "GGUF frontend test_parser.cpp fails to build under C++20 mode (char8_t/std::string mismatch in unicode path concatenation)",
+      "category": "Code Issue",
+      "signature_hash": "60c87e1ef4d6a044",
+      "pr_number": "39617"
+    },
+    {
+      "investigation_id": "2026-11-10-15-03-01-608-42832292043",
+      "run_id": "42832292043",
+      "timestamp": "2026-11-10T15:03:01Z",
+      "title": "smoke_tests throughput_benchmark_py fails with ld.so _dl_close_worker assertion on ARM64",
+      "category": "Flaky Test",
+      "signature_hash": "698433af4622b768",
+      "pr_number": "39653"
+    },
+    {
+      "investigation_id": "2026-11-10-16-36-52-277-42841245398",
+      "run_id": "42841245398",
+      "timestamp": "2026-11-10T16:36:52Z",
+      "title": "GPU unit tests fail to extract OpenVINO package - tbb12.dll locked (Access denied) on Windows self-hosted runner",
+      "category": "Infrastructure",
+      "signature_hash": "95bb23aa2ed8a84d",
+      "pr_number": "39653"
+    },
+    {
+      "investigation_id": "2026-11-10-17-53-12-000-42854020018",
+      "run_id": "42854020018",
+      "run_url": "https://github.com/openvinotoolkit/openvino/actions/runs/42854020018",
+      "workflow_name": "Linux (Ubuntu 22.04, Python 3.11)",
+      "timestamp": "2026-11-10T17:53:12Z",
+      "title": "OpenVINO JS API tests crash with unhandled ECONNRESET downloading test model",
+      "category": "Network",
+      "signature_hash": "84f05233a122ae35",
+      "pr_number": "39143"
+    },
+    {
+      "investigation_id": "2026-11-10-18-10-00-753-42857529315",
+      "run_id": "42857529315",
+      "timestamp": "2026-11-10T18:10:00Z",
+      "title": "LLM accuracy tests fail with TypeError: genai_gen_text() got an unexpected keyword argument 'context'",
+      "category": "Dependencies",
+      "signature_hash": "6cf9cf0d8f5c0a43",
+      "pr_number": "39512"
+    },
+    {
+      "investigation_id": "2026-11-10-18-43-07-000-42857529037",
+      "run_id": "42857529037",
+      "timestamp": "2026-11-10T18:43:07Z",
+      "title": "PyTorch Models tests fail with pyarrow/NumPy ABI mismatch (ImportError: pyarrow requires NumPy 2.0)",
+      "category": "Dependencies",
+      "signature_hash": "90d42369fa7c1efb",
+      "pr_number": "39512"
+    },
+    {
+      "investigation_id": "2026-11-11-10-17-29-000-42983827471",
+      "run_id": "42983827471",
+      "timestamp": "2026-11-11T10:17:29Z",
+      "title": "GPU unit tests fail to extract OpenVINO package - tbb12.dll locked (Access denied) on Windows self-hosted runner",
+      "category": "Infrastructure",
+      "signature_hash": "95bb23aa2ed8a84d",
+      "pr_number": "39568"
     }
   ]
 }
