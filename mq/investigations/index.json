@@ -1,6 +1,6 @@
 {
   "schema_version": "1.0",
-  "total": 431,
+  "total": 440,
   "entries": [
     {
       "investigation_id": "2026-06-11-19-02-43-000-27365701077",
@@ -4736,6 +4736,101 @@
       "category": "External Service",
       "signature_hash": "2641a2995515ec82",
       "pr_number": "38204"
+    },
+    {
+      "investigation_id": "2026-11-12-13-14-45-396-43200774188",
+      "run_id": "43200774188",
+      "run_url": "https://github.com/openvinotoolkit/openvino/actions/runs/43200774188",
+      "workflow_name": "Linux (Ubuntu 22.04, Python 3.11)",
+      "timestamp": "2026-11-12T13:14:45Z",
+      "title": "Build (C++20) job fails - sccache cannot start because Azure Blob connection string URI is malformed",
+      "category": "Configuration",
+      "signature_hash": "08b993dbdc18ccac",
+      "pr_number": "39717"
+    },
+    {
+      "investigation_id": "2026-11-12-16-21-55-238-43242891184",
+      "run_id": "43242891184",
+      "run_url": "https://github.com/openvinotoolkit/openvino/actions/runs/43242891184",
+      "workflow_name": "LLM accuracy CPU tests / LLM accuracy iGPU tests",
+      "timestamp": "2026-11-12T16:21:55Z",
+      "title": "LLM accuracy tests fail with TypeError: genai_gen_text() got an unexpected keyword argument 'context'",
+      "category": "Dependencies",
+      "signature_hash": "6cf9cf0d8f5c0a43",
+      "pr_number": "39512"
+    },
+    {
+      "investigation_id": "2026-11-12-16-45-29-000-43242892126",
+      "run_id": "43242892126",
+      "timestamp": "2026-11-12T16:45:29Z",
+      "title": "PyTorch Models tests fail with pyarrow/NumPy ABI mismatch (ImportError: pyarrow requires NumPy 2.0)",
+      "category": "Dependencies",
+      "signature_hash": "90d42369fa7c1efb",
+      "pr_number": "39512"
+    },
+    {
+      "investigation_id": "2026-11-12-22-28-36-000-43172645123",
+      "run_id": "43172645123",
+      "run_url": "https://github.com/openvinotoolkit/openvino/actions/runs/43172645123",
+      "workflow_name": "C++ unit tests",
+      "timestamp": "2026-11-12T22:28:36Z",
+      "title": "GGUFOps.GetRowsMoeWeights crashes Windows C++ unit tests with no further gtest output",
+      "category": "Code Issue",
+      "signature_hash": "563208c7fd43433e",
+      "pr_number": "39441"
+    },
+    {
+      "investigation_id": "2026-11-13-03-40-54-000-43352207166",
+      "run_id": "43352207166",
+      "run_url": "https://github.com/openvinotoolkit/openvino/actions/runs/43352207166",
+      "workflow_name": "Linux (Ubuntu 22.04, Python 3.11)",
+      "timestamp": "2026-11-13T03:40:54Z",
+      "title": "Build (C++20) job fails - sccache cannot start because Azure Blob connection string URI is malformed",
+      "category": "Configuration",
+      "signature_hash": "08b993dbdc18ccac",
+      "pr_number": "39563"
+    },
+    {
+      "investigation_id": "2026-11-13-07-09-24-627-43378018632",
+      "run_id": "43378018632",
+      "run_url": "https://github.com/openvinotoolkit/openvino/actions/runs/43378018632",
+      "workflow_name": "CPU functional tests",
+      "timestamp": "2026-11-13T07:09:24Z",
+      "title": "smoke_MatMulCompressedWeights_Kleidiai_i8_kernel_switch fails with unexpected impl type undef_f32 on ARM64",
+      "category": "Flaky Test",
+      "signature_hash": "5c9adec102201520",
+      "pr_number": "39266"
+    },
+    {
+      "investigation_id": "2026-11-13-07-25-20-254-43378018793",
+      "run_id": "43378018793",
+      "timestamp": "2026-11-13T07:25:20Z",
+      "title": "Build (C++20) job fails - sccache cannot start because Azure Blob connection string URI is malformed",
+      "category": "Configuration",
+      "signature_hash": "08b993dbdc18ccac",
+      "pr_number": "39266"
+    },
+    {
+      "investigation_id": "2026-11-13-08-28-28-000-43200774181",
+      "run_id": "43200774181",
+      "run_url": "https://github.com/openvinotoolkit/openvino/actions/runs/43200774181",
+      "workflow_name": "Windows (VS 2022, Python 3.11, Release)",
+      "timestamp": "2026-11-13T08:28:28Z",
+      "title": "GPU unit tests job cancelled by Windows runner shutdown signal",
+      "category": "Infrastructure",
+      "signature_hash": "39e65673e42b712c",
+      "pr_number": "39717"
+    },
+    {
+      "investigation_id": "2026-11-13-09-57-39-000-43399290436",
+      "run_id": "43399290436",
+      "run_url": "https://github.com/openvinotoolkit/openvino/actions/runs/43399290436",
+      "workflow_name": "Linux ARM64 (Ubuntu 22.04, Python 3.11)",
+      "timestamp": "2026-11-13T09:57:39Z",
+      "title": "smoke_MaxPoolV14 - primType is unexpected: undef_f32 Expected: acl_f32 on ARM64",
+      "category": "Flaky Test",
+      "signature_hash": "eb0b94c864ee1a85",
+      "pr_number": "39771"
     }
   ]
 }
