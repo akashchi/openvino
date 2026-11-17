@@ -1,6 +1,6 @@
 {
   "schema_version": "1.0",
-  "total": 453,
+  "total": 465,
   "entries": [
     {
       "investigation_id": "2026-06-11-19-02-43-000-27365701077",
@@ -4958,6 +4958,124 @@
       "category": "Infrastructure",
       "signature_hash": "95bb23aa2ed8a84d",
       "pr_number": "39900"
+    },
+    {
+      "investigation_id": "2026-11-16-13-46-59-472-43855716372",
+      "run_id": "43855716372",
+      "run_url": "https://github.com/openvinotoolkit/openvino/actions/runs/43855716372",
+      "workflow_name": "Windows (VS 2022, Python 3.11, Release)",
+      "timestamp": "2026-11-16T13:46:59Z",
+      "title": "OpenVINO tokenizers wheel build fails - openvino~=2027.0.0.dev not yet available on pip",
+      "category": "Dependencies",
+      "signature_hash": "8d60fd1266878935",
+      "pr_number": "39556"
+    },
+    {
+      "investigation_id": "2026-11-16-14-42-26-694-43866326044",
+      "run_id": "43866326044",
+      "timestamp": "2026-11-16T14:42:26Z",
+      "title": "iGPU unit tests job cancelled after hitting the 80-minute job timeout near the end of the gtest suite",
+      "category": "Infrastructure",
+      "signature_hash": "75fb142987956bb4",
+      "pr_number": "39742"
+    },
+    {
+      "investigation_id": "2026-11-16-16-17-32-000-43864218055",
+      "run_id": "43864218055",
+      "run_url": "https://github.com/openvinotoolkit/openvino/actions/runs/43864218055",
+      "workflow_name": "C++ unit tests",
+      "timestamp": "2026-11-16T16:17:32Z",
+      "title": "CachingTest LoadMultiWithConfig_race import_model call count mismatch on Windows",
+      "category": "Flaky Test",
+      "signature_hash": "43e136cf67333978",
+      "pr_number": "39663"
+    },
+    {
+      "investigation_id": "2026-11-16-16-38-25-000-43866240882",
+      "run_id": "43866240882",
+      "run_url": "https://github.com/openvinotoolkit/openvino/actions/runs/43866240882",
+      "workflow_name": "C++ unit tests",
+      "timestamp": "2026-11-16T16:38:25Z",
+      "title": "CachingTest LoadMultiWithConfig_race import_model call count mismatch on Windows",
+      "category": "Flaky Test",
+      "signature_hash": "43e136cf67333978",
+      "pr_number": "39616"
+    },
+    {
+      "investigation_id": "2026-11-16-16-54-14-917-43897852365",
+      "run_id": "43897852365",
+      "run_url": "https://github.com/openvinotoolkit/openvino/actions/runs/43897852365",
+      "workflow_name": "Linux (Ubuntu 22.04, Python 3.11)",
+      "timestamp": "2026-11-16T16:54:14Z",
+      "title": "smoke_ScatterUpdateGeneralPathOutOfRangeIndices tests fail - reference plugin doesn't throw on out-of-range indices",
+      "category": "Code Issue",
+      "signature_hash": "e746e8e11c0fe156",
+      "pr_number": "39833"
+    },
+    {
+      "investigation_id": "2026-11-16-17-32-33-000-43897852421",
+      "run_id": "43897852421",
+      "timestamp": "2026-11-16T17:32:33Z",
+      "title": "GPU unit tests fail to extract OpenVINO package - PowerShell execution policy disabled scripts on Windows runner",
+      "category": "Infrastructure",
+      "signature_hash": "c351b86e95419730",
+      "pr_number": "39833"
+    },
+    {
+      "investigation_id": "2026-11-16-17-49-41-743-43864215329",
+      "run_id": "43864215329",
+      "timestamp": "2026-11-16T17:49:41Z",
+      "title": "fusings_gpu pooling_f32_scale fp16_scale_out fails GPU unit test tolerance check",
+      "category": "Flaky Test",
+      "signature_hash": "7b64fedfacbfda60",
+      "pr_number": "39556"
+    },
+    {
+      "investigation_id": "2026-11-17-10-32-13-538-44051380184",
+      "run_id": "44051380184",
+      "timestamp": "2026-11-17T10:32:13Z",
+      "title": "GPU unit tests fail to extract OpenVINO package - PowerShell execution policy disabled scripts on Windows runner",
+      "category": "Infrastructure",
+      "signature_hash": "c351b86e95419730",
+      "pr_number": "39423"
+    },
+    {
+      "investigation_id": "2026-11-17-10-59-00-316-44054389090",
+      "run_id": "44054389090",
+      "run_url": "https://github.com/openvinotoolkit/openvino/actions/runs/44054389090",
+      "workflow_name": "Windows (VS 2022, Python 3.11, Release)",
+      "timestamp": "2026-11-17T10:59:00Z",
+      "title": "GPU unit tests fail to extract OpenVINO package - PowerShell execution policy disabled scripts on Windows runner",
+      "category": "Infrastructure",
+      "signature_hash": "c351b86e95419730",
+      "pr_number": "39839"
+    },
+    {
+      "investigation_id": "2026-11-17-11-42-49-794-44054226105",
+      "run_id": "44054226105",
+      "timestamp": "2026-11-17T11:42:49Z",
+      "title": "fusings_gpu pooling_f32_scale fp16_scale_out fails GPU unit test tolerance check",
+      "category": "Flaky Test",
+      "signature_hash": "7b64fedfacbfda60",
+      "pr_number": "39571"
+    },
+    {
+      "investigation_id": "2026-11-17-11-58-00-000-44059107723",
+      "run_id": "44059107723",
+      "timestamp": "2026-11-17T11:58:00Z",
+      "title": "GPU unit tests fail to extract OpenVINO package - PowerShell execution policy disabled scripts on Windows runner",
+      "category": "Infrastructure",
+      "signature_hash": "c351b86e95419730",
+      "pr_number": "39899"
+    },
+    {
+      "investigation_id": "2026-11-17-12-17-30-000-44062987534",
+      "run_id": "44062987534",
+      "timestamp": "2026-11-17T12:17:30Z",
+      "title": "GPU unit tests fail to extract OpenVINO package - PowerShell execution policy disabled scripts on Windows runner",
+      "category": "Infrastructure",
+      "signature_hash": "c351b86e95419730",
+      "pr_number": "39262"
     }
   ]
 }
