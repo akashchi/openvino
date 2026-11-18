@@ -1,6 +1,6 @@
 {
   "schema_version": "1.0",
-  "total": 465,
+  "total": 477,
   "entries": [
     {
       "investigation_id": "2026-06-11-19-02-43-000-27365701077",
@@ -5076,6 +5076,128 @@
       "category": "Infrastructure",
       "signature_hash": "c351b86e95419730",
       "pr_number": "39262"
+    },
+    {
+      "investigation_id": "2026-11-17-12-32-53-000-44064722560",
+      "run_id": "44064722560",
+      "timestamp": "2026-11-17T12:32:53Z",
+      "title": "GPU unit tests fail to extract OpenVINO package - PowerShell execution policy disabled scripts on Windows runner",
+      "category": "Infrastructure",
+      "signature_hash": "c351b86e95419730",
+      "pr_number": "39424"
+    },
+    {
+      "investigation_id": "2026-11-17-14-46-52-000-44075832902",
+      "run_id": "44075832902",
+      "timestamp": "2026-11-17T14:46:52Z",
+      "title": "GPU unit tests fail in a burst of 36 early-scheduled tests exiting with code 3 and no output on Windows runner",
+      "category": "Infrastructure",
+      "signature_hash": "f9292bee76d60b31",
+      "pr_number": "39835"
+    },
+    {
+      "investigation_id": "2026-11-17-20-23-39-452-44150712512",
+      "run_id": "44150712512",
+      "run_url": "https://github.com/openvinotoolkit/openvino/actions/runs/44150712512",
+      "workflow_name": "CPU functional tests",
+      "timestamp": "2026-11-17T20:23:39Z",
+      "title": "smoke_ScatterUpdateGeneralPathOutOfRangeIndices tests fail - reference plugin doesn't throw on out-of-range indices",
+      "category": "Code Issue",
+      "signature_hash": "e746e8e11c0fe156",
+      "pr_number": "39956"
+    },
+    {
+      "investigation_id": "2026-11-17-23-57-23-505-44184088514",
+      "run_id": "44184088514",
+      "timestamp": "2026-11-17T23:57:23Z",
+      "title": "iGPU unit tests job cancelled after hitting the 80-minute job timeout near the end of the gtest suite",
+      "category": "Infrastructure",
+      "signature_hash": "75fb142987956bb4",
+      "pr_number": "39956"
+    },
+    {
+      "investigation_id": "2026-11-18-06-08-56-174-44245354283",
+      "run_id": "44245354283",
+      "run_url": "https://github.com/openvinotoolkit/openvino/actions/runs/44245354283",
+      "workflow_name": "Linux (Ubuntu 24.04, Clang, ITT, faster build, clang-tidy, GPU)",
+      "timestamp": "2026-11-18T06:08:56Z",
+      "title": "GPU remove_redundant_reorders clang-tidy braces-around-statements errors",
+      "category": "Code Issue",
+      "signature_hash": "a4282c65071120e2",
+      "pr_number": "38641"
+    },
+    {
+      "investigation_id": "2026-11-18-06-32-25-000-44205432885",
+      "run_id": "44205432885",
+      "run_url": "https://github.com/openvinotoolkit/openvino/actions/runs/44205432885",
+      "workflow_name": "Windows (VS 2022, Python 3.11, Release)",
+      "timestamp": "2026-11-18T06:32:25Z",
+      "title": "GPU unit tests fail to extract OpenVINO package - tbb12.dll locked (Access denied) on Windows self-hosted runner",
+      "category": "Infrastructure",
+      "signature_hash": "95bb23aa2ed8a84d",
+      "pr_number": "39956"
+    },
+    {
+      "investigation_id": "2026-11-18-06-46-30-000-44229399112",
+      "run_id": "44229399112",
+      "run_url": "https://github.com/openvinotoolkit/openvino/actions/runs/44229399112",
+      "workflow_name": "Windows (VS 2022, Python 3.11, Release)",
+      "timestamp": "2026-11-18T06:46:30Z",
+      "title": "GPU unit tests fail to extract OpenVINO package - tbb12.dll locked (Access denied) on Windows self-hosted runner",
+      "category": "Infrastructure",
+      "signature_hash": "95bb23aa2ed8a84d",
+      "pr_number": "39984"
+    },
+    {
+      "investigation_id": "2026-11-18-07-02-16-000-44242555929",
+      "run_id": "44242555929",
+      "run_url": "https://github.com/openvinotoolkit/openvino/actions/runs/44242555929",
+      "workflow_name": "Windows (VS 2022, Python 3.11, Release)",
+      "timestamp": "2026-11-18T07:02:16Z",
+      "title": "GPU unit tests fail to extract OpenVINO package - tbb12.dll locked (Access denied) on Windows self-hosted runner",
+      "category": "Infrastructure",
+      "signature_hash": "95bb23aa2ed8a84d",
+      "pr_number": "39991"
+    },
+    {
+      "investigation_id": "2026-11-18-08-31-24-647-44258557231",
+      "run_id": "44258557231",
+      "run_url": "https://github.com/openvinotoolkit/openvino/actions/runs/44258557231",
+      "workflow_name": "Linux (Ubuntu 24.04, Clang, ITT, faster build, clang-tidy, GPU)",
+      "timestamp": "2026-11-18T08:31:24Z",
+      "title": "GPU remove_redundant_reorders clang-tidy braces-around-statements errors",
+      "category": "Code Issue",
+      "signature_hash": "a4282c65071120e2",
+      "pr_number": "38641"
+    },
+    {
+      "investigation_id": "2026-11-18-08-55-25-000-44256364206",
+      "run_id": "44256364206",
+      "run_url": "https://github.com/openvinotoolkit/openvino/actions/runs/44256364206",
+      "workflow_name": "GPU unit tests",
+      "timestamp": "2026-11-18T08:55:25Z",
+      "title": "GPU unit tests fail to extract OpenVINO package - tbb12.dll locked (Access denied) on Windows self-hosted runner",
+      "category": "Infrastructure",
+      "signature_hash": "95bb23aa2ed8a84d",
+      "pr_number": "39991"
+    },
+    {
+      "investigation_id": "2026-11-18-10-56-42-000-44285082517",
+      "run_id": "44285082517",
+      "timestamp": "2026-11-18T10:56:42Z",
+      "title": "GPU BatchReplicatedBranches clang-tidy braces-around-statements errors",
+      "category": "Code Issue",
+      "signature_hash": "a4282c65071120e2",
+      "pr_number": "38575"
+    },
+    {
+      "investigation_id": "2026-11-18-11-10-50-377-44286884115",
+      "run_id": "44286884115",
+      "timestamp": "2026-11-18T11:10:50Z",
+      "title": "GPU BatchReplicatedBranches clang-tidy braces-around-statements errors",
+      "category": "Code Issue",
+      "signature_hash": "a4282c65071120e2",
+      "pr_number": "39853"
     }
   ]
 }
