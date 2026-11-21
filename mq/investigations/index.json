@@ -1,6 +1,6 @@
 {
   "schema_version": "1.0",
-  "total": 490,
+  "total": 493,
   "entries": [
     {
       "investigation_id": "2026-06-11-19-02-43-000-27365701077",
@@ -5331,6 +5331,35 @@
       "category": "Infrastructure",
       "signature_hash": "841a57c639e28d01",
       "pr_number": "39466"
+    },
+    {
+      "investigation_id": "2026-11-20-13-48-31-243-44741418306",
+      "run_id": "44741418306",
+      "run_url": "https://github.com/openvinotoolkit/openvino/actions/runs/44741418306",
+      "workflow_name": "Linux (Ubuntu 22.04, ARM64 cross-compilation, Python 3.11)",
+      "timestamp": "2026-11-20T13:48:31Z",
+      "title": "smoke_MatMulCompressedWeights_Kleidiai fails with unexpected impl type undef_f32 on ARM64",
+      "category": "Flaky Test",
+      "signature_hash": "5c9adec102201520",
+      "pr_number": "39963"
+    },
+    {
+      "investigation_id": "2026-11-20-17-11-58-180-44774146438",
+      "run_id": "44774146438",
+      "timestamp": "2026-11-20T17:11:58Z",
+      "title": "smoke_Interpolate_corner_Layout_Test fails with primType undef_f16 Expected acl_f16 on ARM64",
+      "category": "Flaky Test",
+      "signature_hash": "b3d3a7e173ee802a",
+      "pr_number": "39505"
+    },
+    {
+      "investigation_id": "2026-11-20-23-14-45-221-44829784701",
+      "run_id": "44829784701",
+      "timestamp": "2026-11-20T23:14:45Z",
+      "title": "smoke_Snippets_Softmax tests fail on comparison",
+      "category": "Flaky Test",
+      "signature_hash": "2330f1abe60fbda7",
+      "pr_number": "40020"
     }
   ]
 }
