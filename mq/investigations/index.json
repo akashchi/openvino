@@ -1,6 +1,6 @@
 {
   "schema_version": "1.0",
-  "total": 500,
+  "total": 503,
   "entries": [
     {
       "investigation_id": "2026-06-11-19-02-43-000-27365701077",
@@ -5431,6 +5431,37 @@
       "category": "Flaky Test",
       "signature_hash": "a284d27dfee44614",
       "pr_number": "39751"
+    },
+    {
+      "investigation_id": "2026-11-24-20-04-24-000-45459992712",
+      "run_id": "45459992712",
+      "timestamp": "2026-11-24T20:04:24Z",
+      "title": "smoke_ScatterElementsUpdateOutOfRangeIndices tests fail - reference plugin doesn't throw ov::Exception on out-of-range indices",
+      "category": "Code Issue",
+      "signature_hash": "994265a25f80a7b5",
+      "pr_number": "40119"
+    },
+    {
+      "investigation_id": "2026-11-24-21-10-36-548-45480700557",
+      "run_id": "45480700557",
+      "run_url": "https://github.com/openvinotoolkit/openvino/actions/runs/45480700557",
+      "workflow_name": "CPU functional tests / CPU functional tests",
+      "timestamp": "2026-11-24T21:10:36Z",
+      "title": "smoke_MatMulCompressedWeights_Kleidiai fails with unexpected impl type undef_f32 on ARM64",
+      "category": "Flaky Test",
+      "signature_hash": "5c9adec102201520",
+      "pr_number": "40095"
+    },
+    {
+      "investigation_id": "2026-11-25-06-10-16-000-45546792977",
+      "run_id": "45546792977",
+      "run_url": "https://github.com/openvinotoolkit/openvino/actions/runs/45546792977",
+      "workflow_name": "Windows (VS 2022, Python 3.11, Release)",
+      "timestamp": "2026-11-25T06:10:16Z",
+      "title": "Windows CPU functional tests artifact upload fails with ENOTFOUND DNS error",
+      "category": "Network",
+      "signature_hash": "272cc033ad86cee8",
+      "pr_number": "40224"
     }
   ]
 }
